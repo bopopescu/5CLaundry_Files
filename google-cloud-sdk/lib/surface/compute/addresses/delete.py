@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for deleting addresses."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
@@ -33,6 +35,7 @@ class Delete(base.DeleteCommand):
   def Args(cls, parser):
     cls.ADDRESSES_ARG = flags.AddressArgument(required=True)
     cls.ADDRESSES_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(flags.AddressesCompleter)
 
   def Run(self, args):
     """Issues requests necessary to delete Addresses."""

@@ -12,12 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Sets the IAM policy for the repository."""
-
-from googlecloudsdk.api_lib.sourcerepo import sourcerepo
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from googlecloudsdk.api_lib.source.repos import sourcerepo
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iam import iam_util
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.ALPHA,
@@ -42,7 +41,7 @@ class SetIamPolicy(base.UpdateCommand):
         'name', metavar='REPOSITORY_NAME', help='Name of the repository.')
     parser.add_argument(
         'policy_file',
-        help=('JSON file with IAM policy. '
+        help=('JSON or YAML file with IAM policy. '
               'See https://cloud.google.com/resource-manager/'
               'reference/rest/Shared.Types/Policy'))
     parser.display_info.AddFormat('default')
@@ -57,15 +56,15 @@ class SetIamPolicy(base.UpdateCommand):
       (sourcerepo_v1_messsages.Policy) The IAM policy.
 
     Raises:
-      ToolException: on project initialization errors.
+      sourcerepo.RepoResourceError: on resource initialization errors.
+      iam_util.BadFileException: if the YAML or JSON file is malformed.
+      iam_util.IamEtagReadError: if the etag is badly formatted.
+      apitools.base.py.exceptions.HttpError: on request errors.
     """
-    res = resources.REGISTRY.Parse(
-        args.name,
-        params={'projectsId': properties.VALUES.core.project.GetOrFail},
-        collection='sourcerepo.projects.repos')
-    policy = iam_util.ParseJsonPolicyFile(args.policy_file,
-                                          sourcerepo.messages.Policy)
+    res = sourcerepo.ParseRepo(args.name)
     source = sourcerepo.Source()
+    policy, unused_mask = iam_util.ParseYamlOrJsonPolicyFile(
+        args.policy_file, source.messages.Policy)
     result = source.SetIamPolicy(res, policy)
     iam_util.LogSetIamPolicy(res.Name(), 'repo')
     return result

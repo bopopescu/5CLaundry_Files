@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for stopping the update process of managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags
@@ -20,9 +22,13 @@ from googlecloudsdk.command_lib.compute import scope as compute_scope
 from googlecloudsdk.command_lib.compute.instance_groups import flags as instance_groups_flags
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class StopProactiveUpdate(base.Command):
-  """Stop the proactive update process of managed instance group."""
+  """Stop the proactive update process of managed instance group.
+
+  This command changes the update type of the managed instance group to
+  opportunistic.
+  """
 
   @staticmethod
   def Args(parser):

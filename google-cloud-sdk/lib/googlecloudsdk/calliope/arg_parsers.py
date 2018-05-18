@@ -46,13 +46,20 @@ Example usage:
 
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 import copy
 import re
+import sys
 
 from googlecloudsdk.calliope import parser_errors
 from googlecloudsdk.core import log
+from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.util import times
+
+import six
+from six.moves import zip  # pylint: disable=redefined-builtin
 
 
 __all__ = ['Duration', 'BinarySize']
@@ -180,7 +187,7 @@ def _ValueParser(scales, default_unit, lower_bound=None, upper_bound=None,
 
   def UnitsByMagnitude(suggested_binary_size_scales=None):
     """Returns a list of the units in scales sorted by magnitude."""
-    scale_items = sorted(scales.iteritems(),
+    scale_items = sorted(six.iteritems(scales),
                          key=lambda value: (value[1], value[0]))
     if suggested_binary_size_scales is None:
       return [key for key, _ in scale_items]
@@ -271,6 +278,46 @@ def RegexpValidator(pattern, description):
     if not re.match(pattern + '$', value):
       raise ArgumentTypeError('Bad value [{0}]: {1}'.format(value, description))
     return value
+  return Parse
+
+
+def CustomFunctionValidator(fn, description, parser=None):
+  """Returns a function that validates the input by running it through fn.
+
+  For example:
+
+  >>> def isEven(val):
+  ...   return val % 2 == 0
+  >>> even_number_parser = arg_parsers.CustomFunctionValidator(
+        isEven, 'This is not even!', parser=arg_parsers.BoundedInt(0))
+  >>> parser.add_argument('--foo', type=even_number_parser)
+  >>> parser.parse_args(['--foo', '3'])
+  >>> # SystemExit raised and the error "error: argument foo: Bad value [3]:
+  >>> # This is not even!" is displayed
+
+  Args:
+    fn: str -> boolean
+    description: an error message to show if boolean function returns False
+    parser: an arg_parser that is applied to to value before validation. The
+      value is also returned by this parser.
+
+  Returns:
+    function: str -> str, usable as an argparse type
+  """
+
+  def Parse(value):
+    """Validates and returns a custom object from an argument string value."""
+    try:
+      parsed_value = parser(value) if parser else value
+    except ArgumentTypeError:
+      pass
+    else:
+      if fn(parsed_value):
+        return parsed_value
+    encoded_value = console_attr.SafeText(value)
+    formatted_err = 'Bad value [{0}]: {1}'.format(encoded_value, description)
+    raise ArgumentTypeError(formatted_err)
+
   return Parse
 
 
@@ -474,8 +521,9 @@ class Day(object):
       return times.ParseDateTime(s, '%Y-%m-%d').date()
     except times.Error as e:
       raise ArgumentTypeError(
-          _GenerateErrorMessage(u'Failed to parse date: {0}'.format(unicode(e)),
-                                user_input=s))
+          _GenerateErrorMessage(
+              'Failed to parse date: {0}'.format(six.text_type(e)),
+              user_input=s))
 
 
 class Datetime(object):
@@ -491,7 +539,7 @@ class Datetime(object):
     except times.Error as e:
       raise ArgumentTypeError(
           _GenerateErrorMessage(
-              u'Failed to parse date/time: {0}'.format(unicode(e)),
+              'Failed to parse date/time: {0}'.format(six.text_type(e)),
               user_input=s))
 
 
@@ -602,6 +650,38 @@ class ArgType(object):
   """Base class for arg types."""
 
 
+class ArgBoolean(ArgType):
+  """Interpret an argument value as a bool."""
+
+  def __init__(
+      self, truthy_strings=None, falsey_strings=None, case_sensitive=False):
+    self._case_sensitive = case_sensitive
+    if truthy_strings:
+      self._truthy_strings = truthy_strings
+    else:
+      self._truthy_strings = ['true', 'yes']
+    if falsey_strings:
+      self._falsey_strings = falsey_strings
+    else:
+      self._falsey_strings = ['false', 'no']
+
+  def __call__(self, arg_value):
+    if not self._case_sensitive:
+      normalized_arg_value = arg_value.lower()
+    else:
+      normalized_arg_value = arg_value
+    if normalized_arg_value in self._truthy_strings:
+      return True
+    if normalized_arg_value in self._falsey_strings:
+      return False
+    raise ArgumentTypeError(
+        'Invalid flag value [{0}], expected one of [{1}]'.format(
+            arg_value,
+            ', '.join(self._truthy_strings + self._falsey_strings)
+        )
+    )
+
+
 class ArgList(ArgType):
   """Interpret an argument value as a list.
 
@@ -678,12 +758,64 @@ class ArgList(ArgType):
 
     return arg_list
 
+  _MAX_METAVAR_LENGTH = 30  # arbitrary, but this is pretty long
+
   def GetUsageMsg(self, is_custom_metavar, metavar):
-    is_custom_metavar = is_custom_metavar
-    msg = '[{metavar},...]'.format(metavar=metavar)
-    if self.min_length:
-      msg = ','.join([metavar]*self.min_length+[msg])
-    return msg
+    """Get a specially-formatted metavar for the ArgList to use in help.
+
+    An example is worth 1,000 words:
+
+    >>> ArgList().GetUsageMetavar('FOO')
+    '[FOO,...]'
+    >>> ArgList(min_length=1).GetUsageMetavar('FOO')
+    'FOO,[FOO,...]'
+    >>> ArgList(max_length=2).GetUsageMetavar('FOO')
+    'FOO,[FOO]'
+    >>> ArgList(max_length=3).GetUsageMetavar('FOO')  # One, two, many...
+    'FOO,[FOO,...]'
+    >>> ArgList(min_length=2, max_length=2).GetUsageMetavar('FOO')
+    'FOO,FOO'
+    >>> ArgList().GetUsageMetavar('REALLY_VERY_QUITE_LONG_METAVAR')
+    'REALLY_VERY_QUITE_LONG_METAVAR,[...]'
+
+    Args:
+      is_custom_metavar: unused in GetUsageMsg
+      metavar: string, the base metavar to turn into an ArgList metavar
+
+    Returns:
+      string, the ArgList usage metavar
+    """
+    del is_custom_metavar  # Unused in GetUsageMsg
+
+    required = ','.join([metavar] * self.min_length)
+
+    if self.max_length:
+      num_optional = self.max_length - self.min_length
+    else:
+      num_optional = None
+
+    # Use the "1, 2, many" approach to counting
+    if num_optional == 0:
+      optional = ''
+    elif num_optional == 1:
+      optional = '[{}]'.format(metavar)
+    elif num_optional == 2:
+      optional = '[{0},[{0}]]'.format(metavar)
+    else:
+      optional = '[{0},...]'.format(metavar)
+
+    msg = ','.join(filter(None, [required, optional]))
+
+    if len(msg) < self._MAX_METAVAR_LENGTH:
+      return msg
+
+    # With long metavars, only put it in once.
+    if self.min_length == 0:
+      return '[{},...]'.format(metavar)
+    if self.min_length == 1:
+      return '{},[...]'.format(metavar)
+    else:
+      return '{},...,[...]'.format(metavar)
 
 
 class ArgDict(ArgList):
@@ -735,7 +867,7 @@ class ArgDict(ArgList):
       if len(op) != 1:
         raise ArgumentTypeError(
             'Operator [{}] must be one character.'.format(op))
-    ops = ''.join(operators.keys())
+    ops = ''.join(six.iterkeys(operators))
     key_op_value_pattern = '([^{ops}]+)([{ops}]?)(.*)'.format(
         ops=re.escape(ops))
     self.key_op_value = re.compile(key_op_value_pattern, re.DOTALL)
@@ -800,7 +932,7 @@ class ArgDict(ArgList):
       return super(ArgDict, self).GetUsageMsg(is_custom_metavar, metavar)
 
     msg_list = []
-    spec_list = sorted(self.spec.iteritems())
+    spec_list = sorted(six.iteritems(self.spec))
 
     # First put the spec keys with no value followed by those that expect a
     # value
@@ -913,7 +1045,7 @@ class UpdateAction(argparse.Action):
       # Get the existing arg value (if any)
       items = copy.copy(argparse._ensure_value(namespace, self.dest, {}))
       # Merge the new key/value pair(s) in
-      for k, v in values.iteritems():
+      for k, v in six.iteritems(values):
         if k in items:
           v = self.onduplicatekey_handler(self, k, items[k], v)
         items[k] = v
@@ -1006,7 +1138,7 @@ class RemainderAction(argparse._StoreAction):  # pylint: disable=protected-acces
         'the left and {metavar} on the right.'
     ).format(metavar=kwargs['metavar'])
     if 'help' in kwargs:
-      kwargs['help'] += '\n\n' + self.explanation
+      kwargs['help'] += '\n+\n' + self.explanation
       if example:
         kwargs['help'] += ' Example:\n\n' + example
     super(RemainderAction, self).__init__(*args, **kwargs)
@@ -1050,7 +1182,7 @@ class RemainderAction(argparse._StoreAction):  # pylint: disable=protected-acces
     # Strip out everything after '--'
     if '--' in original_args:
       original_args, _ = self._SplitOnDash(original_args)
-    # Find common suffix between remaining_args and orginal_args
+    # Find common suffix between remaining_args and original_args
     split_index = 0
     for i, (arg1, arg2) in enumerate(
         zip(reversed(remaining_args), reversed(original_args))):
@@ -1061,8 +1193,8 @@ class RemainderAction(argparse._StoreAction):  # pylint: disable=protected-acces
     remaining_args = remaining_args[:split_index]
 
     if pass_through_args:
-      msg = (u'unrecognized args: {args}\n' + self.explanation).format(
-          args=u' '.join(pass_through_args))
+      msg = ('unrecognized args: {args}\n' + self.explanation).format(
+          args=' '.join(pass_through_args))
       raise parser_errors.UnrecognizedArgumentsError(msg)
     self(None, namespace, pass_through_args)
     return namespace, remaining_args
@@ -1125,7 +1257,7 @@ class _HandleNoArgAction(argparse.Action):
 
   def __call__(self, parser, namespace, value, option_string=None):
     if value is None:
-      log.warn(self.deprecation_message)
+      log.warning(self.deprecation_message)
       if self.none_arg:
         setattr(namespace, self.none_arg, True)
 
@@ -1137,7 +1269,7 @@ def HandleNoArgAction(none_arg, deprecation_message):
 
   This function creates an argparse action which can be used to gracefully
   deprecate a flag using nargs=?. When a flag is created with this action, it
-  simply log.warn()s the given deprecation_message and then sets the value of
+  simply log.warning()s the given deprecation_message and then sets the value of
   the none_arg to True.
 
   This means if you use the none_arg no_foo and attach this action to foo,
@@ -1155,3 +1287,97 @@ def HandleNoArgAction(none_arg, deprecation_message):
     return _HandleNoArgAction(none_arg, deprecation_message, **kwargs)
 
   return HandleNoArgActionInit
+
+
+class BufferedFileInput(object):
+  """Creates an argparse type that reads and buffers file or stdin contents.
+
+  This is similar to argparse.FileType, but unlike FileType it does not leave
+  a dangling file handle open. The argument stored in the argparse Namespace
+  is the file's contents.
+
+  Args:
+    max_bytes: int, The maximum file size in bytes, or None to specify no
+        maximum.
+    chunk_size: int, When max_bytes is not None, the buffer size to use when
+        reading chunks from the input file.
+
+  Returns:
+    A function that accepts a filename, or "-" representing that stdin should be
+    used as input.
+  """
+
+  def __init__(self, max_bytes=None, chunk_size=16*1024):
+    self.max_bytes = max_bytes
+    self.chunk_size = chunk_size
+
+  def _ReadFile(self, f):
+    # Unbounded
+    if self.max_bytes is None:
+      return f.read()
+    else:
+      contents = ''
+      while True:
+        chunk = f.read(self.chunk_size)
+
+        # Check for EOF
+        if not chunk:
+          return contents
+        # Fail if the file is too large.
+        if len(contents) + len(chunk) > self.max_bytes:
+          if hasattr(f, 'name'):
+            raise ArgumentTypeError("File '{0}' is too large.".format(f.name))
+          else:
+            raise ArgumentTypeError('File is too large.')
+
+        contents += chunk
+
+  def __call__(self, name):
+    """Return the contents of the file with the specified name.
+
+    If name is "-", stdin is read until EOF. Otherwise, the named file is read.
+    If max_bytes is provided when calling BufferedFileInput, this function will
+    raise an ArgumentTypeError if the specified file is too large.
+
+    Args:
+      name: str, The file name, or '-' to indicate stdin.
+
+    Returns:
+      The contents of the file.
+
+    Raises:
+      ArgumentTypeError: If the file cannot be read or is too large.
+    """
+    # Handle stdin
+    if name == '-':
+      return self._ReadFile(sys.stdin)
+
+    try:
+      with open(name, 'r') as f:
+        return self._ReadFile(f)
+    except (IOError, OSError) as e:
+      raise ArgumentTypeError(
+          "Can't open '{0}': {1}".format(name, e))
+
+
+class StoreTrueFalseAction(argparse._StoreTrueAction):  # pylint: disable=protected-access
+  """Argparse action that acts as a combination of store_true and store_false.
+
+  Calliope already gives any bool-type arguments the standard and `--no-`
+  variants. In most cases we only want to document the option that does
+  something---if we have `default=False`, we don't want to show `--no-foo`,
+  since it won't do anything.
+
+  But in some cases we *do* want to show both variants: one example is when
+  `--foo` means "enable," `--no-foo` means "disable," and neither means "do
+  nothing." The obvious way to represent this is `default=None`; however, (1)
+  the default value of `default` is already None, so most boolean actions would
+  have this setting by default (not what we want), and (2) we still want an
+  option to have this True/False/None behavior *without* the flag documentation.
+
+  To get around this, we have an opt-in version of the same thing that documents
+  both the flag and its inverse.
+  """
+
+  def __init__(self, *args, **kwargs):
+    super(StoreTrueFalseAction, self).__init__(*args, default=None, **kwargs)

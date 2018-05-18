@@ -54,6 +54,9 @@ Examples:
     ]
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core.resource import resource_expr_rewrite
 
@@ -69,8 +72,9 @@ class OperatorNotSupportedError(Error):
 class SearchTerms(resource_expr_rewrite.Backend):
   """A resource filter backend that produces help search terms."""
 
-  def RewriteTerm(self, key, op, operand):
+  def RewriteTerm(self, key, op, operand, key_type):
     """Rewrites <key op operand>."""
+    del key_type  # unused in RewriteTerm
     if op != ':':
       raise OperatorNotSupportedError(
           'The [{}] operator is not supported.'.format(op))

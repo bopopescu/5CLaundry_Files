@@ -15,30 +15,37 @@
 """A module to get a credentialed http object for making API calls."""
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import http
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+from googlecloudsdk.core.credentials import creds as core_creds
 from googlecloudsdk.core.credentials import store
 
 from oauth2client import client
+import six
 
 
 class Error(exceptions.Error):
   """Exceptions for the http module."""
 
 
-def Http(timeout='unset', disable_resource_quota=False):
+def Http(timeout='unset', enable_resource_quota=True, response_encoding=None):
   """Get an httplib2.Http client for working with the Google API.
 
   Args:
     timeout: double, The timeout in seconds to pass to httplib2.  This is the
         socket level timeout.  If timeout is None, timeout is infinite.  If
         default argument 'unset' is given, a sensible default is selected.
-    disable_resource_quota: bool, By default, we are going to tell APIs to use
+    enable_resource_quota: bool, By default, we are going to tell APIs to use
         the quota of the project being operated on. For some APIs we want to use
         gcloud's quota, so you can explicitly disable that behavior by passing
-        True here.
+        False here.
+    response_encoding: str, the encoding to use to decode the response.
 
   Returns:
     An authorized httplib2.Http client object, or a regular httplib2.Http object
@@ -47,7 +54,7 @@ def Http(timeout='unset', disable_resource_quota=False):
   Raises:
     c_store.Error: If an error loading the credentials occurs.
   """
-  http_client = http.Http(timeout=timeout)
+  http_client = http.Http(timeout=timeout, response_encoding=response_encoding)
 
   # Wrappers for IAM header injection.
   authority_selector = properties.VALUES.auth.authority_selector.Get()
@@ -55,22 +62,42 @@ def Http(timeout='unset', disable_resource_quota=False):
       properties.VALUES.auth.authorization_token_file.Get())
   handlers = _GetIAMAuthHandlers(authority_selector, authorization_token_file)
 
-  # Inject the resource project header for quota unless explicitly disabled.
-  if not (disable_resource_quota or
-          properties.VALUES.billing.disable_resource_project_quota.GetBool()):
-    quota_project = (properties.VALUES.billing.quota_project.Get() or
-                     properties.VALUES.core.project.Get())
-    handlers.append(http.Modifiers.Handler(
-        http.Modifiers.SetHeader('X-Goog-User-Project', quota_project)))
-
   creds = store.LoadIfEnabled()
   if creds:
+    # Inject the resource project header for quota unless explicitly disabled.
+    if enable_resource_quota:
+      quota_project = _GetQuotaProject(creds)
+      if quota_project:
+        handlers.append(http.Modifiers.Handler(
+            http.Modifiers.SetHeader('X-Goog-User-Project', quota_project)))
+
     http_client = creds.authorize(http_client)
     # Wrap the request method to put in our own error handling.
     http_client = http.Modifiers.WrapRequest(
         http_client, handlers, _HandleAuthError, client.AccessTokenRefreshError)
 
   return http_client
+
+
+def _GetQuotaProject(credentials):
+  """Gets the value to use for the X-Goog-User-Project header.
+
+  Args:
+    credentials: The credentials that are going to be used for requests.
+
+  Returns:
+    str, The project id to send in the header or None to not populate the
+    header.
+  """
+  if not core_creds.CredentialType.FromCredentials(credentials).is_user:
+    return None
+
+  quota_project = properties.VALUES.billing.quota_project.Get()
+  if quota_project == properties.VALUES.billing.LEGACY:
+    return None
+  elif quota_project == properties.VALUES.billing.CURRENT_PROJECT:
+    return properties.VALUES.core.project.Get()
+  return quota_project
 
 
 def _GetIAMAuthHandlers(authority_selector, authorization_token_file):
@@ -116,6 +143,7 @@ def _HandleAuthError(e):
   Raises:
     sore.TokenRefreshError: If an auth error occurs.
   """
-  log.debug('Exception caught during HTTP request: %s', e.message,
+  msg = six.text_type(e)
+  log.debug('Exception caught during HTTP request: %s', msg,
             exc_info=True)
-  raise store.TokenRefreshError(e.message)
+  raise store.TokenRefreshError(msg)

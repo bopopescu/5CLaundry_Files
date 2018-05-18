@@ -14,6 +14,7 @@
 
 """This module holds exceptions raised by commands."""
 
+from __future__ import absolute_import
 from googlecloudsdk.core import exceptions
 
 
@@ -144,7 +145,7 @@ class DuplicateServiceError(exceptions.Error):
 
 
 class UnknownSourceError(exceptions.Error):
-  """The path exists but points to an unkown file or directory."""
+  """The path exists but points to an unknown file or directory."""
 
   def __init__(self, path):
     super(UnknownSourceError, self).__init__(

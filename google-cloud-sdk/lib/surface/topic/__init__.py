@@ -14,6 +14,8 @@
 
 """gcloud supplementary help topic command group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
@@ -28,7 +30,7 @@ class Topic(base.Group):
 
     $ gcloud topic [TOPIC_NAME]
 
-  For a lits of available topics run:
+  For a list of available topics run:
 
     $ gcloud topic --help
   """

@@ -14,49 +14,22 @@
 
 """Get Server Config."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.container import container_command_util
 from googlecloudsdk.command_lib.container import flags
+from googlecloudsdk.command_lib.container import messages
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 
 
-@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class GetServerConfig(base.Command):
-  """Get Container Engine server config."""
+  """Get Kubernetes Engine server config."""
 
   def __init__(self, *args, **kwargs):
     super(GetServerConfig, self).__init__(*args, **kwargs)
-    self.location_get = container_command_util.GetZone
-
-  @staticmethod
-  def Args(parser):
-    """Add arguments to the parser.
-
-    Args:
-      parser: argparse.ArgumentParser, This is a standard argparser parser with
-        which you can register arguments.  See the public argparse documentation
-        for its capabilities.
-    """
-    flags.AddZoneFlag(parser)
-
-  def Run(self, args):
-    adapter = self.context['api_adapter']
-
-    project_id = properties.VALUES.core.project.Get(required=True)
-    location = self.location_get(args)
-
-    log.status.Print('Fetching server config for {location}'.format(
-        location=location))
-    return adapter.GetServerConfig(project_id, location)
-
-
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class GetServerConfigAlpha(GetServerConfig):
-  """Get Container Engine server config."""
-
-  def __init__(self, *args, **kwargs):
-    super(GetServerConfigAlpha, self).__init__(*args, **kwargs)
     self.location_get = container_command_util.GetZoneOrRegion
 
   @staticmethod
@@ -69,6 +42,41 @@ class GetServerConfigAlpha(GetServerConfig):
         for its capabilities.
     """
     flags.AddZoneAndRegionFlags(parser, region_hidden=True)
+
+  def Run(self, args):
+    adapter = self.context['api_adapter']
+
+    project_id = properties.VALUES.core.project.Get(required=True)
+    location = self.location_get(args)
+
+    log.status.Print('Fetching server config for {location}'.format(
+        location=location))
+    return adapter.GetServerConfig(project_id, location)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
+class GetServerConfigAlphaBeta(GetServerConfig):
+  """Get Kubernetes Engine server config."""
+
+  def __init__(self, *args, **kwargs):
+    if container_command_util.GetUseV1APIProperty():
+      warning = messages.GetAPIMismatchingWarning(self.ReleaseTrack())
+      if warning:
+        log.warning(warning)
+
+    super(GetServerConfigAlphaBeta, self).__init__(*args, **kwargs)
+    self.location_get = container_command_util.GetZoneOrRegion
+
+  @staticmethod
+  def Args(parser):
+    """Add arguments to the parser.
+
+    Args:
+      parser: argparse.ArgumentParser, This is a standard argparser parser with
+        which you can register arguments.  See the public argparse documentation
+        for its capabilities.
+    """
+    flags.AddZoneAndRegionFlags(parser)
 
   def Filter(self, context, args):
     """Modify the context that will be given to this group's commands when run.

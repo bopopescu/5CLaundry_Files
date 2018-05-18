@@ -13,6 +13,9 @@
 # limitations under the License.
 """Untag images command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from containerregistry.client import docker_name
 from containerregistry.client.v2_2 import docker_session
 from googlecloudsdk.api_lib.container.images import util
@@ -21,6 +24,7 @@ from googlecloudsdk.command_lib.container import flags
 from googlecloudsdk.core import http
 from googlecloudsdk.core import log
 from googlecloudsdk.core.console import console_io
+import six
 
 
 class Untag(base.DeleteCommand):
@@ -77,37 +81,38 @@ class Untag(base.DeleteCommand):
     tags = self._ParseArgs(args.image_names)
 
     digests = dict()
-    for tag in tags:
-      try:
-        # Resolve tags to digests. Throws InvalidImageNameError on 404.
-        digests[tag] = util.GetDigestFromName(str(tag))
-      except util.InvalidImageNameError:
-        # We already validated the image string in _ParseArgs, this is a 404
-        raise util.InvalidImageNameError(
-            'Image could not be found: [{}]'.format(str(tag)))
+    with util.WrapExpectedDockerlessErrors():
+      for tag in tags:
+        try:
+          # Resolve tags to digests. Throws InvalidImageNameError on 404.
+          digests[tag] = util.GetDigestFromName(str(tag))
+        except util.InvalidImageNameError:
+          # We already validated the image string in _ParseArgs, this is a 404
+          raise util.InvalidImageNameError(
+              'Image could not be found: [{}]'.format(str(tag)))
 
-    if not tags:
-      log.warn('No tags found matching image names [%s].',
-               ', '.join(args.image_names))
-      return
-    for tag, digest in digests.iteritems():
-      log.status.Print('Tag: [{}]'.format(str(tag)))
-      log.status.Print('- referencing digest: [{}]'.format(str(digest)))
-      log.status.Print('')
+      if not tags:
+        log.warning('No tags found matching image names [%s].', ', '.join(
+            args.image_names))
+        return
+      for tag, digest in six.iteritems(digests):
+        log.status.Print('Tag: [{}]'.format(str(tag)))
+        log.status.Print('- referencing digest: [{}]'.format(str(digest)))
+        log.status.Print('')
 
-    console_io.PromptContinue(
-        'This operation will remove the above tags. '
-        'Tag removals only delete the tags; '
-        'The underlying image layers (referenced by the above digests) will '
-        'continue to exist.',
-        cancel_on_no=True)
+      console_io.PromptContinue(
+          'This operation will remove the above tags. '
+          'Tag removals only delete the tags; '
+          'The underlying image layers (referenced by the above digests) will '
+          'continue to exist.',
+          cancel_on_no=True)
 
-    # delete and collect output
-    result = []
-    for tag in tags:
-      self._DeleteDockerTag(tag, digests, http_obj)
-      result.append({'name': str(tag)})
-    return result
+      # delete and collect output
+      result = []
+      for tag in tags:
+        self._DeleteDockerTag(tag, digests, http_obj)
+        result.append({'name': str(tag)})
+      return result
 
   def _ParseArgs(self, image_names):
     tags = set()

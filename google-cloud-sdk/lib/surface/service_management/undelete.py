@@ -13,35 +13,15 @@
 # limitations under the License.
 """service-management undelete command."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
-_DETAILED_HELP = {
-    'DESCRIPTION': """\
-        Undeletes a service configuration that was previously deleted.
-
-        Services that are deleted will be retained in the system for 30 days.
-        If a deleted service is still within this retention window, it can be
-        undeleted with this command.
-
-        Note that this means that this command will not be effective for
-        service configurations marked for deletion more than 30 days ago.
-        """,
-    'EXAMPLES': """\
-        To undelete a service named `my-service`, run:
-
-          $ {command} my-service
-
-        To run the same command asynchronously (non-blocking), run:
-
-          $ {command} my-service --async
-        """,
-}
+_ERROR = ('The `service-management undelete` command has been '
+          'replaced by `endpoints services undelete`.')
 
 
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Undelete(base.Command):
   """Undeletes a service given a service name."""
 
@@ -64,21 +44,5 @@ class Undelete(base.Command):
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the Undelete API call (or None if cancelled).
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = messages.ServicemanagementServicesUndeleteRequest(
-        serviceName=service,)
-
-    operation = client.services.Undelete(request)
-
-    return services_util.ProcessOperationResult(operation, args.async)
-
-
-Undelete.detailed_help = _DETAILED_HELP
+    pass

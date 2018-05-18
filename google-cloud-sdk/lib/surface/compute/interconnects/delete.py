@@ -14,6 +14,8 @@
 
 """Command for deleting interconnects."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.api_lib.compute.interconnects import client
@@ -35,6 +37,7 @@ class Delete(base.DeleteCommand):
   def Args(cls, parser):
     cls.INTERCONNECT_ARG = flags.InterconnectArgument(plural=True)
     cls.INTERCONNECT_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(flags.InterconnectsCompleter)
 
   def Collection(self):
     return 'compute.interconnects'

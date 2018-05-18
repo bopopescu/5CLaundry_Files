@@ -13,16 +13,19 @@
 # limitations under the License.
 """Set the IAM policy for a model."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.ml_engine import models
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.ml_engine import flags
 from googlecloudsdk.command_lib.ml_engine import models_util
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class SetIamPolicy(base.Command):
   """Set the IAM policy for a model.
 
-  Sets the IAM policy for the given model as defined in a JSON file.
+  Sets the IAM policy for the given model as defined in a JSON or YAML file.
 
   See https://cloud.google.com/iam/docs/managing-policies for details of
   the policy file format and contents.
@@ -37,7 +40,8 @@ class SetIamPolicy(base.Command):
   @staticmethod
   def Args(parser):
     flags.GetModelName().AddToParser(parser)
-    parser.add_argument('policy_file', help='JSON file with the IAM policy')
+    parser.add_argument('policy_file', help=('JSON or YAML file '
+                                             'with the IAM policy'))
 
   def Run(self, args):
     return models_util.SetIamPolicy(models.ModelsClient(), args.model,

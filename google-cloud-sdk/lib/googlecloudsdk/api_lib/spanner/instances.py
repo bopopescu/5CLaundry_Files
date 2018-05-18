@@ -36,8 +36,10 @@ def Create(instance, config, description, nodes):
       config,
       params={'projectsId': properties.VALUES.core.project.GetOrFail},
       collection='spanner.projects.instanceConfigs')
+  project_ref = resources.REGISTRY.Create(
+      'spanner.projects', projectsId=properties.VALUES.core.project.GetOrFail)
   req = msgs.SpannerProjectsInstancesCreateRequest(
-      parent='projects/' + properties.VALUES.core.project.Get(required=True),
+      parent=project_ref.RelativeName(),
       createInstanceRequest=msgs.CreateInstanceRequest(
           instanceId=instance,
           instance=msgs.Instance(
@@ -47,13 +49,14 @@ def Create(instance, config, description, nodes):
   return client.projects_instances.Create(req)
 
 
-def SetPolicy(instance_ref, policy):
+def SetPolicy(instance_ref, policy, field_mask=None):
   """Saves the given policy on the instance, overwriting whatever exists."""
   client = apis.GetClientInstance('spanner', 'v1')
   msgs = apis.GetMessagesModule('spanner', 'v1')
   req = msgs.SpannerProjectsInstancesSetIamPolicyRequest(
       resource=instance_ref.RelativeName(),
-      setIamPolicyRequest=msgs.SetIamPolicyRequest(policy=policy))
+      setIamPolicyRequest=msgs.SetIamPolicyRequest(policy=policy,
+                                                   updateMask=field_mask))
   return client.projects_instances.SetIamPolicy(req)
 
 
@@ -94,8 +97,10 @@ def List():
   """List instances in the project."""
   client = apis.GetClientInstance('spanner', 'v1')
   msgs = apis.GetMessagesModule('spanner', 'v1')
+  project_ref = resources.REGISTRY.Create(
+      'spanner.projects', projectsId=properties.VALUES.core.project.GetOrFail)
   req = msgs.SpannerProjectsInstancesListRequest(
-      parent='projects/' + properties.VALUES.core.project.Get(required=True))
+      parent=project_ref.RelativeName())
   return list_pager.YieldFromList(
       client.projects_instances,
       req,

@@ -6,7 +6,7 @@
   "canonicalName": "Pubsub",
   "version": "v1",
   "revision": "0",
-  "title": "Google Cloud Pub\/Sub API",
+  "title": "Cloud Pub\/Sub API",
   "description": "Provides reliable, many-to-many, asynchronous messaging between applications.\n",
   "ownerDomain": "google.com",
   "ownerName": "Google",
@@ -20,6 +20,7 @@
   "servicePath": "",
   "baseUrl": "https://pubsub.googleapis.com/",
   "batchPath": "batch",
+  "fullyEncodeReservedExpansion": true,
   "parameters": {
     "access_token": {
       "type": "string",
@@ -134,11 +135,11 @@
     },
     "Policy": {
       "id": "Policy",
-      "description": "Defines an Identity and Access Management (IAM) policy. It is used to\nspecify access control policies for Cloud Platform resources.\n\n\nA `Policy` consists of a list of `bindings`. A `Binding` binds a list of\n`members` to a `role`, where the members can be user accounts, Google groups,\nGoogle domains, and service accounts. A `role` is a named list of permissions\ndefined by IAM.\n\n**Example**\n\n    {\n      \"bindings\": [\n        {\n          \"role\": \"roles\/owner\",\n          \"members\": [\n            \"user:mike@example.com\",\n            \"group:admins@example.com\",\n            \"domain:google.com\",\n            \"serviceAccount:my-other-app@appspot.gserviceaccount.com\",\n          ]\n        },\n        {\n          \"role\": \"roles\/viewer\",\n          \"members\": [\"user:sean@example.com\"]\n        }\n      ]\n    }\n\nFor a description of IAM and its features, see the\n[IAM developer's guide](https:\/\/cloud.google.com\/iam).",
+      "description": "Defines an Identity and Access Management (IAM) policy. It is used to\nspecify access control policies for Cloud Platform resources.\n\n\nA `Policy` consists of a list of `bindings`. A `binding` binds a list of\n`members` to a `role`, where the members can be user accounts, Google groups,\nGoogle domains, and service accounts. A `role` is a named list of permissions\ndefined by IAM.\n\n**JSON Example**\n\n    {\n      \"bindings\": [\n        {\n          \"role\": \"roles\/owner\",\n          \"members\": [\n            \"user:mike@example.com\",\n            \"group:admins@example.com\",\n            \"domain:google.com\",\n            \"serviceAccount:my-other-app@appspot.gserviceaccount.com\"\n          ]\n        },\n        {\n          \"role\": \"roles\/viewer\",\n          \"members\": [\"user:sean@example.com\"]\n        }\n      ]\n    }\n\n**YAML Example**\n\n    bindings:\n    - members:\n      - user:mike@example.com\n      - group:admins@example.com\n      - domain:google.com\n      - serviceAccount:my-other-app@appspot.gserviceaccount.com\n      role: roles\/owner\n    - members:\n      - user:sean@example.com\n      role: roles\/viewer\n\n\nFor a description of IAM and its features, see the\n[IAM developer's guide](https:\/\/cloud.google.com\/iam\/docs).",
       "type": "object",
       "properties": {
         "version": {
-          "description": "Version of the `Policy`. The default version is 0.",
+          "description": "Deprecated.",
           "type": "integer",
           "format": "int32"
         },
@@ -166,7 +167,7 @@
           "type": "string"
         },
         "members": {
-          "description": "Specifies the identities requesting access for a Cloud Platform resource.\n`members` can have the following values:\n\n* `allUsers`: A special identifier that represents anyone who is\n   on the internet; with or without a Google account.\n\n* `allAuthenticatedUsers`: A special identifier that represents anyone\n   who is authenticated with a Google account or a service account.\n\n* `user:{emailid}`: An email address that represents a specific Google\n   account. For example, `alice@gmail.com` or `joe@example.com`.\n\n\n* `serviceAccount:{emailid}`: An email address that represents a service\n   account. For example, `my-other-app@appspot.gserviceaccount.com`.\n\n* `group:{emailid}`: An email address that represents a Google group.\n   For example, `admins@example.com`.\n\n\n* `domain:{domain}`: A Google Apps domain name that represents all the\n   users of that domain. For example, `google.com` or `example.com`.\n\n",
+          "description": "Specifies the identities requesting access for a Cloud Platform resource.\n`members` can have the following values:\n\n* `allUsers`: A special identifier that represents anyone who is\n   on the internet; with or without a Google account.\n\n* `allAuthenticatedUsers`: A special identifier that represents anyone\n   who is authenticated with a Google account or a service account.\n\n* `user:{emailid}`: An email address that represents a specific Google\n   account. For example, `alice@gmail.com` .\n\n\n* `serviceAccount:{emailid}`: An email address that represents a service\n   account. For example, `my-other-app@appspot.gserviceaccount.com`.\n\n* `group:{emailid}`: An email address that represents a Google group.\n   For example, `admins@example.com`.\n\n\n* `domain:{domain}`: A Google Apps domain name that represents all the\n   users of that domain. For example, `google.com` or `example.com`.\n\n",
           "type": "array",
           "items": {
             "type": "string"
@@ -210,6 +211,29 @@
         "name": {
           "description": "The name of the topic. It must have the format\n`\"projects\/{project}\/topics\/{topic}\"`. `{topic}` must start with a letter,\nand contain only letters (`[A-Za-z]`), numbers (`[0-9]`), dashes (`-`),\nunderscores (`_`), periods (`.`), tildes (`~`), plus (`+`) or percent\nsigns (`%`). It must be between 3 and 255 characters in length, and it\nmust not start with `\"goog\"`.",
           "type": "string"
+        },
+        "labels": {
+          "description": "User labels.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "UpdateTopicRequest": {
+      "id": "UpdateTopicRequest",
+      "description": "Request for the UpdateTopic method.",
+      "type": "object",
+      "properties": {
+        "topic": {
+          "description": "The updated topic object.",
+          "$ref": "Topic"
+        },
+        "updateMask": {
+          "description": "Indicates which fields in the provided topic to update. Must be specified\nand non-empty. Note that if `update_mask` contains\n\"message_storage_policy\" then the new value will be determined based on the\npolicy configured at the project or organization level. The\n`message_storage_policy` must not be set in the `topic` provided above.",
+          "type": "string",
+          "format": "google-fieldmask"
         }
       }
     },
@@ -305,6 +329,24 @@
         }
       }
     },
+    "ListTopicSnapshotsResponse": {
+      "id": "ListTopicSnapshotsResponse",
+      "description": "Response for the `ListTopicSnapshots` method.\n[ALPHA] This method is a part of a closed Alpha API.",
+      "type": "object",
+      "properties": {
+        "snapshots": {
+          "description": "The names of the snapshots that match the request.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "nextPageToken": {
+          "description": "If not empty, indicates that there may be more snapshots that match\nthe request; this value should be passed in a new\n`ListTopicSnapshotsRequest` to get more snapshots.",
+          "type": "string"
+        }
+      }
+    },
     "Empty": {
       "id": "Empty",
       "description": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:\n\n    service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
@@ -330,18 +372,25 @@
           "$ref": "PushConfig"
         },
         "ackDeadlineSeconds": {
-          "description": "This value is the maximum time after a subscriber receives a message\nbefore the subscriber should acknowledge the message. After message\ndelivery but before the ack deadline expires and before the message is\nacknowledged, it is an outstanding message and will not be delivered\nagain during that time (on a best-effort basis).\n\nFor pull subscriptions, this value is used as the initial value for the ack\ndeadline. To override this value for a given message, call\n`ModifyAckDeadline` with the corresponding `ack_id` if using\npull.\nThe minimum custom deadline you can specify is 10 seconds.\nThe maximum custom deadline you can specify is 600 seconds (10 minutes).\nIf this parameter is 0, a default value of 10 seconds is used.\n\nFor push delivery, this value is also used to set the request timeout for\nthe call to the push endpoint.\n\nIf the subscriber never acknowledges the message, the Pub\/Sub\nsystem will eventually redeliver the message.",
+          "description": "This value is the maximum time after a subscriber receives a message\nbefore the subscriber should acknowledge the message. After message\ndelivery but before the ack deadline expires and before the message is\nacknowledged, it is an outstanding message and will not be delivered\nagain during that time (on a best-effort basis).\n\nFor pull subscriptions, this value is used as the initial value for the ack\ndeadline. To override this value for a given message, call\n`ModifyAckDeadline` with the corresponding `ack_id` if using\nnon-streaming pull or send the `ack_id` in a\n`StreamingModifyAckDeadlineRequest` if using streaming pull.\nThe minimum custom deadline you can specify is 10 seconds.\nThe maximum custom deadline you can specify is 600 seconds (10 minutes).\nIf this parameter is 0, a default value of 10 seconds is used.\n\nFor push delivery, this value is also used to set the request timeout for\nthe call to the push endpoint.\n\nIf the subscriber never acknowledges the message, the Pub\/Sub\nsystem will eventually redeliver the message.",
           "type": "integer",
           "format": "int32"
         },
         "retainAckedMessages": {
-          "description": "Indicates whether to retain acknowledged messages. If true, then\nmessages are not expunged from the subscription's backlog, even if they are\nacknowledged, until they fall out of the `message_retention_duration`\nwindow.",
+          "description": "Indicates whether to retain acknowledged messages. If true, then\nmessages are not expunged from the subscription's backlog, even if they are\nacknowledged, until they fall out of the `message_retention_duration`\nwindow.\n[ALPHA] This field is a part of a closed Alpha API.",
           "type": "boolean"
         },
         "messageRetentionDuration": {
-          "description": "How long to retain unacknowledged messages in the subscription's backlog,\nfrom the moment a message is published.\nIf `retain_acked_messages` is true, then this also configures the retention\nof acknowledged messages, and thus configures how far back in time a `Seek`\ncan be done. Defaults to 7 days. Cannot be more than 7 days or less than 10\nminutes.",
+          "description": "How long to retain unacknowledged messages in the subscription's backlog,\nfrom the moment a message is published.\nIf `retain_acked_messages` is true, then this also configures the retention\nof acknowledged messages, and thus configures how far back in time a `Seek`\ncan be done. Defaults to 7 days. Cannot be more than 7 days or less than 10\nminutes.\n[ALPHA] This field is a part of a closed Alpha API.",
           "type": "string",
           "format": "google-duration"
+        },
+        "labels": {
+          "description": "User labels.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -481,8 +530,35 @@
       "type": "object",
       "properties": {
         "pushConfig": {
-          "description": "The push configuration for future deliveries.\n\nAn empty `pushConfig` indicates that the Pub\/Sub system should\nstop pushing messages from the given subscription and allow\nmessages to be pulled and acknowledged - effectively pausing\nthe subscription if `Pull` is not called.",
+          "description": "The push configuration for future deliveries.\n\nAn empty `pushConfig` indicates that the Pub\/Sub system should\nstop pushing messages from the given subscription and allow\nmessages to be pulled and acknowledged - effectively pausing\nthe subscription if `Pull` or `StreamingPull` is not called.",
           "$ref": "PushConfig"
+        }
+      }
+    },
+    "Snapshot": {
+      "id": "Snapshot",
+      "description": "A snapshot resource.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the snapshot.",
+          "type": "string"
+        },
+        "topic": {
+          "description": "The name of the topic from which this snapshot is retaining messages.",
+          "type": "string"
+        },
+        "expireTime": {
+          "description": "The snapshot is guaranteed to exist up until this time.\nA newly-created snapshot expires no later than 7 days from the time of its\ncreation. Its exact lifetime is determined at creation by the existing\nbacklog in the source subscription. Specifically, the lifetime of the\nsnapshot is `7 days - (age of oldest unacked message in the subscription)`.\nFor example, consider a subscription whose oldest unacked message is 3 days\nold. If a snapshot is created from this subscription, the snapshot -- which\nwill always capture this 3-day-old backlog as long as the snapshot\nexists -- will expire in 4 days. The service will refuse to create a\nsnapshot that would expire in less than 1 hour after creation.",
+          "type": "string",
+          "format": "google-datetime"
+        },
+        "labels": {
+          "description": "User labels.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -504,26 +580,6 @@
         }
       }
     },
-    "Snapshot": {
-      "id": "Snapshot",
-      "description": "A snapshot resource.",
-      "type": "object",
-      "properties": {
-        "name": {
-          "description": "The name of the snapshot.",
-          "type": "string"
-        },
-        "topic": {
-          "description": "The name of the topic from which this snapshot is retaining messages.",
-          "type": "string"
-        },
-        "expireTime": {
-          "description": "The snapshot is guaranteed to exist up until this time.\nA newly-created snapshot expires no later than 7 days from the time of its\ncreation. Its exact lifetime is determined at creation by the existing\nbacklog in the source subscription. Specifically, the lifetime of the\nsnapshot is `7 days - (age of oldest unacked message in the subscription)`.\nFor example, consider a subscription whose oldest unacked message is 3 days\nold. If a snapshot is created from this subscription, the snapshot -- which\nwill always capture this 3-day-old backlog as long as the snapshot\nexists -- will expire in 4 days. The service will refuse to create a\nsnapshot that would expire in less than 1 hour after creation.",
-          "type": "string",
-          "format": "google-datetime"
-        }
-      }
-    },
     "CreateSnapshotRequest": {
       "id": "CreateSnapshotRequest",
       "description": "Request for the `CreateSnapshot` method.",
@@ -532,6 +588,29 @@
         "subscription": {
           "description": "The subscription whose backlog the snapshot retains.\nSpecifically, the created snapshot is guaranteed to retain:\n (a) The existing backlog on the subscription. More precisely, this is\n     defined as the messages in the subscription's backlog that are\n     unacknowledged upon the successful completion of the\n     `CreateSnapshot` request; as well as:\n (b) Any messages published to the subscription's topic following the\n     successful completion of the CreateSnapshot request.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
           "type": "string"
+        },
+        "labels": {
+          "description": "User labels.",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "UpdateSnapshotRequest": {
+      "id": "UpdateSnapshotRequest",
+      "description": "Request for the UpdateSnapshot method.",
+      "type": "object",
+      "properties": {
+        "snapshot": {
+          "description": "The updated snpashot object.",
+          "$ref": "Snapshot"
+        },
+        "updateMask": {
+          "description": "Indicates which fields in the provided snapshot to update.\nMust be specified and non-empty.",
+          "type": "string",
+          "format": "google-fieldmask"
         }
       }
     },
@@ -553,7 +632,6 @@
     },
     "SeekResponse": {
       "id": "SeekResponse",
-
       "type": "object",
       "properties": {
       }
@@ -569,7 +647,6 @@
               "path": "v1/{+resource}:setIamPolicy",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}:setIamPolicy",
               "httpMethod": "POST",
-              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
@@ -591,14 +668,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy."
             },
             "getIamPolicy": {
               "id": "pubsub.projects.topics.getIamPolicy",
               "path": "v1/{+resource}:getIamPolicy",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}:getIamPolicy",
               "httpMethod": "GET",
-              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -617,14 +694,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset."
             },
             "testIamPermissions": {
               "id": "pubsub.projects.topics.testIamPermissions",
               "path": "v1/{+resource}:testIamPermissions",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}:testIamPermissions",
               "httpMethod": "POST",
-              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -646,14 +723,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning."
             },
             "create": {
               "id": "pubsub.projects.topics.create",
               "path": "v1/{+name}",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}",
               "httpMethod": "PUT",
-              "description": "Creates the given topic with the given name.",
               "parameters": {
                 "name": {
                   "description": "The name of the topic. It must have the format\n`\"projects\/{project}\/topics\/{topic}\"`. `{topic}` must start with a letter,\nand contain only letters (`[A-Za-z]`), numbers (`[0-9]`), dashes (`-`),\nunderscores (`_`), periods (`.`), tildes (`~`), plus (`+`) or percent\nsigns (`%`). It must be between 3 and 255 characters in length, and it\nmust not start with `\"goog\"`.",
@@ -675,14 +752,43 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Creates the given topic with the given name."
+            },
+            "patch": {
+              "id": "pubsub.projects.topics.patch",
+              "path": "v1/{+name}",
+              "flatPath": "v1/projects/{projectsId}/topics/{topicsId}",
+              "httpMethod": "PATCH",
+              "parameters": {
+                "name": {
+                  "description": "The name of the topic. It must have the format\n`\"projects\/{project}\/topics\/{topic}\"`. `{topic}` must start with a letter,\nand contain only letters (`[A-Za-z]`), numbers (`[0-9]`), dashes (`-`),\nunderscores (`_`), periods (`.`), tildes (`~`), plus (`+`) or percent\nsigns (`%`). It must be between 3 and 255 characters in length, and it\nmust not start with `\"goog\"`.",
+                  "location": "path",
+                  "required": true,
+                  "pattern": "^projects\/[^\/]+\/topics\/[^\/]+$",
+                  "type": "string"
+                }
+              },
+              "parameterOrder": [
+                "name"
+              ],
+              "request": {
+                "$ref": "UpdateTopicRequest"
+              },
+              "response": {
+                "$ref": "Topic"
+              },
+              "scopes": [
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/pubsub"
+              ],
+              "description": "Updates an existing topic. Note that certain properties of a\ntopic are not modifiable."
             },
             "publish": {
               "id": "pubsub.projects.topics.publish",
               "path": "v1/{+topic}:publish",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}:publish",
               "httpMethod": "POST",
-              "description": "Adds one or more messages to the topic. Returns `NOT_FOUND` if the topic\ndoes not exist. The message payload must not be empty; it must contain\n either a non-empty data field, or at least one attribute.",
               "parameters": {
                 "topic": {
                   "description": "The messages in the request will be published on this topic.\nFormat is `projects\/{project}\/topics\/{topic}`.",
@@ -704,14 +810,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Adds one or more messages to the topic. Returns `NOT_FOUND` if the topic\ndoes not exist. The message payload must not be empty; it must contain\n either a non-empty data field, or at least one attribute."
             },
             "get": {
               "id": "pubsub.projects.topics.get",
               "path": "v1/{+topic}",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}",
               "httpMethod": "GET",
-              "description": "Gets the configuration of a topic.",
               "parameters": {
                 "topic": {
                   "description": "The name of the topic to get.\nFormat is `projects\/{project}\/topics\/{topic}`.",
@@ -730,14 +836,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Gets the configuration of a topic."
             },
             "list": {
               "id": "pubsub.projects.topics.list",
               "path": "v1/{+project}/topics",
               "flatPath": "v1/projects/{projectsId}/topics",
               "httpMethod": "GET",
-              "description": "Lists matching topics.",
               "parameters": {
                 "project": {
                   "description": "The name of the cloud project that topics belong to.\nFormat is `projects\/{project}`.",
@@ -767,14 +873,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Lists matching topics."
             },
             "delete": {
               "id": "pubsub.projects.topics.delete",
               "path": "v1/{+topic}",
               "flatPath": "v1/projects/{projectsId}/topics/{topicsId}",
               "httpMethod": "DELETE",
-              "description": "Deletes the topic with the given name. Returns `NOT_FOUND` if the topic\ndoes not exist. After a topic is deleted, a new topic may be created with\nthe same name; this is an entirely new topic with none of the old\nconfiguration or subscriptions. Existing subscriptions to this topic are\nnot deleted, but their `topic` field is set to `_deleted-topic_`.",
               "parameters": {
                 "topic": {
                   "description": "Name of the topic to delete.\nFormat is `projects\/{project}\/topics\/{topic}`.",
@@ -793,7 +899,8 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Deletes the topic with the given name. Returns `NOT_FOUND` if the topic\ndoes not exist. After a topic is deleted, a new topic may be created with\nthe same name; this is an entirely new topic with none of the old\nconfiguration or subscriptions. Existing subscriptions to this topic are\nnot deleted, but their `topic` field is set to `_deleted-topic_`."
             }
           }
           ,
@@ -805,7 +912,6 @@
                   "path": "v1/{+topic}/subscriptions",
                   "flatPath": "v1/projects/{projectsId}/topics/{topicsId}/subscriptions",
                   "httpMethod": "GET",
-                  "description": "Lists the name of the subscriptions for this topic.",
                   "parameters": {
                     "topic": {
                       "description": "The name of the topic that subscriptions are attached to.\nFormat is `projects\/{project}\/topics\/{topic}`.",
@@ -835,7 +941,49 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/pubsub"
-                  ]
+                  ],
+                  "description": "Lists the names of the subscriptions on this topic."
+                }
+              }
+            },
+            "snapshots": {
+              "methods": {
+                "list": {
+                  "id": "pubsub.projects.topics.snapshots.list",
+                  "path": "v1/{+topic}/snapshots",
+                  "flatPath": "v1/projects/{projectsId}/topics/{topicsId}/snapshots",
+                  "httpMethod": "GET",
+                  "parameters": {
+                    "topic": {
+                      "description": "The name of the topic that snapshots are attached to.\nFormat is `projects\/{project}\/topics\/{topic}`.",
+                      "location": "path",
+                      "required": true,
+                      "pattern": "^projects\/[^\/]+\/topics\/[^\/]+$",
+                      "type": "string"
+                    },
+                    "pageSize": {
+                      "description": "Maximum number of snapshot names to return.",
+                      "location": "query",
+                      "type": "integer",
+                      "format": "int32"
+                    },
+                    "pageToken": {
+                      "description": "The value returned by the last `ListTopicSnapshotsResponse`; indicates\nthat this is a continuation of a prior `ListTopicSnapshots` call, and\nthat the system should return the next page of data.",
+                      "location": "query",
+                      "type": "string"
+                    }
+                  },
+                  "parameterOrder": [
+                    "topic"
+                  ],
+                  "response": {
+                    "$ref": "ListTopicSnapshotsResponse"
+                  },
+                  "scopes": [
+                    "https://www.googleapis.com/auth/cloud-platform",
+                    "https://www.googleapis.com/auth/pubsub"
+                  ],
+                  "description": "Lists the names of the snapshots on this topic.\n[ALPHA] This method is a part of a closed Alpha API."
                 }
               }
             }
@@ -848,7 +996,6 @@
               "path": "v1/{+resource}:setIamPolicy",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:setIamPolicy",
               "httpMethod": "POST",
-              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
@@ -870,14 +1017,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy."
             },
             "getIamPolicy": {
               "id": "pubsub.projects.subscriptions.getIamPolicy",
               "path": "v1/{+resource}:getIamPolicy",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:getIamPolicy",
               "httpMethod": "GET",
-              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -896,14 +1043,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset."
             },
             "testIamPermissions": {
               "id": "pubsub.projects.subscriptions.testIamPermissions",
               "path": "v1/{+resource}:testIamPermissions",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:testIamPermissions",
               "httpMethod": "POST",
-              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -925,14 +1072,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning."
             },
             "create": {
               "id": "pubsub.projects.subscriptions.create",
               "path": "v1/{+name}",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}",
               "httpMethod": "PUT",
-              "description": "Creates a subscription to a given topic.\nIf the subscription already exists, returns `ALREADY_EXISTS`.\nIf the corresponding topic doesn't exist, returns `NOT_FOUND`.\n\nIf the name is not provided in the request, the server will assign a random\nname for this subscription on the same project as the topic, conforming\nto the\n[resource name format](https:\/\/cloud.google.com\/pubsub\/docs\/overview#names).\nThe generated name is populated in the returned Subscription object.\nNote that for REST API requests, you must specify a name in the request.",
               "parameters": {
                 "name": {
                   "description": "The name of the subscription. It must have the format\n`\"projects\/{project}\/subscriptions\/{subscription}\"`. `{subscription}` must\nstart with a letter, and contain only letters (`[A-Za-z]`), numbers\n(`[0-9]`), dashes (`-`), underscores (`_`), periods (`.`), tildes (`~`),\nplus (`+`) or percent signs (`%`). It must be between 3 and 255 characters\nin length, and it must not start with `\"goog\"`.",
@@ -954,14 +1101,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Creates a subscription to a given topic.\nIf the subscription already exists, returns `ALREADY_EXISTS`.\nIf the corresponding topic doesn't exist, returns `NOT_FOUND`.\n\nIf the name is not provided in the request, the server will assign a random\nname for this subscription on the same project as the topic, conforming\nto the\n[resource name format](https:\/\/cloud.google.com\/pubsub\/docs\/overview#names).\nThe generated name is populated in the returned Subscription object.\nNote that for REST API requests, you must specify a name in the request."
             },
             "get": {
               "id": "pubsub.projects.subscriptions.get",
               "path": "v1/{+subscription}",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}",
               "httpMethod": "GET",
-              "description": "Gets the configuration details of a subscription.",
               "parameters": {
                 "subscription": {
                   "description": "The name of the subscription to get.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -980,14 +1127,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Gets the configuration details of a subscription."
             },
             "patch": {
               "id": "pubsub.projects.subscriptions.patch",
               "path": "v1/{+name}",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}",
               "httpMethod": "PATCH",
-              "description": "Updates an existing subscription. Note that certain properties of a\nsubscription, such as its topic, are not modifiable.",
               "parameters": {
                 "name": {
                   "description": "The name of the subscription. It must have the format\n`\"projects\/{project}\/subscriptions\/{subscription}\"`. `{subscription}` must\nstart with a letter, and contain only letters (`[A-Za-z]`), numbers\n(`[0-9]`), dashes (`-`), underscores (`_`), periods (`.`), tildes (`~`),\nplus (`+`) or percent signs (`%`). It must be between 3 and 255 characters\nin length, and it must not start with `\"goog\"`.",
@@ -1009,14 +1156,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Updates an existing subscription. Note that certain properties of a\nsubscription, such as its topic, are not modifiable."
             },
             "list": {
               "id": "pubsub.projects.subscriptions.list",
               "path": "v1/{+project}/subscriptions",
               "flatPath": "v1/projects/{projectsId}/subscriptions",
               "httpMethod": "GET",
-              "description": "Lists matching subscriptions.",
               "parameters": {
                 "project": {
                   "description": "The name of the cloud project that subscriptions belong to.\nFormat is `projects\/{project}`.",
@@ -1046,14 +1193,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Lists matching subscriptions."
             },
             "delete": {
               "id": "pubsub.projects.subscriptions.delete",
               "path": "v1/{+subscription}",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}",
               "httpMethod": "DELETE",
-              "description": "Deletes an existing subscription. All messages retained in the subscription\nare immediately dropped. Calls to `Pull` after deletion will return\n`NOT_FOUND`. After a subscription is deleted, a new one may be created with\nthe same name, but the new one has no association with the old\nsubscription or its topic unless the same topic is specified.",
               "parameters": {
                 "subscription": {
                   "description": "The subscription to delete.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -1072,14 +1219,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Deletes an existing subscription. All messages retained in the subscription\nare immediately dropped. Calls to `Pull` after deletion will return\n`NOT_FOUND`. After a subscription is deleted, a new one may be created with\nthe same name, but the new one has no association with the old\nsubscription or its topic unless the same topic is specified."
             },
             "modifyAckDeadline": {
               "id": "pubsub.projects.subscriptions.modifyAckDeadline",
               "path": "v1/{+subscription}:modifyAckDeadline",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:modifyAckDeadline",
               "httpMethod": "POST",
-              "description": "Modifies the ack deadline for a specific message. This method is useful\nto indicate that more time is needed to process a message by the\nsubscriber, or to make the message available for redelivery if the\nprocessing was interrupted. Note that this does not modify the\nsubscription-level `ackDeadlineSeconds` used for subsequent messages.",
               "parameters": {
                 "subscription": {
                   "description": "The name of the subscription.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -1101,14 +1248,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Modifies the ack deadline for a specific message. This method is useful\nto indicate that more time is needed to process a message by the\nsubscriber, or to make the message available for redelivery if the\nprocessing was interrupted. Note that this does not modify the\nsubscription-level `ackDeadlineSeconds` used for subsequent messages."
             },
             "acknowledge": {
               "id": "pubsub.projects.subscriptions.acknowledge",
               "path": "v1/{+subscription}:acknowledge",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:acknowledge",
               "httpMethod": "POST",
-              "description": "Acknowledges the messages associated with the `ack_ids` in the\n`AcknowledgeRequest`. The Pub\/Sub system can remove the relevant messages\nfrom the subscription.\n\nAcknowledging a message whose ack deadline has expired may succeed,\nbut such a message may be redelivered later. Acknowledging a message more\nthan once will not result in an error.",
               "parameters": {
                 "subscription": {
                   "description": "The subscription whose message is being acknowledged.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -1130,14 +1277,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Acknowledges the messages associated with the `ack_ids` in the\n`AcknowledgeRequest`. The Pub\/Sub system can remove the relevant messages\nfrom the subscription.\n\nAcknowledging a message whose ack deadline has expired may succeed,\nbut such a message may be redelivered later. Acknowledging a message more\nthan once will not result in an error."
             },
             "pull": {
               "id": "pubsub.projects.subscriptions.pull",
               "path": "v1/{+subscription}:pull",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:pull",
               "httpMethod": "POST",
-              "description": "Pulls messages from the server. Returns an empty list if there are no\nmessages available in the backlog. The server may return `UNAVAILABLE` if\nthere are too many concurrent pull requests pending for the given\nsubscription.",
               "parameters": {
                 "subscription": {
                   "description": "The subscription from which messages should be pulled.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -1159,14 +1306,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Pulls messages from the server. Returns an empty list if there are no\nmessages available in the backlog. The server may return `UNAVAILABLE` if\nthere are too many concurrent pull requests pending for the given\nsubscription."
             },
             "modifyPushConfig": {
               "id": "pubsub.projects.subscriptions.modifyPushConfig",
               "path": "v1/{+subscription}:modifyPushConfig",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:modifyPushConfig",
               "httpMethod": "POST",
-              "description": "Modifies the `PushConfig` for a specified subscription.\n\nThis may be used to change a push subscription to a pull one (signified by\nan empty `PushConfig`) or vice versa, or change the endpoint URL and other\nattributes of a push subscription. Messages will accumulate for delivery\ncontinuously through the call regardless of changes to the `PushConfig`.",
               "parameters": {
                 "subscription": {
                   "description": "The name of the subscription.\nFormat is `projects\/{project}\/subscriptions\/{sub}`.",
@@ -1188,14 +1335,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Modifies the `PushConfig` for a specified subscription.\n\nThis may be used to change a push subscription to a pull one (signified by\nan empty `PushConfig`) or vice versa, or change the endpoint URL and other\nattributes of a push subscription. Messages will accumulate for delivery\ncontinuously through the call regardless of changes to the `PushConfig`."
             },
             "seek": {
               "id": "pubsub.projects.subscriptions.seek",
               "path": "v1/{+subscription}:seek",
               "flatPath": "v1/projects/{projectsId}/subscriptions/{subscriptionsId}:seek",
               "httpMethod": "POST",
-              "description": "Seeks an existing subscription to a point in time or to a given snapshot,\nwhichever is provided in the request.",
               "parameters": {
                 "subscription": {
                   "description": "The subscription to affect.",
@@ -1217,7 +1364,8 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Seeks an existing subscription to a point in time or to a given snapshot,\nwhichever is provided in the request.\n[ALPHA] This method is a part of a closed Alpha API."
             }
           }
         },
@@ -1228,7 +1376,6 @@
               "path": "v1/{+resource}:setIamPolicy",
               "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}:setIamPolicy",
               "httpMethod": "POST",
-              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being specified.\nSee the operation documentation for the appropriate value for this field.",
@@ -1250,14 +1397,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Sets the access control policy on the specified resource. Replaces any\nexisting policy."
             },
             "getIamPolicy": {
               "id": "pubsub.projects.snapshots.getIamPolicy",
               "path": "v1/{+resource}:getIamPolicy",
               "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}:getIamPolicy",
               "httpMethod": "GET",
-              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -1276,14 +1423,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Gets the access control policy for a resource.\nReturns an empty policy if the resource exists and does not have a policy\nset."
             },
             "testIamPermissions": {
               "id": "pubsub.projects.snapshots.testIamPermissions",
               "path": "v1/{+resource}:testIamPermissions",
               "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}:testIamPermissions",
               "httpMethod": "POST",
-              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning.",
               "parameters": {
                 "resource": {
                   "description": "REQUIRED: The resource for which the policy detail is being requested.\nSee the operation documentation for the appropriate value for this field.",
@@ -1305,14 +1452,40 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Returns permissions that a caller has on the specified resource.\nIf the resource does not exist, this will return an empty set of\npermissions, not a NOT_FOUND error.\n\nNote: This operation is designed to be used for building permission-aware\nUIs and command-line tools, not for authorization checking. This operation\nmay \"fail open\" without warning."
+            },
+            "get": {
+              "id": "pubsub.projects.snapshots.get",
+              "path": "v1/{+snapshot}",
+              "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}",
+              "httpMethod": "GET",
+              "parameters": {
+                "snapshot": {
+                  "description": "The name of the snapshot to get.\nFormat is `projects\/{project}\/snapshots\/{snap}`.",
+                  "location": "path",
+                  "required": true,
+                  "pattern": "^projects\/[^\/]+\/snapshots\/[^\/]+$",
+                  "type": "string"
+                }
+              },
+              "parameterOrder": [
+                "snapshot"
+              ],
+              "response": {
+                "$ref": "Snapshot"
+              },
+              "scopes": [
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/pubsub"
+              ],
+              "description": "Gets the configuration details of a snapshot.\n[ALPHA] This method is a part of a closed Alpha API."
             },
             "list": {
               "id": "pubsub.projects.snapshots.list",
               "path": "v1/{+project}/snapshots",
               "flatPath": "v1/projects/{projectsId}/snapshots",
               "httpMethod": "GET",
-              "description": "Lists the existing snapshots.",
               "parameters": {
                 "project": {
                   "description": "The name of the cloud project that snapshots belong to.\nFormat is `projects\/{project}`.",
@@ -1342,14 +1515,14 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Lists the existing snapshots.\n[ALPHA] This method is a part of a closed Alpha API."
             },
             "create": {
               "id": "pubsub.projects.snapshots.create",
               "path": "v1/{+name}",
               "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}",
               "httpMethod": "PUT",
-              "description": "Creates a snapshot from the requested subscription.\nIf the snapshot already exists, returns `ALREADY_EXISTS`.\nIf the requested subscription doesn't exist, returns `NOT_FOUND`.\nIf the backlog in the subscription is too old -- and the resulting snapshot\nwould expire in less than 1 hour -- then `FAILED_PRECONDITION` is returned.\nSee also the `Snapshot.expire_time` field.\n\nIf the name is not provided in the request, the server will assign a random\nname for this snapshot on the same project as the subscription, conforming\nto the\n[resource name\nformat](https:\/\/cloud.google.com\/pubsub\/docs\/overview#names). The generated\nname is populated in the returned Snapshot object. Note that for REST API\nrequests, you must specify a name in the request.",
               "parameters": {
                 "name": {
                   "description": "Optional user-provided name for this snapshot.\nIf the name is not provided in the request, the server will assign a random\nname for this snapshot on the same project as the subscription.\nNote that for REST API requests, you must specify a name.\nFormat is `projects\/{project}\/snapshots\/{snap}`.",
@@ -1371,14 +1544,43 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "[ALPHA] This method is a part of a closed Alpha API.\nCreates a snapshot from the requested subscription.\nIf the snapshot already exists, returns `ALREADY_EXISTS`.\nIf the requested subscription doesn't exist, returns `NOT_FOUND`.\nIf the backlog in the subscription is too old -- and the resulting snapshot\nwould expire in less than 1 hour -- then `FAILED_PRECONDITION` is returned.\nSee also the `Snapshot.expire_time` field.\n\nIf the name is not provided in the request, the server will assign a random\nname for this snapshot on the same project as the subscription, conforming\nto the\n[resource name\nformat](https:\/\/cloud.google.com\/pubsub\/docs\/overview#names). The generated\nname is populated in the returned Snapshot object. Note that for REST API\nrequests, you must specify a name in the request."
+            },
+            "patch": {
+              "id": "pubsub.projects.snapshots.patch",
+              "path": "v1/{+name}",
+              "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}",
+              "httpMethod": "PATCH",
+              "parameters": {
+                "name": {
+                  "description": "The name of the snapshot.",
+                  "location": "path",
+                  "required": true,
+                  "pattern": "^projects\/[^\/]+\/snapshots\/[^\/]+$",
+                  "type": "string"
+                }
+              },
+              "parameterOrder": [
+                "name"
+              ],
+              "request": {
+                "$ref": "UpdateSnapshotRequest"
+              },
+              "response": {
+                "$ref": "Snapshot"
+              },
+              "scopes": [
+                "https://www.googleapis.com/auth/cloud-platform",
+                "https://www.googleapis.com/auth/pubsub"
+              ],
+              "description": "Updates an existing snapshot. Note that certain properties of a\nsnapshot are not modifiable.\n[ALPHA] This method is a part of a closed Alpha API."
             },
             "delete": {
               "id": "pubsub.projects.snapshots.delete",
               "path": "v1/{+snapshot}",
               "flatPath": "v1/projects/{projectsId}/snapshots/{snapshotsId}",
               "httpMethod": "DELETE",
-              "description": "Removes an existing snapshot. All messages retained in the snapshot\nare immediately dropped. After a snapshot is deleted, a new one may be\ncreated with the same name, but the new one has no association with the old\nsnapshot or its subscription, unless the same subscription is specified.",
               "parameters": {
                 "snapshot": {
                   "description": "The name of the snapshot to delete.\nFormat is `projects\/{project}\/snapshots\/{snap}`.",
@@ -1397,7 +1599,8 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/pubsub"
-              ]
+              ],
+              "description": "Removes an existing snapshot. All messages retained in the snapshot\nare immediately dropped. After a snapshot is deleted, a new one may be\ncreated with the same name, but the new one has no association with the old\nsnapshot or its subscription, unless the same subscription is specified.\n[ALPHA] This method is a part of a closed Alpha API."
             }
           }
         }

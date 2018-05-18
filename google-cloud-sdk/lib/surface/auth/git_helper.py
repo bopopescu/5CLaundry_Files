@@ -26,6 +26,10 @@ Errors will be reported on stderr.
 Note that spaces may be part of key names so, for example, "protocol" must not
 be proceeded by leading spaces.
 """
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import os
 import re
 import subprocess
@@ -55,6 +59,8 @@ class GitHelper(base.Command):
   STORE = 'store'
   METHODS = [GET, STORE]
 
+  GOOGLESOURCE = 'googlesource.com'
+
   @staticmethod
   def Args(parser):
     parser.add_argument('method',
@@ -76,15 +82,31 @@ class GitHelper(base.Command):
           .format(meth=args.method, methods=', '.join(GitHelper.METHODS)))
 
     info = self._ParseInput()
-    credentialed_domains = ['source.developers.google.com']
+    credentialed_domains = [
+        'source.developers.google.com',
+        GitHelper.GOOGLESOURCE,  # Requires a different username value.
+    ]
+    credentialed_domains_suffix = [
+        '.'+GitHelper.GOOGLESOURCE,
+    ]
     extra = properties.VALUES.core.credentialed_hosted_repo_domains.Get()
     if extra:
       credentialed_domains.extend(extra.split(','))
-    if info.get('host') not in credentialed_domains:
-      if args.ignore_unknown:
-        return
-      raise auth_exceptions.GitCredentialHelperError(
-          'Unknown host [{host}].'.format(host=info.get('host')))
+    host = info.get('host')
+
+    def _ValidateHost(host):
+      if host in credentialed_domains:
+        return True
+      for suffix in credentialed_domains_suffix:
+        if host.endswith(suffix):
+          return True
+      return False
+
+    if not _ValidateHost(host):
+      if not args.ignore_unknown:
+        raise auth_exceptions.GitCredentialHelperError(
+            'Unknown host [{host}].'.format(host=host))
+      return
 
     if args.method == GitHelper.GET:
       account = properties.VALUES.core.account.Get()
@@ -100,10 +122,18 @@ class GitHelper(base.Command):
 
       self._CheckNetrc()
 
+      # For googlesource.com, any username beginning with "git-" is accepted
+      # and the identity of the user is extracted from the token server-side.
+      if (host == GitHelper.GOOGLESOURCE
+          or host.endswith('.'+GitHelper.GOOGLESOURCE)):
+        sent_account = 'git-account'
+      else:
+        sent_account = account
+
       sys.stdout.write(textwrap.dedent("""\
           username={username}
           password={password}
-          """).format(username=account, password=cred.access_token))
+          """).format(username=sent_account, password=cred.access_token))
     elif args.method == GitHelper.STORE:
       # On OSX, there is an additional credential helper that gets called before
       # ours does.  When we return a token, it gets cached there.  Git continues

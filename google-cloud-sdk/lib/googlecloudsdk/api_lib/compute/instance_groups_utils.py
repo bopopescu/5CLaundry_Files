@@ -12,18 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Convenience functions and classes for dealing with instances groups."""
-import abc
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import encoding
 import enum
 
-from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import lister
 from googlecloudsdk.api_lib.compute import path_simplifier
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import properties
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 
 INSTANCE_GROUP_GET_NAMED_PORT_DETAILED_HELP = {
     'brief': 'Lists the named ports for an instance group resource',
@@ -76,92 +77,27 @@ def ValidateInstanceInZone(instances, zone):
         % ', '.join(invalid_instances))
 
 
-def _UnwrapResponse(responses, attr_name):
+def UnwrapResponse(responses, attr_name):
   """Extracts items stored in given attribute of instance group response."""
   for response in responses:
     for item in getattr(response, attr_name):
       yield item
 
 
-class InstanceGroupListInstancesBase(base_classes.BaseLister):
-  """Base class for listing instances present in instance group."""
+def UriFuncForListInstanceRelatedObjects(resource):
+  """UriFunc for listing instance-group related subresources.
 
-  # TODO(b/36057058): add support for --names parameter as in all List verbs
+  Function returns field with URI for objects being subresources of
+  instance-groups, with instance fields. Works for list-instances and
+  instance-configs list commands.
 
-  @staticmethod
-  def ListInstancesArgs(parser, multizonal=False):
-    parser.add_argument(
-        'name',
-        help='The name of the instance group.')
+  Args:
+    resource: instance-group subresource with instance field
 
-    if multizonal:
-      scope_parser = parser.add_mutually_exclusive_group()
-      flags.AddRegionFlag(
-          scope_parser,
-          resource_type='instance group',
-          operation_type='list instances in',
-          explanation=flags.REGION_PROPERTY_EXPLANATION_NO_DEFAULT)
-      flags.AddZoneFlag(
-          scope_parser,
-          resource_type='instance group',
-          operation_type='list instances in',
-          explanation=flags.ZONE_PROPERTY_EXPLANATION_NO_DEFAULT)
-    else:
-      flags.AddZoneFlag(
-          parser,
-          resource_type='instance group',
-          operation_type='list instances in')
-
-  @property
-  def service(self):
-    return self.compute.instanceGroups
-
-  @property
-  def resource_type(self):
-    return 'instanceGroups'
-
-  @property
-  def method(self):
-    return 'ListInstances'
-
-  @property
-  def list_field(self):
-    return 'items'
-
-  def Run(self, args):
-    errors = []
-
-    responses, errors = self.GetResources(args)
-    if errors:
-      utils.RaiseToolException(errors)
-    items = lister.ProcessResults(
-        resources=list(_UnwrapResponse(responses, self.list_field)),
-        field_selector=None)
-
-    for item in items:
-      yield item
-
-  @abc.abstractmethod
-  def GetResources(self, args):
-    """Retrieves response with instance in the instance group."""
-    pass
-
-  def GetUriFunc(self):
-
-    def _GetUri(resource):
-      return resource['instance']
-
-    return _GetUri
-
-  def DeprecatedFormat(self, unused_args):
-    return 'table(instance.basename():label=NAME, status)'
-
-  detailed_help = {
-      'brief': 'List instances present in the instance group',
-      'DESCRIPTION': """\
-          *{command}* list instances in an instance group.
-          """,
-  }
+  Returns:
+    URI of instance
+  """
+  return resource.instance
 
 
 def OutputNamedPortsForGroup(group_ref, compute_client):
@@ -180,7 +116,7 @@ def OutputNamedPortsForGroup(group_ref, compute_client):
         region=group_ref.region,
         project=group_ref.project)
   results = compute_client.MakeRequests(requests=[(service, 'Get', request)])
-  return list(_UnwrapResponse(results, 'namedPorts'))
+  return list(UnwrapResponse(results, 'namedPorts'))
 
 
 class FingerprintFetchException(core_exceptions.Error):
@@ -366,7 +302,7 @@ def SplitInstancesInRequest(request,
   result = []
   all_instances = getattr(request, request_field).instances or []
   n = len(all_instances)
-  for i in xrange(0, n, max_length):
+  for i in range(0, n, max_length):
     request_part = encoding.CopyProtoMessage(request)
     field = getattr(request_part, request_field)
     field.instances = all_instances[i:i+max_length]
@@ -457,7 +393,7 @@ def ComputeInstanceGroupManagerMembership(
     project_to_zones[zone_ref.project].add(zone_ref.zone)
 
   zonal_instance_group_managers = []
-  for project, zones in project_to_zones.iteritems():
+  for project, zones in six.iteritems(project_to_zones):
     zonal_instance_group_managers.extend(lister.GetZonalResources(
         service=client.apitools_client.instanceGroupManagers,
         project=project,
@@ -477,7 +413,7 @@ def ComputeInstanceGroupManagerMembership(
       if region_ref.project not in project_to_regions:
         project_to_regions[region_ref.project] = set()
       project_to_regions[region_ref.project].add(region_ref.region)
-    for project, regions in project_to_regions.iteritems():
+    for project, regions in six.iteritems(project_to_regions):
       regional_instance_group_managers.extend(lister.GetRegionalResources(
           service=client.apitools_client.regionInstanceGroupManagers,
           project=project,

@@ -44,14 +44,16 @@ def AddCommonTestRunArgs(parser):
       'information and examples.')
 
   parser.add_argument(
-      '--app',
-      category=base.COMMONLY_USED_FLAGS,
-      help='The path to the application binary file. The path may be in the '
-      'local filesystem or in Google Cloud Storage using gs:// notation.')
-  parser.add_argument(
       '--async',
       action='store_true',
+      default=None,
       help='Invoke a test asynchronously without waiting for test results.')
+  parser.add_argument(
+      '--record-video',
+      action='store_true',
+      default=None,
+      help='Enable video recording during the test. Enabled by default, use '
+      '--no-record-video to disable.')
   parser.add_argument(
       '--results-bucket',
       help='The name of a Google Cloud Storage bucket where raw test results '
@@ -65,12 +67,6 @@ def AddCommonTestRunArgs(parser):
       'timestamp with a random suffix). Caution: if specified, this argument '
       '*must be unique* for each test matrix you create, otherwise results '
       'from multiple test matrices will be overwritten or intermingled.')
-  parser.add_argument(
-      '--results-history-name',
-      help='The history name for your test results (an arbitrary string label; '
-      'default: the application\'s label from the APK manifest). All tests '
-      'which use the same history name will have their results grouped '
-      'together in the Firebase console in a time-ordered test history list.')
   parser.add_argument(
       '--timeout',
       category=base.COMMONLY_USED_FLAGS,
@@ -94,22 +90,34 @@ def AddAndroidTestArgs(parser):
         the CLI.
   """
   parser.add_argument(
+      '--app',
+      category=base.COMMONLY_USED_FLAGS,
+      help='The path to the application binary file. The path may be in the '
+      'local filesystem or in Google Cloud Storage using gs:// notation.')
+  parser.add_argument(
       '--app-package',
       help='The Java package of the application under test (default: extracted '
       'from the APK manifest).')
   parser.add_argument(
       '--auto-google-login',
       action='store_true',
-      default=True,
+      default=None,
       help='Automatically log into the test device using a preconfigured '
-      'Google account before beginning the test.')
+      'Google account before beginning the test. Enabled by default, use '
+      '--no-auto-google-login to disable.')
   parser.add_argument(
       '--directories-to-pull',
       type=arg_parsers.ArgList(),
       metavar='DIR_TO_PULL',
       help='A list of paths that will be copied from the device\'s storage to '
-      'the designated results bucket after the test is complete. (For example '
-      '--directories-to-pull /sdcard/tempDir1,/data/tempDir2)')
+      'the designated results bucket after the test is complete. These must be '
+      'absolute paths under `/sdcard` or `/data/local/tmp` (for example, '
+      '`--directories-to-pull /sdcard/tempDir1,/data/local/tmp/tempDir2`). '
+      'Path names are restricted to the characters ```a-zA-Z0-9_-./+```. '
+      'The paths `/sdcard` and `/data` will be made available and treated as '
+      'implicit path substitutions. E.g. if `/sdcard` on a particular device '
+      'does not map to external storage, the system will replace it with the '
+      'external storage path prefix for that device.')
   parser.add_argument(
       '--environment-variables',
       type=arg_parsers.ArgDict(),
@@ -118,7 +126,7 @@ def AddAndroidTestArgs(parser):
       'their desired values. The environment variables passed here will '
       'be mirrored on to the adb run command. For example, specify '
       '--environment-variables '
-      'coverage=true,coverageFile="/sdcard/tempDir/coverage.ec" to enable code '
+      'coverage=true,coverageFile="/sdcard/coverage.ec" to enable code '
       'coverage and provide a file path to store the coverage results.')
   parser.add_argument(
       '--obb-files',
@@ -129,6 +137,19 @@ def AddAndroidTestArgs(parser):
       'OBB file name must conform to the format as specified by Android (e.g. '
       '[main|patch].0300110.com.example.android.obb) and will be installed '
       'into <shared-storage>/Android/obb/<package-name>/ on the test device.')
+  parser.add_argument(
+      '--performance-metrics',
+      action='store_true',
+      default=None,
+      help='Monitor and record performance metrics: CPU, memory, network usage,'
+      ' and FPS (game-loop only). Enabled by default, use '
+      '--no-performance-metrics to disable.')
+  parser.add_argument(
+      '--results-history-name',
+      help='The history name for your test results (an arbitrary string label; '
+      'default: the application\'s label from the APK manifest). All tests '
+      'which use the same history name will have their results grouped '
+      'together in the Firebase console in a time-ordered test history list.')
 
   # The following args are specific to Android instrumentation tests.
 
@@ -137,7 +158,7 @@ def AddAndroidTestArgs(parser):
       category=base.COMMONLY_USED_FLAGS,
       help='The path to the binary file containing instrumentation tests. The '
       'given path may be in the local filesystem or in Google Cloud Storage '
-      'using gs:// notation.')
+      'using a URL beginning with `gs://`.')
   parser.add_argument(
       '--test-package',
       category=ANDROID_INSTRUMENTATION_TEST,
@@ -159,6 +180,18 @@ def AddAndroidTestArgs(parser):
       '* "package package_name"\n'
       '* "class package_name.class_name"\n'
       '* "class package_name.class_name#method_name".')
+  parser.add_argument(
+      '--use-orchestrator',
+      category=ANDROID_INSTRUMENTATION_TEST,
+      action='store_true',
+      default=None,
+      help='Whether each test runs in its own Instrumentation instance with '
+      'the Android Test Orchestrator (default: Orchestrator is not used, same '
+      'as specifying --no-use-orchestrator). Orchestrator is only compatible '
+      'with AndroidJUnitRunner v1.0 or higher. See '
+      'https://developer.android.com/training/testing/junit-runner.html'
+      '#using-android-test-orchestrator for more information about Android '
+      'Test Orchestrator.')
 
   # The following args are specific to Android Robo tests.
 
@@ -209,6 +242,56 @@ def AddAndroidTestArgs(parser):
       '\n\n'
       'Caution: You should only use credentials for test accounts that are not '
       'associated with real users.')
+
+
+def AddIosTestArgs(parser):
+  """Register args which are specific to iOS test commands.
+
+  Args:
+    parser: An argparse parser used to add arguments that follow a command in
+        the CLI.
+  """
+  parser.add_argument(
+      '--type',
+      category=base.COMMONLY_USED_FLAGS,
+      hidden=True,
+      choices=['xctest'],
+      help='The type of iOS test to run.')
+  parser.add_argument(
+      '--test',
+      category=base.COMMONLY_USED_FLAGS,
+      metavar='XCTEST_ZIP',
+      help='The path to the test package (a zip file containing the iOS app '
+      'and XCTest files). The given path may be in the local filesystem or in '
+      'Google Cloud Storage using a URL beginning with `gs://`.')
+  parser.add_argument(
+      '--device',
+      category=base.COMMONLY_USED_FLAGS,
+      type=arg_parsers.ArgDict(min_length=1),
+      action='append',
+      metavar='DIMENSION=VALUE',
+      help="""\
+      A list of ``DIMENSION=VALUE'' pairs which specify a target device to test
+      against. This flag may be repeated to specify multiple devices. The device
+      dimensions are: *model* and *version*. If any dimensions are omitted, they
+      will use a default value. The default value for each dimension can be
+      found with the ``list'' command for that dimension, such as
+      `$ {parent_command} models list`. Omitting this flag entirely will run
+      tests against a single device using defaults for every dimension.
+
+      Examples:\n
+      ```
+      --device model=iphone8plus
+      --device version=11.2
+      --device model=ipadmini4,version=11.2
+      ```
+      """)
+  parser.add_argument(
+      '--results-history-name',
+      help='The history name for your test results (an arbitrary string label; '
+      'default: the bundle ID for the iOS application). All tests '
+      'which use the same history name will have their results grouped '
+      'together in the Firebase console in a time-ordered test history list.')
 
 
 def AddGaArgs(parser):
@@ -267,13 +350,48 @@ def AddBetaArgs(parser):
       help='The name of the network traffic profile, for example '
       '--network-profile=LTE, which consists of a set of parameters to emulate '
       'network conditions when running the test (default: no network shaping; '
-      'see available profiles listed by the `$ gcloud beta firebase test '
+      'see available profiles listed by the `$ gcloud firebase test '
       'network-profiles list` command). This feature only works on physical '
       'devices.')
+  parser.add_argument(
+      '--robo-script',
+      category=ANDROID_ROBO_TEST,
+      help='The path to a Robo Script JSON file. The path may be in the local '
+      'filesystem or in Google Cloud Storage using gs:// notation. You can '
+      'guide the Robo test to perform specific actions by recording a Robo '
+      'Script in Android Studio and then specifying this argument. Learn more '
+      'at https://firebase.google.com/docs/test-lab/robo-ux-test#scripting.')
+  parser.add_argument(
+      '--additional-apks',
+      type=arg_parsers.ArgList(min_length=1, max_length=100),
+      metavar='APK',
+      help='A list of up to 100 additional APKs to install, in addition to '
+      'those being directly tested. The path may be in the local filesystem or '
+      'in Google Cloud Storage using gs:// notation.')
+  parser.add_argument(
+      '--other-files',
+      type=arg_parsers.ArgDict(min_length=1),
+      action='append',
+      metavar='FILE=DEVICE_DIR',
+      help="""\
+      A list of file=device-directory pairs that indicate paths of files to push
+      to the device before starting tests, and the device directory to push them
+      to.\n
+      Source file paths may be in the local filesystem or in Google Cloud
+      Storage (gs://...). Device directories must be absolute, whitelisted paths
+      (${EXTERNAL_STORAGE}, or ${ANDROID_DATA}/local/tmp).\n
+      Examples:\n
+      ```
+      --other-files local/file1=/sdcard/dir1/
+      --other-files gs://bucket/file2=/sdcard/dir2
+      ```\n
+      This flag only copies files to the device. To install files, like OBB or
+      APK files, see --obb-files and --additional-apks.
+      """)
 
 
 def AddMatrixArgs(parser):
-  """Register the repeatable args which define the the axes for a test matrix.
+  """Register the repeatable args which define the axes for a test matrix.
 
   Args:
     parser: An argparse parser used to add arguments that follow a command
@@ -290,8 +408,8 @@ def AddMatrixArgs(parser):
       against. This flag may be repeated to specify multiple devices. The four
       device dimensions are: *model*, *version*, *locale*, and
       *orientation*. If any dimensions are omitted, they will use a default
-      value. The default value can be found with the list command for each
-      dimension, `$ {parent_command} <dimension> list`.
+      value. The default value for each dimension can be found with the ``list''
+      command for that dimension, such as `$ {parent_command} models list`.
       *--device* is now the preferred way to specify test devices and may not
       be used in conjunction with *--devices-ids*, *--os-version-ids*,
       *--locales*, or *--orientations*. Omitting all of the preceding
@@ -302,7 +420,7 @@ def AddMatrixArgs(parser):
       ```
       --device model=Nexus6
       --device version=23,orientation=portrait
-      --device model=shamu,version=22,locale=zh_CN,orientation=landscape
+      --device model=shamu,version=22,locale=zh_CN,orientation=default
       ```
       """)
   parser.add_argument(
@@ -338,7 +456,9 @@ def AddMatrixArgs(parser):
           min_length=1, max_length=2, choices=arg_validate.ORIENTATION_LIST),
       completer=arg_parsers.GetMultiCompleter(OrientationsCompleter),
       metavar='ORIENTATION',
-      help='The device orientation(s) to test against (default: portrait).')
+      help='The device orientation(s) to test against (default: portrait). '
+      'Specifying \'default\' will pick the preferred orientation '
+      'for the app.')
 
 
 def OrientationsCompleter(prefix, unused_parsed_args, unused_kwargs):

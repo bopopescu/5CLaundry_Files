@@ -14,10 +14,11 @@
 """Implementation of gcloud dataflow jobs run command.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.dataflow import apis
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
-from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.core import properties
 
 
@@ -40,8 +41,21 @@ class Run(base.Command):
 
     parser.add_argument(
         '--gcs-location',
-        help='The location of the job template to run.',
+        help=("The Google Cloud Storage location of the job template to run. "
+              "(Must be a URL beginning with 'gs://'.)"),
+        type=arg_parsers.RegexpValidator(
+            r'^gs://.*',
+            'Must begin with \'gs://\''),
         required=True)
+
+    parser.add_argument(
+        '--staging-location',
+        help=("The Google Cloud Storage location to stage temporary files. "
+              "(Must be a URL beginning with 'gs://'.)"),
+        type=arg_parsers.RegexpValidator(
+            r'^gs://.*',
+            'Must begin with \'gs://\'')
+    )
 
     parser.add_argument(
         '--zone',
@@ -67,6 +81,11 @@ class Run(base.Command):
         action=arg_parsers.UpdateAction,
         help='The parameters to pass to the job.')
 
+    parser.add_argument(
+        '--region',
+        metavar='REGION_ID',
+        help='The region ID of the job\'s regional endpoint.')
+
   def Run(self, args):
     """Runs the command.
 
@@ -76,13 +95,12 @@ class Run(base.Command):
     Returns:
       A Job message.
     """
-    if not args.gcs_location.startswith('gs://'):
-      raise exceptions.ToolException("""\
---gcs-location must begin with 'gs://'.  Provided value was '{value}'.
-""".format(value=args.gcs_location))
+
     job = apis.Templates.Create(
         project_id=properties.VALUES.core.project.Get(required=True),
+        region_id=args.region,
         gcs_location=args.gcs_location,
+        staging_location=args.staging_location,
         job_name=args.job_name,
         parameters=args.parameters,
         service_account_email=args.service_account_email,

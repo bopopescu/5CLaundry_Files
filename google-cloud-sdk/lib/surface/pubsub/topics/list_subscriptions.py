@@ -11,21 +11,38 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub topics list_subscriptions command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+from googlecloudsdk.api_lib.pubsub import topics
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.pubsub import resource_args
 from googlecloudsdk.command_lib.pubsub import util
-from googlecloudsdk.core.resource import resource_printer_base
-from googlecloudsdk.core.resource import resource_projector
+from googlecloudsdk.core import properties
 
 
+def _Run(args, legacy_output=False):
+  client = topics.TopicsClient()
+
+  topic_ref = args.CONCEPTS.topic.Parse()
+  for topic_sub in client.ListSubscriptions(topic_ref,
+                                            page_size=args.page_size):
+    if legacy_output:
+      topic_sub = util.ListTopicSubscriptionDisplayDict(topic_sub)
+    yield topic_sub
+
+
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class ListSubscriptions(base.ListCommand):
-  """Lists Cloud Pub/Sub subscriptions from a given topic.
-
-  Lists all of the Cloud Pub/Sub subscriptions attached to the given topic and
-  that match the given filter.
-  """
+  """Lists Cloud Pub/Sub subscriptions from a given topic."""
 
   detailed_help = {
+      'DESCRIPTION': """\
+          Lists all of the Cloud Pub/Sub subscriptions attached to the given
+          topic and that match the given filter.""",
       'EXAMPLES': """\
           To filter results by subscription name
           (ie. only show subscription 'mysubs'), run:
@@ -44,60 +61,19 @@ class ListSubscriptions(base.ListCommand):
 
   @staticmethod
   def Args(parser):
-    """Register flags for this command."""
+    parser.display_info.AddFormat('yaml')
+    parser.display_info.AddUriFunc(util.SubscriptionUriFunc)
 
-    parser.add_argument(
-        'topic',
-        help=('The name of the topic to list subscriptions for.'))
+    resource_args.AddTopicResourceArg(parser, 'to list subscriptions for.')
 
   def Run(self, args):
-    """This is what gets called when the user runs this command.
-
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
-
-    Yields:
-      Subscriptions paths that match the regular expression in args.name_filter.
-    """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
-
-    page_size = None
-    page_token = None
-
-    if args.page_size:
-      page_size = min(args.page_size, util.MAX_LIST_RESULTS)
-
-    if not args.filter and args.limit:
-      page_size = min(args.limit, page_size or util.MAX_LIST_RESULTS)
-
-    while True:
-      list_subscriptions_req = (
-          msgs.PubsubProjectsTopicsSubscriptionsListRequest(
-              topic=util.TopicFormat(args.topic),
-              pageSize=page_size,
-              pageToken=page_token))
-
-      list_subscriptions_result = pubsub.projects_topics_subscriptions.List(
-          list_subscriptions_req)
-
-      for subscription in list_subscriptions_result.subscriptions:
-        yield TopicSubscriptionDict(subscription)
-
-      page_token = list_subscriptions_result.nextPageToken
-      if not page_token:
-        break
-
-      yield resource_printer_base.PageMarker()
+    return _Run(args)
 
 
-def TopicSubscriptionDict(topic_subscription):
-  """Returns a topic_subscription dict with additional fields."""
-  result = resource_projector.MakeSerializable(
-      {'subscription': topic_subscription})
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+class ListSubscriptionsBeta(ListSubscriptions):
+  """Lists Cloud Pub/Sub subscriptions from a given topic."""
 
-  subscription_info = util.SubscriptionIdentifier(topic_subscription)
-  result['projectId'] = subscription_info.project.project_name
-  result['subscriptionId'] = subscription_info.resource_name
-  return result
+  def Run(self, args):
+    legacy_output = properties.VALUES.pubsub.legacy_output.GetBool()
+    return _Run(args, legacy_output=legacy_output)

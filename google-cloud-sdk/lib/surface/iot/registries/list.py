@@ -11,10 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command to list all registries in a project and location."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import registries
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.iot import flags
+from googlecloudsdk.command_lib.iot import resource_args
 from googlecloudsdk.command_lib.iot import util
 
 
@@ -22,24 +27,25 @@ _FORMAT = """\
 table(
     name.scope("registries"):label=ID,
     name.scope("locations").segment(0):label=LOCATION,
-    mqttConfig.mqttConfigState:label=MQTT_ENABLED
+    mqttConfig.mqttEnabledState:label=MQTT_ENABLED
 )
 """
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class List(base.ListCommand):
   """List device registries."""
 
   @staticmethod
   def Args(parser):
+    resource_args.AddRegionResourceArg(parser, 'to list registries for')
     parser.display_info.AddFormat(_FORMAT)
     parser.display_info.AddUriFunc(util.RegistriesUriFunc)
-    flags.GetRegionFlag('device registries').AddToParser(parser)
 
   def Run(self, args):
     """Run the list command."""
     client = registries.RegistriesClient()
 
-    location_ref = util.ParseLocation(args.region)
+    location_ref = args.CONCEPTS.region.Parse()
 
     return client.List(location_ref, args.limit, args.page_size)

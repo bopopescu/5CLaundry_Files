@@ -25,7 +25,7 @@ from googlecloudsdk.api_lib.dataproc import dataproc as dp
 from googlecloudsdk.api_lib.dataproc import storage_helpers
 from googlecloudsdk.api_lib.dataproc import util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 from googlecloudsdk.core.util import files
 
@@ -166,13 +166,7 @@ class JobSubmitter(base.Command):
   @abc.abstractmethod
   def ConfigureJob(self, messages, job, args):
     """Add type-specific job configuration to job message."""
-    # Parse labels (if present)
-    labels = labels_util.UpdateLabels(
-        None,
-        messages.Job.LabelsValue,
-        labels_util.GetUpdateLabelsDictFromArgs(args),
-        None)
-    job.labels = labels
+    job.labels = labels_util.ParseCreateArgs(args, messages.Job.LabelsValue)
 
   @abc.abstractmethod
   def PopulateFilesByType(self, args):

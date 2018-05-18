@@ -13,20 +13,45 @@
 # limitations under the License.
 """Common functions and classes for dealing with managed instances groups."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import random
 import re
 import string
 import sys
+from apitools.base.py import list_pager
 
 from googlecloudsdk.api_lib.compute import lister
+from googlecloudsdk.api_lib.compute import path_simplifier
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import arg_parsers
+from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 _ALLOWED_UTILIZATION_TARGET_TYPES = [
     'DELTA_PER_MINUTE', 'DELTA_PER_SECOND', 'GAUGE']
+
+_ALLOWED_UTILIZATION_TARGET_TYPES_LOWER = [
+    'delta-per-minute', 'delta-per-second', 'gauge']
+
+ARGS_CONFLICTING_WITH_AUTOSCALING_FILE_BETA = [
+    'max_num_replicas', 'cool_down_period', 'custom_metric_utilization',
+    'description', 'min_num_replicas',
+    'scale_based_on_cpu', 'scale_based_on_load_balancing',
+    'target_cpu_utilization', 'target_load_balancing_utilization'
+]
+
+ARGS_CONFLICTING_WITH_AUTOSCALING_FILE_ALPHA = (
+    ARGS_CONFLICTING_WITH_AUTOSCALING_FILE_BETA + [
+        'queue_scaling_acceptable_backlog_per_instance',
+        'queue_scaling_cloud_pub_sub', 'queue_scaling_single_worker_throughput',
+    ]
+)
 
 _MAX_AUTOSCALER_NAME_LENGTH = 63
 # 4 character chosen from between lowercase letters and numbers give >1.6M
@@ -39,14 +64,24 @@ CLOUD_PUB_SUB_VALID_RESOURCE_RE = r'^[A-Za-z][A-Za-z0-9-_.~+%]{2,}$'
 
 
 class ResourceNotFoundException(exceptions.ToolException):
-  pass
+  """The user tries to get/use/update resource which does not exist."""
+
+
+class ResourceAlreadyExistsException(exceptions.ToolException):
+  """The user tries to create resource which already exists."""
+
+
+class ResourceCannotBeResolvedException(exceptions.ToolException):
+  """The user uses invalid / partial name to resolve URI for the resource."""
 
 
 def ArgsSupportQueueScaling(args):
   return 'queue_scaling_acceptable_backlog_per_instance' in args
 
 
-def AddAutoscalerArgs(parser, queue_scaling_enabled=False):
+def AddAutoscalerArgs(
+    parser, queue_scaling_enabled=False, autoscaling_file_enabled=False,
+    stackdriver_metrics_flags=False, mode_enabled=False):
   """Adds commandline arguments to parser."""
   parser.add_argument(
       '--cool-down-period',
@@ -55,13 +90,15 @@ def AddAutoscalerArgs(parser, queue_scaling_enabled=False):
             'collecting information from a new instance. This prevents the '
             'autoscaler from collecting information when the instance is '
             'initializing, during which the collected usage would not be '
-            'reliable. The default is 60 seconds.'))
+            'reliable. The default is 60s. See $ gcloud topic datetimes '
+            'for information on duration formats.'))
   parser.add_argument('--description', help='Notes about Autoscaler.')
   parser.add_argument('--min-num-replicas',
-                      type=arg_parsers.BoundedInt(0, sys.maxint),
+                      type=arg_parsers.BoundedInt(0, sys.maxsize),
                       help='Minimum number of replicas Autoscaler will set.')
   parser.add_argument('--max-num-replicas',
-                      type=arg_parsers.BoundedInt(0, sys.maxint), required=True,
+                      type=arg_parsers.BoundedInt(0, sys.maxsize),
+                      required=not autoscaling_file_enabled,
                       help='Maximum number of replicas Autoscaler will set.')
   parser.add_argument('--scale-based-on-cpu',
                       action='store_true',
@@ -78,6 +115,20 @@ def AddAutoscalerArgs(parser, queue_scaling_enabled=False):
                       type=arg_parsers.BoundedFloat(0.0, None),
                       help='Autoscaler will aim to maintain the load balancing '
                       'utilization level (greater than 0.0).')
+  custom_metric_utilization_help = """\
+Adds a target metric value for the Autoscaler to use.
+
+*metric*::: Protocol-free URL of a Google Cloud Monitoring metric.
+
+*utilization-target*::: Value of the metric Autoscaler will aim to
+  maintain (greater than 0.0).
+
+*utilization-target-type*::: How target is expressed. Valid values: {0}.
+""".format(', '.join(_ALLOWED_UTILIZATION_TARGET_TYPES))
+  if stackdriver_metrics_flags:
+    custom_metric_utilization_help += """
+Mutually exclusive with `--update-stackdriver-metric`.
+"""
   parser.add_argument(
       '--custom-metric-utilization',
       type=arg_parsers.ArgDict(
@@ -88,16 +139,7 @@ def AddAutoscalerArgs(parser, queue_scaling_enabled=False):
           },
       ),
       action='append',
-      help="""\
-      Adds a target metric value for the to the Autoscaler.
-
-      *metric*::: Protocol-free URL of a Google Cloud Monitoring metric.
-
-      *utilization-target*::: Value of the metric Autoscaler will aim to
-      maintain (greater than 0.0).
-
-      *utilization-target-type*::: How target is expressed. Valid values: {0}.
-      """.format(', '.join(_ALLOWED_UTILIZATION_TARGET_TYPES))
+      help=custom_metric_utilization_help,
   )
 
   if queue_scaling_enabled:
@@ -133,6 +175,93 @@ def AddAutoscalerArgs(parser, queue_scaling_enabled=False):
                         help='Hint the autoscaler for queue-based scaling on '
                         'how much throughput a single worker instance is able '
                         'to consume.')
+  if autoscaling_file_enabled:
+    parser.add_argument(
+        '--autoscaling-file',
+        metavar='PATH',
+        help=('Path of the file from which autoscaling configuration will be '
+              'loaded. This flag allows you to atomically setup complex '
+              'autoscalers.'))
+  if stackdriver_metrics_flags:
+    parser.add_argument(
+        '--remove-stackdriver-metric',
+        metavar='METRIC',
+        help=('Stackdriver metric to remove from autoscaling configuration. '
+              'If the metric is the only input used for autoscaling the '
+              'command will fail.'))
+    parser.add_argument(
+        '--update-stackdriver-metric',
+        metavar='METRIC',
+        help=('Stackdriver metric to use as an input for autoscaling. '
+              'When using this flag you must also specify target value of the '
+              'metric by specifying '
+              '`--stackdriver-metric-single-instance-assignment` or '
+              '`--stackdriver-metric-utilization-target` and '
+              '`--stackdriver-metric-utilization-target-type`. '
+              'Mutually exclusive with `--custom-metric-utilization`.'))
+    parser.add_argument(
+        '--stackdriver-metric-filter',
+        metavar='FILTER',
+        help=('Expression for filtering samples used to autoscale, see '
+              'https://cloud.google.com/monitoring/api/v3/filters.'))
+    parser.add_argument(
+        '--stackdriver-metric-utilization-target',
+        metavar='TARGET',
+        type=float,
+        help=('Value of the metric Autoscaler will aim to maintain. When '
+              'specifying this flag you must also provide '
+              '`--stackdriver-metric-utilization-target-type`. Mutually '
+              'exclusive with '
+              '`--stackdriver-metric-single-instance-assignment` and '
+              '`--custom-metric-utilization`.'))
+
+    parser.add_argument(
+        '--stackdriver-metric-utilization-target-type',
+        metavar='TARGET_TYPE',
+        choices=_ALLOWED_UTILIZATION_TARGET_TYPES_LOWER,
+        help=('Value of the metric Autoscaler will aim to maintain. When '
+              'specifying this flag you must also provide '
+              '`--stackdriver-metric-utilization-target`. Mutually '
+              'exclusive with '
+              '`--stackdriver-metric-single-instance-assignment` and '
+              '`--custom-metric-utilization`.'))
+    parser.add_argument(
+        '--stackdriver-metric-single-instance-assignment',
+        metavar='ASSIGNMENT',
+        type=float,
+        help=('Autoscaler will aim to maintain value of metric divided by '
+              'number of instances at this level. Mutually '
+              'exclusive with '
+              '`-stackdriver-metric-utilization-target-type`, '
+              '`-stackdriver-metric-utilization-target-type`, and '
+              '`--custom-metric-utilization`.'))
+
+  if mode_enabled:
+    GetModeFlag().AddToParser(parser)
+
+
+def GetModeFlag():
+  # Can't use a ChoiceEnumMapper because we don't have access to the "messages"
+  # module for the right API version.
+  return base.ChoiceArgument(
+      '--mode',
+      {
+          'on': ('to permit autoscaling to scale up and down (default for '
+                 'new autoscalers).'),
+          'only-up': 'to permit autoscaling to scale only up and not down.',
+          'only-down': 'to permit autoscaling to scale only down and not up.',
+          'off': ('to turn off autoscaling, while keeping the new '
+                  'configuration.')
+      },
+      help_str="""\
+          Set the mode of an autoscaler for a managed instance group.
+
+          You can turn off or restrict MIG activities without changing MIG
+          configuration and then having to restore it later. MIG configuration
+          persists while the activities are turned off or restricted, and the
+          activities pick it up when they are turned on again or when the
+          restrictions are lifted.
+      """)
 
 
 def _ValidateCloudPubSubResource(pubsub_spec_dict, expected_resource_type):
@@ -165,6 +294,112 @@ def _ValidateCloudPubSubResource(pubsub_spec_dict, expected_resource_type):
         'URL (starting with "projects/").')
   if not re.match(CLOUD_PUB_SUB_VALID_RESOURCE_RE, resource_name):
     RaiseInvalidArgument('resource name not valid.')
+
+
+def ValidateConflictsWithAutoscalingFile(args, conflicting_args):
+  if (hasattr(args, 'autoscaling_file') and
+      args.IsSpecified('autoscaling_file')):
+    for arg in conflicting_args:
+      if args.IsSpecified(arg):
+        conflicting_flags = [
+            '--' + a.replace('_', '-')
+            for a in conflicting_args
+        ]
+        raise exceptions.ConflictingArgumentsException(
+            *(['--autoscaling-file'] + conflicting_flags))
+
+
+def _ValidateCustomMetricUtilizationVsUpdateStackdriverMetric(args):
+  if (args.IsSpecified('custom_metric_utilization') and
+      args.IsSpecified('update_stackdriver_metric')):
+    raise exceptions.ConflictingArgumentsException(
+        '--custom-metric-utilization', '--update-stackdriver-metric')
+
+
+def _ValidateRemoveStackdriverMetricVsUpdateStackdriverMetric(args):
+  if (args.IsSpecified('update_stackdriver_metric') and
+      args.IsSpecified('remove_stackdriver_metric') and
+      args.update_stackdriver_metric == args.remove_stackdriver_metric):
+    raise exceptions.InvalidArgumentException(
+        '--update-stackdriver-metric',
+        'You can not remove Stackdriver metric you are updating with '
+        '[--update-stackdriver-metric] flag.')
+
+
+def _ValidateRequiringUpdateStackdriverMetric(args):
+  if not args.IsSpecified('update_stackdriver_metric'):
+    requiring_flags = [
+        'stackdriver_metric_filter',
+        'stackdriver_metric_single_instance_assignment',
+        'stackdriver_metric_utilization_target',
+        'stackdriver_metric_utilization_target_type',
+    ]
+    for f in requiring_flags:
+      if args.IsSpecified(f):
+        raise exceptions.RequiredArgumentException(
+            '--' + f.replace('_', '-'),
+            '[--update-stackdriver-metric] required to use this flag.')
+
+
+def _ValidateRequiredByUpdateStackdriverMetric(args):
+  if args.IsSpecified('update_stackdriver_metric'):
+    one_of_required = [
+        'stackdriver_metric_single_instance_assignment',
+        'stackdriver_metric_utilization_target',]
+    if not any([args.IsSpecified(f) for f in one_of_required]):
+      flags = [
+          '[--{}]'.format(f.replace('_', '--')) for f in one_of_required]
+      msg = ('You must provide one of {} with '
+             '[--update-stackdriver-metric].'.format(', '.join(flags)))
+      raise exceptions.RequiredArgumentException(
+          '--update-stackdriver-metric', msg)
+
+
+def _ValidateSingleInstanceAssignmentVsUtilizationTarget(args):
+  if args.IsSpecified('stackdriver_metric_single_instance_assignment'):
+    potential_conflicting = [
+        'stackdriver_metric_utilization_target',
+        'stackdriver_metric_utilization_target_type',
+    ]
+    conflicting = [f for f in potential_conflicting if args.IsSpecified(f)]
+    if any(conflicting):
+      assignment_flag = '--stackdriver-metric-single-instance-assignment'
+      conflicting_flags = [
+          '[--{}]'.format(f.replace('_', '-')) for f in conflicting]
+      raise exceptions.ConflictingArgumentsException(
+          assignment_flag,
+          'You cannot use any of {} with `{}`'.format(
+              conflicting_flags, assignment_flag))
+
+
+def _ValidateUtilizationTargetHasType(args):
+  if (args.IsSpecified('stackdriver_metric_utilization_target') and
+      not args.IsSpecified('stackdriver_metric_utilization_target_type')):
+    raise exceptions.RequiredArgumentException(
+        '--stackdriver-metric-utilization-target-type',
+        'Required with [--stackdriver-metric-utilization-target].')
+
+
+def ValidateStackdriverMetricsFlags(args):
+  """Perform validations related to .*stackdriver-metric.* flags."""
+  _ValidateCustomMetricUtilizationVsUpdateStackdriverMetric(args)
+  _ValidateRemoveStackdriverMetricVsUpdateStackdriverMetric(args)
+  _ValidateRequiringUpdateStackdriverMetric(args)
+  _ValidateRequiredByUpdateStackdriverMetric(args)
+  _ValidateSingleInstanceAssignmentVsUtilizationTarget(args)
+  _ValidateUtilizationTargetHasType(args)
+
+
+def ValidateGeneratedAutoscalerIsValid(args, autoscaler):
+  if (args.IsSpecified('remove_stackdriver_metric') and
+      not autoscaler.autoscalingPolicy.customMetricUtilizations and
+      not autoscaler.autoscalingPolicy.cpuUtilization and
+      not autoscaler.autoscalingPolicy.loadBalancingUtilization):
+    raise exceptions.InvalidArgumentException(
+        '--remove-stackdriver-metric',
+        'This would remove the only signal used for autoscaling. If you want '
+        'to stop autoscaling the Managed Instance Group use `stop-autoscaling` '
+        'command instead.')
 
 
 def ValidateAutoscalerArgs(args):
@@ -221,7 +456,7 @@ def GetInstanceGroupManagerOrThrow(igm_ref, client):
   request = request_type(**igm_ref.AsDict())
 
   errors = []
-  # Run throught the generator to actually make the requests and get potential
+  # Run through the generator to actually make the requests and get potential
   # errors.
   igm_details = client.MakeRequests([(service, 'Get', request)],
                                     errors_to_collect=errors)
@@ -280,7 +515,7 @@ def AutoscalersForLocations(zones, regions, client,
   # Explicit list() is required to unwind the generator and make sure errors
   # are detected at this level.
   requests = []
-  for project, zones in GroupByProject(zones).iteritems():
+  for project, zones in six.iteritems(GroupByProject(zones)):
     requests += lister.FormatListRequests(
         service=client.apitools_client.autoscalers,
         project=project,
@@ -290,7 +525,7 @@ def AutoscalersForLocations(zones, regions, client,
 
   if regions:
     if hasattr(client.apitools_client, 'regionAutoscalers'):
-      for project, regions in GroupByProject(regions).iteritems():
+      for project, regions in six.iteritems(GroupByProject(regions)):
         requests += lister.FormatListRequests(
             service=client.apitools_client.regionAutoscalers,
             project=project,
@@ -340,11 +575,43 @@ def AutoscalersForMigs(migs, autoscalers):
   return result
 
 
-def AutoscalerForMig(mig_name, autoscalers, location, scope_type):
-  """Finds Autoscaler targetting given IGM.
+def AutoscalerForMigByRef(client, resources, igm_ref):
+  """Returns autoscaler targeting given instance group manager.
 
   Args:
-    mig_name: Name of MIG targetted by Autoscaler.
+    client: a GCE client
+    resources: a GCE resource registry
+    igm_ref: reference to instance group manager
+  Returns:
+    Autoscaler message with autoscaler targeting the IGM refferenced by
+    igm_ref or None if there isn't one.
+  """
+  if igm_ref.Collection() == 'compute.instanceGroupManagers':
+    scope_type = 'zone'
+    location = CreateZoneRef(resources, igm_ref)
+    zones, regions = [location], None
+  else:
+    scope_type = 'region'
+    location = CreateRegionRef(resources, igm_ref)
+    zones, regions = None, [location]
+
+  autoscalers = AutoscalersForLocations(
+      regions=regions,
+      zones=zones,
+      client=client)
+
+  return AutoscalerForMig(
+      mig_name=igm_ref.Name(),
+      autoscalers=autoscalers,
+      location=location,
+      scope_type=scope_type)
+
+
+def AutoscalerForMig(mig_name, autoscalers, location, scope_type):
+  """Finds Autoscaler targeting given IGM.
+
+  Args:
+    mig_name: Name of MIG targeted by Autoscaler.
     autoscalers: A list of Autoscalers to search among.
     location: Target location reference.
     scope_type: Target scope type.
@@ -439,33 +706,94 @@ def _BuildCpuUtilization(args, messages):
   return None
 
 
-def _BuildCustomMetricUtilizations(args, messages):
+def _BuildCustomMetricUtilizationsFromCustomMetricUtilizationFlag(
+    flag, messages):
+  """Translate --custom-metric-utilization flag to API message."""
+  result = []
+  for custom_metric_utilization in flag:
+    result.append(
+        messages.AutoscalingPolicyCustomMetricUtilization(
+            utilizationTarget=custom_metric_utilization[
+                'utilization-target'],
+            metric=custom_metric_utilization['metric'],
+            utilizationTargetType=(
+                messages
+                .AutoscalingPolicyCustomMetricUtilization
+                .UtilizationTargetTypeValueValuesEnum(
+                    custom_metric_utilization['utilization-target-type'],
+                )
+            ),
+        )
+    )
+  return result
+
+
+def _RemoveMetricFromList(metrics, to_remove):
+  for i, metric in enumerate(metrics):
+    if metric.metric == to_remove:
+      del metrics[i]
+      return
+
+
+def _UpdateCustomMetricUtilizationsFromStackoverflowFlags(
+    args, messages, original):
+  """Take apply stackdriver flags to customMetricUtilizations."""
+  if original:
+    result = original.autoscalingPolicy.customMetricUtilizations
+  else:
+    result = []
+  if args.remove_stackdriver_metric:
+    _RemoveMetricFromList(result, args.remove_stackdriver_metric)
+  if args.update_stackdriver_metric:
+    _RemoveMetricFromList(result, args.update_stackdriver_metric)
+    if args.stackdriver_metric_utilization_target_type:
+      target_type = (
+          messages.AutoscalingPolicyCustomMetricUtilization
+          .UtilizationTargetTypeValueValuesEnum(
+              args.stackdriver_metric_utilization_target_type.upper().
+              replace('-', '_'),
+          )
+      )
+    else:
+      target_type = None
+
+    if args.stackdriver_metric_filter and "'" in args.stackdriver_metric_filter:
+      log.warning(
+          "The provided filter contains a single quote character ('). While "
+          "valid as a metric/resource label value, it's not a control "
+          "character that is part of the filtering language; if you meant "
+          "to use it to quote a string value, you need to use a double quote "
+          "character (\") instead.")
+    result.append(
+        messages.AutoscalingPolicyCustomMetricUtilization(
+            utilizationTarget=args.stackdriver_metric_utilization_target,
+            metric=args.update_stackdriver_metric,
+            utilizationTargetType=target_type,
+            singleInstanceAssignment=(
+                args.stackdriver_metric_single_instance_assignment
+            ),
+            filter=args.stackdriver_metric_filter,
+        )
+    )
+  return result
+
+
+def _BuildCustomMetricUtilizations(args, messages, original):
   """Builds custom metric utilization policy list from args.
 
   Args:
     args: command line arguments.
     messages: module containing message classes.
+    original: original autoscaler message.
   Returns:
     AutoscalingPolicyCustomMetricUtilization list.
   """
-  result = []
   if args.custom_metric_utilization:
-    for custom_metric_utilization in args.custom_metric_utilization:
-      result.append(
-          messages.AutoscalingPolicyCustomMetricUtilization(
-              utilizationTarget=custom_metric_utilization[
-                  'utilization-target'],
-              metric=custom_metric_utilization['metric'],
-              utilizationTargetType=(
-                  messages
-                  .AutoscalingPolicyCustomMetricUtilization
-                  .UtilizationTargetTypeValueValuesEnum(
-                      custom_metric_utilization['utilization-target-type'],
-                  )
-              ),
-          )
-      )
-  return result
+    return _BuildCustomMetricUtilizationsFromCustomMetricUtilizationFlag(
+        args.custom_metric_utilization, messages)
+  if hasattr(args, 'stackdriver_metric_filter'):
+    return _UpdateCustomMetricUtilizationsFromStackoverflowFlags(
+        args, messages, original)
 
 
 def _BuildLoadBalancingUtilization(args, messages):
@@ -512,36 +840,65 @@ def _BuildQueueBasedScaling(args, messages):
   return messages.AutoscalingPolicyQueueBasedScaling(**queue_policy_dict)
 
 
-def _BuildAutoscalerPolicy(args, messages):
+def ParseModeString(mode, messages):
+  return messages.AutoscalingPolicy.ModeValueValuesEnum(
+      mode.upper().replace('-', '_'))
+
+
+def _BuildMode(args, messages, original):
+  if not args.mode:
+    return original.autoscalingPolicy.mode if original else None
+  return ParseModeString(args.mode, messages)
+
+
+def _BuildAutoscalerPolicy(args, messages, original, mode_enabled=False):
   """Builds AutoscalingPolicy from args.
 
   Args:
     args: command line arguments.
     messages: module containing message classes.
+    original: original autoscaler message.
+    mode_enabled: bool, whether to include the 'autoscalingPolicy.mode' field in
+      the message.
   Returns:
     AutoscalingPolicy message object.
   """
   policy_dict = {
       'coolDownPeriodSec': args.cool_down_period,
       'cpuUtilization': _BuildCpuUtilization(args, messages),
-      'customMetricUtilizations': _BuildCustomMetricUtilizations(args,
-                                                                 messages),
-      'loadBalancingUtilization': _BuildLoadBalancingUtilization(args,
-                                                                 messages),
+      'customMetricUtilizations': _BuildCustomMetricUtilizations(
+          args, messages, original),
+      'loadBalancingUtilization': _BuildLoadBalancingUtilization(
+          args, messages),
       'queueBasedScaling': _BuildQueueBasedScaling(args, messages),
       'maxNumReplicas': args.max_num_replicas,
       'minNumReplicas': args.min_num_replicas,
   }
+  if mode_enabled:
+    policy_dict['mode'] = _BuildMode(args, messages, original)
   return messages.AutoscalingPolicy(
-      **dict((key, value) for key, value in policy_dict.iteritems()
+      **dict((key, value) for key, value in six.iteritems(policy_dict)
              if value is not None))  # Filter out None values.
 
 
-def AdjustAutoscalerNameForCreation(autoscaler_resource):
+def AdjustAutoscalerNameForCreation(autoscaler_resource, igm_ref):
+  """Set name of autoscaler o be created.
+
+  If autoscaler name is not None it wNone ill be used as a prefix of name of the
+  autoscaler to be created. Prefix may be shortened so that the name fits below
+  length limit. Name prefix is followed by '-' character and four
+  random letters.
+
+  Args:
+    autoscaler_resource: Autoscaler resource to be created.
+    igm_ref: reference to Instance Group Manager targeted by the Autoscaler.
+  """
+  if autoscaler_resource.name is None:
+    autoscaler_resource.name = igm_ref.Name()
   trimmed_name = autoscaler_resource.name[
       0:(_MAX_AUTOSCALER_NAME_LENGTH - _NUM_RANDOM_CHARACTERS_IN_AS_NAME - 1)]
   random_characters = [
-      random.choice(string.lowercase + string.digits)
+      random.choice(string.ascii_lowercase + string.digits)
       for _ in range(_NUM_RANDOM_CHARACTERS_IN_AS_NAME)
   ]
   random_suffix = ''.join(random_characters)
@@ -549,10 +906,12 @@ def AdjustAutoscalerNameForCreation(autoscaler_resource):
   autoscaler_resource.name = new_name
 
 
-def BuildAutoscaler(args, messages, igm_ref, name):
+def BuildAutoscaler(args, messages, igm_ref, name, original,
+                    mode_enabled=False):
   """Builds autoscaler message protocol buffer."""
   autoscaler = messages.Autoscaler(
-      autoscalingPolicy=_BuildAutoscalerPolicy(args, messages),
+      autoscalingPolicy=_BuildAutoscalerPolicy(args, messages, original,
+                                               mode_enabled=mode_enabled),
       description=args.description,
       name=name,
       target=igm_ref.SelfLink(),
@@ -676,7 +1035,7 @@ def _ComputeInstanceGroupSize(items, client, resources):
   ]
 
   zonal_instance_groups = []
-  for project, zone_refs in GroupByProject(zone_refs).iteritems():
+  for project, zone_refs in six.iteritems(GroupByProject(zone_refs)):
     zonal_instance_groups.extend(
         lister.GetZonalResources(
             service=client.apitools_client.instanceGroups,
@@ -689,7 +1048,7 @@ def _ComputeInstanceGroupSize(items, client, resources):
 
   regional_instance_groups = []
   if getattr(client.apitools_client, 'regionInstanceGroups', None):
-    for project, region_refs in GroupByProject(region_refs).iteritems():
+    for project, region_refs in six.iteritems(GroupByProject(region_refs)):
       regional_instance_groups.extend(
           lister.GetRegionalResources(
               service=client.apitools_client.regionInstanceGroups,
@@ -730,3 +1089,54 @@ def GetHealthCheckUri(resources, args, health_check_parser=None):
         args.https_health_check,
         params={'project': properties.VALUES.core.project.GetOrFail},
         collection='compute.httpsHealthChecks').SelfLink()
+
+
+# TODO(b/70203649): improve/fix method (no silent errors, add optimizations)
+def CreateInstanceReferences(holder, igm_ref, instance_names):
+  """Creates references to instances in instance group (zonal or regional)."""
+  if igm_ref.Collection() == 'compute.instanceGroupManagers':
+    instance_refs = []
+    for instance in instance_names:
+      instance_refs.append(
+          holder.resources.Parse(
+              instance,
+              params={
+                  'project': igm_ref.project,
+                  'zone': igm_ref.zone,
+              },
+              collection='compute.instances'))
+    return instance_refs
+  elif igm_ref.Collection() == 'compute.regionInstanceGroupManagers':
+    messages = holder.client.messages
+    request = (
+        messages.ComputeRegionInstanceGroupManagersListManagedInstancesRequest)(
+            instanceGroupManager=igm_ref.Name(),
+            region=igm_ref.region,
+            project=igm_ref.project)
+    managed_instances = list_pager.YieldFromList(
+        service=holder.client.apitools_client.regionInstanceGroupManagers,
+        batch_size=500,
+        request=request,
+        method='ListManagedInstances',
+        field='managedInstances',
+    )
+    instances_to_return = []
+    for instance_ref in managed_instances:
+      if path_simplifier.Name(
+          instance_ref.instance
+      ) in instance_names or instance_ref.instance in instance_names:
+        instances_to_return.append(instance_ref.instance)
+    return instances_to_return
+  else:
+    raise ValueError('Unknown reference type {0}'.format(igm_ref.Collection()))
+
+
+def GetDeviceNamesFromStatefulPolicy(stateful_policy):
+  """Returns a list of device names from given StatefulPolicy message."""
+  if not stateful_policy or not stateful_policy.preservedResources:
+    return []
+  return [disk.deviceName for disk in stateful_policy.preservedResources.disks]
+
+
+def IsAutoscalerNew(autoscaler):
+  return getattr(autoscaler, 'name', None) is None

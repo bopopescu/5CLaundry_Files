@@ -13,6 +13,8 @@
 # limitations under the License.
 """Utility functions for interacting with a java installation."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import re
 import subprocess
 
@@ -24,15 +26,18 @@ class JavaError(exceptions.Error):
   pass
 
 
-def CheckIfJavaIsInstalled(for_text, min_version=7):
-  """Checks if Java is installed.
+def RequireJavaInstalled(for_text, min_version=7):
+  """Require that a certain version of Java is installed.
 
   Args:
     for_text: str, the text explaining what Java is necessary for.
     min_version: int, the minimum major version to check for.
 
   Raises:
-    JavaError: if Java is not found on the path or is not executable.
+    JavaError: if a Java executable is not found or has the wrong version.
+
+  Returns:
+    str, Path to the Java executable.
   """
   java_path = files.FindExecutableOnPath('java')
   if not java_path:
@@ -47,8 +52,28 @@ def CheckIfJavaIsInstalled(for_text, min_version=7):
                     ' The {for_text} requires a Java {v}+ JRE installed and on '
                     'your system PATH'.format(for_text=for_text, v=min_version))
 
-  match = re.search(r'version "1.(\d+).', output)
-  if not match or int(match.group(1)) < min_version:
-    raise JavaError('The java executable on your PATH is not a Java {v}+ JRE.'
-                    ' The {for_text} requires a Java {v}+ JRE installed and on '
-                    'your system PATH'.format(v=min_version, for_text=for_text))
+  java_exec_version_error = JavaError(
+      'The java executable on your PATH is not a Java {v}+ JRE.'
+      ' The {for_text} requires a Java {v}+ JRE installed and on '
+      'your system PATH'.format(v=min_version, for_text=for_text))
+
+  # Find java major version.
+  match = re.search(r'version "1\.', output)
+  if match:
+    # We are in a pre http://openjdk.java.net/jeps/223 world,
+    # this is the 1.6.xx, 1.7.xx, 1.8.xxx world.
+    match = re.search(r'version "(\d+)\.(\d+)\.', output)
+    if not match:
+      raise java_exec_version_error
+    major_version = int(match.group(2))
+  else:
+    # We are in a post http://openjdk.java.net/jeps/223 world
+    match = re.search(r'version "([1-9][0-9]*)', output)
+    if not match:
+      raise java_exec_version_error
+    major_version = int(match.group(1))
+
+  if major_version < min_version:
+    raise java_exec_version_error
+
+  return java_path

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for listing named ports in instance groups."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import instance_groups_utils
 from googlecloudsdk.calliope import base
@@ -24,14 +26,12 @@ from googlecloudsdk.core import properties
 class GetNamedPorts(base.ListCommand):
   """Implements get-named-ports command, GA version."""
 
-  def DeprecatedFormat(self, unused_args):
-    return 'table(name, port)'
-
   @staticmethod
   def Args(parser):
     GetNamedPorts.ZonalInstanceGroupArg = (
         instance_groups_flags.MakeZonalInstanceGroupArg())
     GetNamedPorts.ZonalInstanceGroupArg.AddArgument(parser)
+    parser.display_info.AddFormat('table(name, port)')
 
   def Run(self, args):
     """Retrieves response with named ports."""
@@ -53,12 +53,10 @@ class GetNamedPorts(base.ListCommand):
 class GetNamedPortsBeta(base.ListCommand):
   """Implements get-named-ports command, alpha, and beta versions."""
 
-  def DeprecatedFormat(self, unused_args):
-    return 'table(name, port)'
-
   @staticmethod
   def Args(parser):
     instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_ARG.AddArgument(parser)
+    parser.display_info.AddFormat('table(name, port)')
 
   def Run(self, args):
     """Retrieves response with named ports."""

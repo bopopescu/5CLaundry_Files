@@ -29,14 +29,14 @@ except ImportError:
 # Python version and OS.
 REQUIRED_PACKAGES = [
     'httplib2>=0.8',
-    'oauth2client>=1.5.2',
-    'setuptools>=18.5',
+    'fasteners>=0.14',
+    'oauth2client>=1.4.12',
     'six>=1.9.0',
     ]
 
 CLI_PACKAGES = [
     'google-apputils>=0.4.0',
-    'python-gflags>=2.0',
+    'python-gflags==3.0.6',  # Starting version 3.0.7 py26 is not supported.
 ]
 
 TESTING_PACKAGES = [
@@ -47,7 +47,6 @@ TESTING_PACKAGES = [
 
 CONSOLE_SCRIPTS = [
     'gen_client = apitools.gen.gen_client:main',
-    'oauth2l = apitools.scripts.oauth2l:main',
 ]
 
 py_version = platform.python_version()
@@ -55,7 +54,7 @@ py_version = platform.python_version()
 if py_version < '2.7':
     REQUIRED_PACKAGES.append('argparse>=1.2.1')
 
-_APITOOLS_VERSION = '0.5.3'
+_APITOOLS_VERSION = '0.5.22'
 
 with open('README.rst') as fileobj:
     README = fileobj.read()
@@ -65,7 +64,7 @@ setuptools.setup(
     version=_APITOOLS_VERSION,
     description='client libraries for humans',
     long_description=README,
-    url='http://github.com/craigcitro/apitools',
+    url='http://github.com/google/apitools',
     author='Craig Citro',
     author_email='craigcitro@google.com',
     # Contained modules and scripts.

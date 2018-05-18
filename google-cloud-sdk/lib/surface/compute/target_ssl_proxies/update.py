@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for updating target SSL proxies."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import target_proxies_utils
 from googlecloudsdk.api_lib.compute import utils
@@ -22,17 +24,27 @@ from googlecloudsdk.command_lib.compute.backend_services import (
     flags as backend_service_flags)
 from googlecloudsdk.command_lib.compute.ssl_certificates import (
     flags as ssl_certificates_flags)
+from googlecloudsdk.command_lib.compute.ssl_policies import (flags as
+                                                             ssl_policies_flags)
 from googlecloudsdk.command_lib.compute.target_ssl_proxies import flags
-from googlecloudsdk.core import log
 
 
-@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
-class UpdateGA(base.SilentCommand):
-  """Update a target SSL proxy."""
+class Update(base.SilentCommand):
+  """Update a target SSL proxy.
+
+  *{command}* is used to replace the SSL certificate, backend service, proxy
+  header or SSL policy of existing target SSL proxies. A target SSL proxy is
+  referenced by one or more forwarding rules which define which packets the
+  proxy is responsible for routing. The target SSL proxy in turn points to a
+  backend service which will handle the requests. The target SSL proxy also
+  points to at most 10 SSL certificates used for server-side authentication.
+  The target SSL proxy can be associated with at most one SSL policy.
+  """
 
   BACKEND_SERVICE_ARG = None
-  SSL_CERTIFICATE_ARG = None
+  SSL_CERTIFICATES_ARG = None
   TARGET_SSL_PROXY_ARG = None
+  SSL_POLICY_ARG = None
 
   @classmethod
   def Args(cls, parser):
@@ -42,14 +54,25 @@ class UpdateGA(base.SilentCommand):
         backend_service_flags.BackendServiceArgumentForTargetSslProxy(
             required=False))
     cls.BACKEND_SERVICE_ARG.AddArgument(parser)
-    cls.SSL_CERTIFICATE_ARG = (
-        ssl_certificates_flags.SslCertificateArgumentForOtherResource(
-            'target SSL proxy', required=False))
-    cls.SSL_CERTIFICATE_ARG.AddArgument(parser)
     cls.TARGET_SSL_PROXY_ARG = flags.TargetSslProxyArgument()
     cls.TARGET_SSL_PROXY_ARG.AddArgument(parser, operation_type='update')
+    cls.SSL_CERTIFICATES_ARG = (
+        ssl_certificates_flags.SslCertificatesArgumentForOtherResource(
+            'target SSL proxy', required=False))
+    cls.SSL_CERTIFICATES_ARG.AddArgument(parser, cust_metavar='SSL_CERTIFICATE')
 
-  def _CreateResourceWithCertRefs(self, args, ssl_cert_refs):
+    group = parser.add_mutually_exclusive_group()
+    cls.SSL_POLICY_ARG = (
+        ssl_policies_flags.GetSslPolicyArgumentForOtherResource(
+            'SSL', required=False))
+    cls.SSL_POLICY_ARG.AddArgument(group)
+    ssl_policies_flags.GetClearSslPolicyArgumentForOtherResource(
+        'SSL', required=False).AddToParser(group)
+
+  def _SendRequests(self,
+                    args,
+                    ssl_policy=None,
+                    clear_ssl_policy=False):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     requests = []
     target_ssl_proxy_ref = self.TARGET_SSL_PROXY_ARG.ResolveAsResource(
@@ -58,7 +81,9 @@ class UpdateGA(base.SilentCommand):
     client = holder.client.apitools_client
     messages = holder.client.messages
 
-    if ssl_cert_refs:
+    if args.ssl_certificates:
+      ssl_cert_refs = self.SSL_CERTIFICATES_ARG.ResolveAsResource(
+          args, holder.resources)
       requests.append(
           (client.targetSslProxies, 'SetSslCertificates',
            messages.ComputeTargetSslProxiesSetSslCertificatesRequest(
@@ -93,6 +118,18 @@ class UpdateGA(base.SilentCommand):
                                messages.TargetSslProxiesSetProxyHeaderRequest(
                                    proxyHeader=proxy_header)))))
 
+    ssl_policy = messages.SslPolicyReference(
+        sslPolicy=self.SSL_POLICY_ARG.ResolveAsResource(args, holder.resources)
+        .SelfLink()) if args.IsSpecified('ssl_policy') else None
+    clear_ssl_policy = args.clear_ssl_policy
+
+    if ssl_policy or clear_ssl_policy:
+      requests.append((client.targetSslProxies, 'SetSslPolicy',
+                       messages.ComputeTargetSslProxiesSetSslPolicyRequest(
+                           project=target_ssl_proxy_ref.project,
+                           targetSslProxy=target_ssl_proxy_ref.Name(),
+                           sslPolicyReference=ssl_policy)))
+
     errors = []
     resources = holder.client.MakeRequests(requests, errors)
 
@@ -100,104 +137,17 @@ class UpdateGA(base.SilentCommand):
       utils.RaiseToolException(errors)
     return resources
 
-  def Run(self, args):
-    if not (args.ssl_certificate or args.proxy_header or args.backend_service):
-      raise exceptions.ToolException(
-          'You must specify at least one of [--ssl-certificate], '
-          '[--backend-service] or [--proxy-header].')
-
-    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-
-    if args.ssl_certificate:
-      ssl_certificate_ref = self.SSL_CERTIFICATE_ARG.ResolveAsResource(
-          args, holder.resources)
-      return self._CreateResourceWithCertRefs(args, [ssl_certificate_ref])
-
-    return self._CreateResourceWithCertRefs(args, [])
-
-
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class UpdateAlpha(UpdateGA):
-  """Update a target SSL proxy."""
-
-  SSL_CERTIFICATES_ARG = None
-
-  @classmethod
-  def Args(cls, parser):
-    target_proxies_utils.AddProxyHeaderRelatedUpdateArgs(parser)
-
-    cls.BACKEND_SERVICE_ARG = (
-        backend_service_flags.BackendServiceArgumentForTargetSslProxy(
-            required=False))
-    cls.BACKEND_SERVICE_ARG.AddArgument(parser)
-    cls.TARGET_SSL_PROXY_ARG = flags.TargetSslProxyArgument()
-    cls.TARGET_SSL_PROXY_ARG.AddArgument(parser)
-
-    certs = parser.add_mutually_exclusive_group()
-    cls.SSL_CERTIFICATE_ARG = (
-        ssl_certificates_flags.SslCertificateArgumentForOtherResource(
-            'target SSL proxy', required=False))
-    cls.SSL_CERTIFICATE_ARG.AddArgument(parser, mutex_group=certs)
-    cls.SSL_CERTIFICATES_ARG = (
-        ssl_certificates_flags.SslCertificatesArgumentForOtherResource(
-            'target SSL proxy', required=False))
-    cls.SSL_CERTIFICATES_ARG.AddArgument(
-        parser, mutex_group=certs, cust_metavar='SSL_CERTIFICATE')
-
-  def _GetSslCertificatesList(self, args, holder):
-    if args.ssl_certificate:
-      log.warn(
-          'The --ssl-certificate flag is deprecated and will be removed soon. '
-          'Use equivalent --ssl-certificates %s flag.', args.ssl_certificate)
-      return [
-          self.SSL_CERTIFICATE_ARG.ResolveAsResource(args, holder.resources)
-      ]
-
-    if args.ssl_certificates:
-      return self.SSL_CERTIFICATES_ARG.ResolveAsResource(args, holder.resources)
-
-    return []
-
-  def Run(self, args):
-    if not (args.ssl_certificate or args.ssl_certificates or
-            args.proxy_header or args.backend_service):
+  def _CheckMissingArgument(self, args):
+    if not sum(
+        args.IsSpecified(arg) for arg in [
+            'ssl_certificates', 'proxy_header', 'backend_service', 'ssl_policy',
+            'clear_ssl_policy'
+        ]):
       raise exceptions.ToolException(
           'You must specify at least one of [--ssl-certificates], '
-          '[--backend-service] or [--proxy-header].')
+          '[--backend-service], [--proxy-header], [--ssl-policy] or '
+          '[--clear-ssl-policy].')
 
-    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    ssl_certificate_refs = self._GetSslCertificatesList(args, holder)
-    return self._CreateResourceWithCertRefs(args, ssl_certificate_refs)
-
-
-UpdateGA.detailed_help = {
-    'brief':
-        'Update a target SSL proxy',
-    'DESCRIPTION':
-        """\
-
-        *{command}* is used to change the SSL certificate, backend
-        service or proxy header of existing target SSL proxies. A
-        target SSL proxy is referenced by one or more forwarding rules
-        which define which packets the proxy is responsible for
-        routing. The target SSL proxy in turn points to a backend
-        service which will handle the requests. The target SSL proxy
-        also points to an SSL certificate used for server-side
-        authentication.  """,
-}
-
-UpdateAlpha.detailed_help = {
-    'brief':
-        'Update a target SSL proxy',
-    'DESCRIPTION':
-        """\
-
-        *{command}* is used to replace the SSL certificate, backend
-        service or proxy header of existing target SSL proxies. A
-        target SSL proxy is referenced by one or more forwarding rules
-        which define which packets the proxy is responsible for
-        routing. The target SSL proxy in turn points to a backend
-        service which will handle the requests. The target SSL proxy
-        also points to at most 10 SSL certificates used for server-side
-        authentication.  """,
-}
+  def Run(self, args):
+    self._CheckMissingArgument(args)
+    return self._SendRequests(args)

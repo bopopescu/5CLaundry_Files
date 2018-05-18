@@ -13,11 +13,13 @@
 # limitations under the License.
 """bigtable instances create command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.bigtable import util as bigtable_util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.bigtable import arguments
 from googlecloudsdk.core import log
-from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 
 
@@ -28,19 +30,12 @@ class CreateInstance(base.CreateCommand):
   def Args(parser):
     """Register flags for this command."""
     (arguments.ArgAdder(parser).AddInstance()
-     .AddInstanceDescription(required=True)
-     .AddCluster(positional=False).AddClusterNodes(in_instance=True)
-     .AddClusterStorage(in_instance=True).AddClusterZone(in_instance=True)
+     .AddInstanceDisplayName(required=True)
+     .AddCluster().AddClusterNodes(in_instance=True)
+     .AddClusterStorage().AddClusterZone(in_instance=True)
      .AddAsync().AddInstanceType(
-         additional_choices={
-             'DEVELOPMENT':
-                 'Development instances are low-cost instances meant '
-                 'for development and testing only. They do not '
-                 'provide high availability and no service level '
-                 'agreement applies.'
-         },
-         default='PRODUCTION',
-         help_text='The type of instance to create.'))
+         default='PRODUCTION', help_text='The type of instance to create.'))
+    parser.display_info.AddCacheUpdater(arguments.InstanceCompleter)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -53,43 +48,41 @@ class CreateInstance(base.CreateCommand):
       Some value that we want to have printed later.
     """
     cli = bigtable_util.GetAdminClient()
-    ref = resources.REGISTRY.Parse(
-        args.instance,
-        params={
-            'projectsId': properties.VALUES.core.project.GetOrFail,
-        },
-        collection='bigtableadmin.projects.instances')
+    ref = bigtable_util.GetInstanceRef(args.instance)
     parent_ref = resources.REGISTRY.Create(
         'bigtableadmin.projects', projectId=ref.projectsId)
     msgs = bigtable_util.GetAdminMessages()
+
+    instance_type = msgs.Instance.TypeValueValuesEnum(args.instance_type)
+    num_nodes = arguments.ProcessInstanceTypeAndNodes(args, instance_type)
+
     msg = msgs.CreateInstanceRequest(
         instanceId=ref.Name(),
         parent=parent_ref.RelativeName(),
         instance=msgs.Instance(
-            displayName=args.description,
+            displayName=args.display_name,
             type=msgs.Instance.TypeValueValuesEnum(args.instance_type)),
         clusters=msgs.CreateInstanceRequest.ClustersValue(additionalProperties=[
             msgs.CreateInstanceRequest.ClustersValue.AdditionalProperty(
                 key=args.cluster,
                 value=msgs.Cluster(
-                    serveNodes=args.cluster_num_nodes,
+                    serveNodes=num_nodes,
                     defaultStorageType=(
                         msgs.Cluster.DefaultStorageTypeValueValuesEnum(
-                            args.cluster_storage_type)),
+                            args.cluster_storage_type.upper())),
                     # TODO(b/36056455): switch location to resource
                     # when b/29566669 is fixed on API
                     location=bigtable_util.LocationUrl(args.cluster_zone)))
         ]))
     result = cli.projects_instances.Create(msg)
-    operation_ref = resources.REGISTRY.ParseRelativeName(
-        result.name, 'bigtableadmin.operations')
+    operation_ref = bigtable_util.GetOperationRef(result)
 
     if args.async:
       log.CreatedResource(
           operation_ref,
           kind='bigtable instance {0}'.format(ref.Name()),
-          async=True)
+          is_async=True)
       return result
 
-    return bigtable_util.WaitForInstance(
-        cli, operation_ref, 'Creating bigtable instance {0}'.format(ref.Name()))
+    return bigtable_util.AwaitInstance(
+        operation_ref, 'Creating bigtable instance {0}'.format(ref.Name()))

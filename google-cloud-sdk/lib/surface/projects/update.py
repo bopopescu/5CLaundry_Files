@@ -14,18 +14,14 @@
 
 """Command to update a new project."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudresourcemanager import projects_api
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.projects import flags
 from googlecloudsdk.command_lib.projects import util as command_lib_util
-from googlecloudsdk.command_lib.util import labels_util
-from googlecloudsdk.core import exceptions
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
-
-
-class ArgumentError(exceptions.Error):
-  """For missing required mutually inclusive flags."""
-  pass
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
@@ -51,21 +47,18 @@ class UpdateAlpha(base.UpdateCommand):
   @staticmethod
   def Args(parser):
     flags.GetProjectFlag('update').AddToParser(parser)
-    labels_util.AddUpdateLabelsFlags(parser)
-    parser.add_argument('--name', help='New name for the project.')
+    update_flags = parser.add_group(required=True)
+    update_flags.add_argument('--name', help='New name for the project.')
+
+    labels_group = update_flags.add_group('Labels Flags')
+    labels_util.AddUpdateLabelsFlags(labels_group)
     parser.display_info.AddFormat(command_lib_util.LIST_FORMAT)
 
   def Run(self, args):
-    update_labels = labels_util.GetUpdateLabelsDictFromArgs(args)
-    remove_labels = labels_util.GetRemoveLabelsListFromArgs(args)
-    if args.name is None and update_labels is None and remove_labels is None:
-      raise ArgumentError('At least one of --name, --update-labels or '
-                          '--remove-labels must be specified.')
+    labels_diff = labels_util.Diff.FromUpdateArgs(args)
     project_ref = command_lib_util.ParseProject(args.id)
-    result = projects_api.Update(project_ref,
-                                 name=args.name,
-                                 update_labels=update_labels,
-                                 remove_labels=remove_labels)
+    result = projects_api.Update(project_ref, name=args.name,
+                                 labels_diff=labels_diff)
     log.UpdatedResource(project_ref)
     return result
 
@@ -89,24 +82,18 @@ class Update(base.UpdateCommand):
     $ {command} example-foo-bar-1 --name="Foo Bar & Grill"
   """
 
-  def Collection(self):
-    return command_lib_util.PROJECTS_COLLECTION
-
   def GetUriFunc(self):
     return command_lib_util.ProjectsUriFunc
 
   @staticmethod
   def Args(parser):
     flags.GetProjectFlag('update').AddToParser(parser)
-    parser.add_argument('--name', help='New name for the project.')
-
-  def DeprecatedFormat(self, args):
-    return self.ListFormat(args)
+    parser.add_argument('--name', required=True,
+                        help='New name for the project.')
 
   def Run(self, args):
-    if args.name is None:
-      raise ArgumentError('--name must be specified.')
     project_ref = command_lib_util.ParseProject(args.id)
-    result = projects_api.Update(project_ref, name=args.name)
+    result = projects_api.Update(project_ref, name=args.name,
+                                 labels_diff=labels_util.Diff())
     log.UpdatedResource(project_ref)
     return result

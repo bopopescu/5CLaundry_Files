@@ -14,13 +14,13 @@ package = 'spanner'
 
 
 class AuditConfig(_messages.Message):
-  """Specifies the audit configuration for a service. The configuration
+  r"""Specifies the audit configuration for a service. The configuration
   determines which permission types are logged, and what identities, if any,
   are exempted from logging. An AuditConfig must have one or more
   AuditLogConfigs.  If there are AuditConfigs for both `allServices` and a
   specific service, the union of the two AuditConfigs is used for that
   service: the log_types specified in each AuditConfig are enabled, and the
-  exempted_members in each AuditConfig are exempted.  Example Policy with
+  exempted_members in each AuditLogConfig are exempted.  Example Policy with
   multiple AuditConfigs:      {       "audit_configs": [         {
   "service": "allServices"           "audit_log_configs": [             {
   "log_type": "DATA_READ",               "exempted_members": [
@@ -37,7 +37,6 @@ class AuditConfig(_messages.Message):
 
   Fields:
     auditLogConfigs: The configuration for logging of each type of permission.
-      Next ID: 4
     exemptedMembers: A string attribute.
     service: Specifies a service that will be enabled for audit logging. For
       example, `storage.googleapis.com`, `cloudsql.googleapis.com`.
@@ -50,7 +49,7 @@ class AuditConfig(_messages.Message):
 
 
 class AuditLogConfig(_messages.Message):
-  """Provides the configuration for logging a type of permissions. Example:
+  r"""Provides the configuration for logging a type of permissions. Example:
   {       "audit_log_configs": [         {           "log_type": "DATA_READ",
   "exempted_members": [             "user:foo@gmail.com"           ]
   },         {           "log_type": "DATA_WRITE",         }       ]     }
@@ -67,7 +66,7 @@ class AuditLogConfig(_messages.Message):
   """
 
   class LogTypeValueValuesEnum(_messages.Enum):
-    """The log type that this config enables.
+    r"""The log type that this config enables.
 
     Values:
       LOG_TYPE_UNSPECIFIED: Default case. Should never be this.
@@ -85,7 +84,7 @@ class AuditLogConfig(_messages.Message):
 
 
 class AuthorizationLoggingOptions(_messages.Message):
-  """Authorization-related information used by Cloud Audit Logging.
+  r"""Authorization-related information used by Cloud Audit Logging.
 
   Enums:
     PermissionTypeValueValuesEnum: The type of the permission that was
@@ -96,7 +95,7 @@ class AuthorizationLoggingOptions(_messages.Message):
   """
 
   class PermissionTypeValueValuesEnum(_messages.Enum):
-    """The type of the permission that was checked.
+    r"""The type of the permission that was checked.
 
     Values:
       PERMISSION_TYPE_UNSPECIFIED: Default. Should not be used.
@@ -115,7 +114,7 @@ class AuthorizationLoggingOptions(_messages.Message):
 
 
 class BeginTransactionRequest(_messages.Message):
-  """The request for BeginTransaction.
+  r"""The request for BeginTransaction.
 
   Fields:
     options: Required. Options for the new transaction.
@@ -125,13 +124,14 @@ class BeginTransactionRequest(_messages.Message):
 
 
 class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+  r"""Associates `members` with a `role`.
 
   Fields:
     condition: The condition that is associated with this binding. NOTE: an
       unsatisfied condition will not allow user access via current binding.
       Different bindings, including their conditions, are examined
-      independently. This field is GOOGLE_INTERNAL.
+      independently. This field is only visible as GOOGLE_INTERNAL or
+      CONDITION_TRUSTED_TESTER.
     members: Specifies the identities requesting access for a Cloud Platform
       resource. `members` can have the following values:  * `allUsers`: A
       special identifier that represents anyone who is    on the internet;
@@ -139,8 +139,8 @@ class Binding(_messages.Message):
       identifier that represents anyone    who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
       represents a specific Google    account. For example, `alice@gmail.com`
-      or `joe@example.com`.   * `serviceAccount:{emailid}`: An email address
-      that represents a service    account. For example, `my-other-
+      .   * `serviceAccount:{emailid}`: An email address that represents a
+      service    account. For example, `my-other-
       app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
       that represents a Google group.    For example, `admins@example.com`.
       * `domain:{domain}`: A Google Apps domain name that represents all the
@@ -155,7 +155,7 @@ class Binding(_messages.Message):
 
 
 class ChildLink(_messages.Message):
-  """Metadata associated with a parent-child relationship appearing in a
+  r"""Metadata associated with a parent-child relationship appearing in a
   PlanNode.
 
   Fields:
@@ -179,7 +179,7 @@ class ChildLink(_messages.Message):
 
 
 class CloudAuditOptions(_messages.Message):
-  """Write a Cloud Audit log
+  r"""Write a Cloud Audit log
 
   Enums:
     LogNameValueValuesEnum: The log_name to populate in the Cloud Audit
@@ -192,7 +192,7 @@ class CloudAuditOptions(_messages.Message):
   """
 
   class LogNameValueValuesEnum(_messages.Enum):
-    """The log_name to populate in the Cloud Audit Record.
+    r"""The log_name to populate in the Cloud Audit Record.
 
     Values:
       UNSPECIFIED_LOG_NAME: Default. Should not be used.
@@ -208,7 +208,7 @@ class CloudAuditOptions(_messages.Message):
 
 
 class CommitRequest(_messages.Message):
-  """The request for Commit.
+  r"""The request for Commit.
 
   Fields:
     mutations: The mutations to be executed when this transaction commits. All
@@ -229,7 +229,7 @@ class CommitRequest(_messages.Message):
 
 
 class CommitResponse(_messages.Message):
-  """The response for Commit.
+  r"""The response for Commit.
 
   Fields:
     commitTimestamp: The Cloud Spanner timestamp at which the transaction
@@ -240,7 +240,7 @@ class CommitResponse(_messages.Message):
 
 
 class Condition(_messages.Message):
-  """A condition to be met.
+  r"""A condition to be met.
 
   Enums:
     IamValueValuesEnum: Trusted attributes supplied by the IAM system.
@@ -260,7 +260,7 @@ class Condition(_messages.Message):
   """
 
   class IamValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by the IAM system.
+    r"""Trusted attributes supplied by the IAM system.
 
     Values:
       NO_ATTR: Default non-attribute.
@@ -287,6 +287,12 @@ class Condition(_messages.Message):
         justification conditions can only be used in a "positive" context
         (e.g., ALLOW/IN or DENY/NOT_IN).  Multiple justifications, e.g., a
         Buganizer ID and a manually-entered reason, are normal and supported.
+      CREDENTIALS_TYPE: What type of credentials have been supplied with this
+        request. String values should match enum names from
+        security_loas_l2.CredentialsType - currently, only
+        CREDS_TYPE_EMERGENCY is supported. It is not permitted to grant access
+        based on the *absence* of a credentials type, so the conditions can
+        only be used in a "positive" context (e.g., ALLOW/IN or DENY/NOT_IN).
     """
     NO_ATTR = 0
     AUTHORITY = 1
@@ -294,9 +300,10 @@ class Condition(_messages.Message):
     SECURITY_REALM = 3
     APPROVER = 4
     JUSTIFICATION_TYPE = 5
+    CREDENTIALS_TYPE = 6
 
   class OpValueValuesEnum(_messages.Enum):
-    """An operator to apply the subject with.
+    r"""An operator to apply the subject with.
 
     Values:
       NO_OP: Default no-op.
@@ -316,8 +323,8 @@ class Condition(_messages.Message):
     DISCHARGED = 5
 
   class SysValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by any service that owns resources and uses
-    the IAM system for access control.
+    r"""Trusted attributes supplied by any service that owns resources and
+    uses the IAM system for access control.
 
     Values:
       NO_ATTR: Default non-attribute type
@@ -341,7 +348,19 @@ class Condition(_messages.Message):
 
 
 class CounterOptions(_messages.Message):
-  """Options for counters
+  r"""Increment a streamz counter with the specified metric and field names.
+  Metric names should start with a '/', generally be lowercase-only, and end
+  in "_count". Field names should not contain an initial slash. The actual
+  exported metric names will have "/iam/policy" prepended.  Field names
+  correspond to IAM request parameters and field values are their respective
+  values.  At present the only supported field names are    - "iam_principal",
+  corresponding to IAMContext.principal;    - "" (empty string), resulting in
+  one aggretated counter with no field.  Examples:   counter { metric:
+  "/debug_access_count"  field: "iam_principal" }   ==> increment counter
+  /iam/policy/backend_debug_access_count
+  {iam_principal=[value of IAMContext.principal]}  At this time we do not
+  support: * multiple field names (though this may be supported in the future)
+  * decrementing the counter * incrementing it by anything other than 1
 
   Fields:
     field: The field value to attribute.
@@ -353,7 +372,7 @@ class CounterOptions(_messages.Message):
 
 
 class CreateDatabaseMetadata(_messages.Message):
-  """Metadata type for the operation returned by CreateDatabase.
+  r"""Metadata type for the operation returned by CreateDatabase.
 
   Fields:
     database: The database being created.
@@ -363,7 +382,7 @@ class CreateDatabaseMetadata(_messages.Message):
 
 
 class CreateDatabaseRequest(_messages.Message):
-  """The request for CreateDatabase.
+  r"""The request for CreateDatabase.
 
   Fields:
     createStatement: Required. A `CREATE DATABASE` statement, which specifies
@@ -382,7 +401,7 @@ class CreateDatabaseRequest(_messages.Message):
 
 
 class CreateInstanceMetadata(_messages.Message):
-  """Metadata type for the operation returned by CreateInstance.
+  r"""Metadata type for the operation returned by CreateInstance.
 
   Fields:
     cancelTime: The time at which this operation was cancelled. If set, this
@@ -401,7 +420,7 @@ class CreateInstanceMetadata(_messages.Message):
 
 
 class CreateInstanceRequest(_messages.Message):
-  """The request for CreateInstance.
+  r"""The request for CreateInstance.
 
   Fields:
     instance: Required. The instance to create.  The name may be omitted, but
@@ -415,12 +434,56 @@ class CreateInstanceRequest(_messages.Message):
   instanceId = _messages.StringField(2)
 
 
+class CreateSessionRequest(_messages.Message):
+  r"""The request for CreateSession.
+
+  Fields:
+    session: The session to create.
+  """
+
+  session = _messages.MessageField('Session', 1)
+
+
 class DataAccessOptions(_messages.Message):
-  """Write a Data Access (Gin) log"""
+  r"""Write a Data Access (Gin) log
+
+  Enums:
+    LogModeValueValuesEnum: Whether Gin logging should happen in a fail-closed
+      manner at the caller. This is relevant only in the LocalIAM
+      implementation, for now.
+
+  Fields:
+    logMode: Whether Gin logging should happen in a fail-closed manner at the
+      caller. This is relevant only in the LocalIAM implementation, for now.
+  """
+
+  class LogModeValueValuesEnum(_messages.Enum):
+    r"""Whether Gin logging should happen in a fail-closed manner at the
+    caller. This is relevant only in the LocalIAM implementation, for now.
+
+    Values:
+      LOG_MODE_UNSPECIFIED: Client is not required to write a partial Gin log
+        immediately after the authorization check. If client chooses to write
+        one and it fails, client may either fail open (allow the operation to
+        continue) or fail closed (handle as a DENY outcome).
+      LOG_FAIL_CLOSED: The application's operation in the context of which
+        this authorization check is being made may only be performed if it is
+        successfully logged to Gin. For instance, the authorization library
+        may satisfy this obligation by emitting a partial log entry at
+        authorization check time and only returning ALLOW to the application
+        if it succeeds.  If a matching Rule has this directive, but the client
+        has not indicated that it will honor such requirements, then the IAM
+        check will result in authorization failure by setting
+        CheckPolicyResponse.success=false.
+    """
+    LOG_MODE_UNSPECIFIED = 0
+    LOG_FAIL_CLOSED = 1
+
+  logMode = _messages.EnumField('LogModeValueValuesEnum', 1)
 
 
 class Database(_messages.Message):
-  """A Cloud Spanner database.
+  r"""A Cloud Spanner database.
 
   Enums:
     StateValueValuesEnum: Output only. The current database state.
@@ -434,7 +497,7 @@ class Database(_messages.Message):
   """
 
   class StateValueValuesEnum(_messages.Enum):
-    """Output only. The current database state.
+    r"""Output only. The current database state.
 
     Values:
       STATE_UNSPECIFIED: Not specified.
@@ -451,10 +514,12 @@ class Database(_messages.Message):
 
 
 class Delete(_messages.Message):
-  """Arguments to delete operations.
+  r"""Arguments to delete operations.
 
   Fields:
     keySet: Required. The primary keys of the rows within table to delete.
+      Delete is idempotent. The transaction will succeed even if some or all
+      rows do not exist.
     table: Required. The table whose rows will be deleted.
   """
 
@@ -463,7 +528,7 @@ class Delete(_messages.Message):
 
 
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -473,27 +538,28 @@ class Empty(_messages.Message):
 
 
 class ExecuteSqlRequest(_messages.Message):
-  """The request for ExecuteSql and ExecuteStreamingSql.
+  r"""The request for ExecuteSql and ExecuteStreamingSql.
 
   Enums:
     QueryModeValueValuesEnum: Used to control the amount of debugging
-      information returned in ResultSetStats.
+      information returned in ResultSetStats. If partition_token is set,
+      query_mode can only be set to QueryMode.NORMAL.
 
   Messages:
     ParamTypesValue: It is not always possible for Cloud Spanner to infer the
       right SQL type from a JSON value.  For example, values of type `BYTES`
       and values of type `STRING` both appear in params as JSON strings.  In
       these cases, `param_types` can be used to specify the exact SQL type for
-      some or all of the SQL query parameters. See the definition of Type for
-      more information about SQL types.
-    ParamsValue: The SQL query string can contain parameter placeholders. A
+      some or all of the SQL statement parameters. See the definition of Type
+      for more information about SQL types.
+    ParamsValue: The SQL string can contain parameter placeholders. A
       parameter placeholder consists of `'@'` followed by the parameter name.
       Parameter names consist of any combination of letters, numbers, and
       underscores.  Parameters can appear anywhere that a literal value is
       expected.  The same parameter name can be used more than once, for
       example:   `"WHERE id > @msg_id AND id < @msg_id + 100"`  It is an error
-      to execute an SQL query with unbound parameters.  Parameter values are
-      specified using `params`, which is a JSON object whose keys are
+      to execute an SQL statement with unbound parameters.  Parameter values
+      are specified using `params`, which is a JSON object whose keys are
       parameter names, and whose values are the corresponding parameter
       values.
 
@@ -502,42 +568,46 @@ class ExecuteSqlRequest(_messages.Message):
       SQL type from a JSON value.  For example, values of type `BYTES` and
       values of type `STRING` both appear in params as JSON strings.  In these
       cases, `param_types` can be used to specify the exact SQL type for some
-      or all of the SQL query parameters. See the definition of Type for more
-      information about SQL types.
-    params: The SQL query string can contain parameter placeholders. A
-      parameter placeholder consists of `'@'` followed by the parameter name.
-      Parameter names consist of any combination of letters, numbers, and
-      underscores.  Parameters can appear anywhere that a literal value is
-      expected.  The same parameter name can be used more than once, for
-      example:   `"WHERE id > @msg_id AND id < @msg_id + 100"`  It is an error
-      to execute an SQL query with unbound parameters.  Parameter values are
-      specified using `params`, which is a JSON object whose keys are
-      parameter names, and whose values are the corresponding parameter
-      values.
+      or all of the SQL statement parameters. See the definition of Type for
+      more information about SQL types.
+    params: The SQL string can contain parameter placeholders. A parameter
+      placeholder consists of `'@'` followed by the parameter name. Parameter
+      names consist of any combination of letters, numbers, and underscores.
+      Parameters can appear anywhere that a literal value is expected.  The
+      same parameter name can be used more than once, for example:   `"WHERE
+      id > @msg_id AND id < @msg_id + 100"`  It is an error to execute an SQL
+      statement with unbound parameters.  Parameter values are specified using
+      `params`, which is a JSON object whose keys are parameter names, and
+      whose values are the corresponding parameter values.
+    partitionToken: If present, results will be restricted to the specified
+      partition previously created using PartitionQuery().  There must be an
+      exact match for the values of fields common to this message and the
+      PartitionQueryRequest message used to create this partition_token.
     queryMode: Used to control the amount of debugging information returned in
-      ResultSetStats.
+      ResultSetStats. If partition_token is set, query_mode can only be set to
+      QueryMode.NORMAL.
     resumeToken: If this request is resuming a previously interrupted SQL
-      query execution, `resume_token` should be copied from the last
+      statement execution, `resume_token` should be copied from the last
       PartialResultSet yielded before the interruption. Doing this enables the
-      new SQL query execution to resume where the last one left off. The rest
-      of the request parameters must exactly match the request that yielded
-      this token.
-    sql: Required. The SQL query string.
+      new SQL statement execution to resume where the last one left off. The
+      rest of the request parameters must exactly match the request that
+      yielded this token.
+    sql: Required. The SQL string.
     transaction: The transaction to use. If none is provided, the default is a
       temporary read-only transaction with strong concurrency.
   """
 
   class QueryModeValueValuesEnum(_messages.Enum):
-    """Used to control the amount of debugging information returned in
-    ResultSetStats.
+    r"""Used to control the amount of debugging information returned in
+    ResultSetStats. If partition_token is set, query_mode can only be set to
+    QueryMode.NORMAL.
 
     Values:
-      NORMAL: The default mode where only the query result, without any
-        information about the query plan is returned.
-      PLAN: This mode returns only the query plan, without any result rows or
+      NORMAL: The default mode. Only the statement results are returned.
+      PLAN: This mode returns only the query plan, without any results or
         execution statistics information.
       PROFILE: This mode returns both the query plan and the execution
-        statistics along with the result rows.
+        statistics along with the results.
     """
     NORMAL = 0
     PLAN = 1
@@ -545,12 +615,12 @@ class ExecuteSqlRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ParamTypesValue(_messages.Message):
-    """It is not always possible for Cloud Spanner to infer the right SQL type
-    from a JSON value.  For example, values of type `BYTES` and values of type
-    `STRING` both appear in params as JSON strings.  In these cases,
+    r"""It is not always possible for Cloud Spanner to infer the right SQL
+    type from a JSON value.  For example, values of type `BYTES` and values of
+    type `STRING` both appear in params as JSON strings.  In these cases,
     `param_types` can be used to specify the exact SQL type for some or all of
-    the SQL query parameters. See the definition of Type for more information
-    about SQL types.
+    the SQL statement parameters. See the definition of Type for more
+    information about SQL types.
 
     Messages:
       AdditionalProperty: An additional property for a ParamTypesValue object.
@@ -560,7 +630,7 @@ class ExecuteSqlRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ParamTypesValue object.
+      r"""An additional property for a ParamTypesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -574,15 +644,15 @@ class ExecuteSqlRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ParamsValue(_messages.Message):
-    """The SQL query string can contain parameter placeholders. A parameter
+    r"""The SQL string can contain parameter placeholders. A parameter
     placeholder consists of `'@'` followed by the parameter name. Parameter
     names consist of any combination of letters, numbers, and underscores.
     Parameters can appear anywhere that a literal value is expected.  The same
     parameter name can be used more than once, for example:   `"WHERE id >
-    @msg_id AND id < @msg_id + 100"`  It is an error to execute an SQL query
-    with unbound parameters.  Parameter values are specified using `params`,
-    which is a JSON object whose keys are parameter names, and whose values
-    are the corresponding parameter values.
+    @msg_id AND id < @msg_id + 100"`  It is an error to execute an SQL
+    statement with unbound parameters.  Parameter values are specified using
+    `params`, which is a JSON object whose keys are parameter names, and whose
+    values are the corresponding parameter values.
 
     Messages:
       AdditionalProperty: An additional property for a ParamsValue object.
@@ -592,7 +662,7 @@ class ExecuteSqlRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ParamsValue object.
+      r"""An additional property for a ParamsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -606,14 +676,15 @@ class ExecuteSqlRequest(_messages.Message):
 
   paramTypes = _messages.MessageField('ParamTypesValue', 1)
   params = _messages.MessageField('ParamsValue', 2)
-  queryMode = _messages.EnumField('QueryModeValueValuesEnum', 3)
-  resumeToken = _messages.BytesField(4)
-  sql = _messages.StringField(5)
-  transaction = _messages.MessageField('TransactionSelector', 6)
+  partitionToken = _messages.BytesField(3)
+  queryMode = _messages.EnumField('QueryModeValueValuesEnum', 4)
+  resumeToken = _messages.BytesField(5)
+  sql = _messages.StringField(6)
+  transaction = _messages.MessageField('TransactionSelector', 7)
 
 
 class Expr(_messages.Message):
-  """Represents an expression text. Example:      title: "User account
+  r"""Represents an expression text. Example:      title: "User account
   presence"     description: "Determines whether the request has a user
   account"     expression: "size(request.user) > 0"
 
@@ -637,7 +708,7 @@ class Expr(_messages.Message):
 
 
 class Field(_messages.Message):
-  """Message representing a single field of a struct.
+  r"""Message representing a single field of a struct.
 
   Fields:
     name: The name of the field. For reads, this is the column name. For SQL
@@ -654,7 +725,7 @@ class Field(_messages.Message):
 
 
 class GetDatabaseDdlResponse(_messages.Message):
-  """The response for GetDatabaseDdl.
+  r"""The response for GetDatabaseDdl.
 
   Fields:
     statements: A list of formatted DDL statements defining the schema of the
@@ -665,11 +736,11 @@ class GetDatabaseDdlResponse(_messages.Message):
 
 
 class GetIamPolicyRequest(_messages.Message):
-  """Request message for `GetIamPolicy` method."""
+  r"""Request message for `GetIamPolicy` method."""
 
 
 class Instance(_messages.Message):
-  """An isolated set of Cloud Spanner resources on which databases can be
+  r"""An isolated set of Cloud Spanner resources on which databases can be
   hosted.
 
   Enums:
@@ -728,23 +799,15 @@ class Instance(_messages.Message):
       name must be between 6 and 30 characters in length.
     nodeCount: Required. The number of nodes allocated to this instance. This
       may be zero in API responses for instances that are not yet in state
-      `READY`.  Each Spanner node can provide up to 10,000 QPS of reads or
-      2000 QPS of writes (writing single rows at 1KB data per row), and 2 TiB
-      storage.  For optimal performance, we recommend provisioning enough
-      nodes to keep overall CPU utilization under 75%.  A minimum of 3 nodes
-      is recommended for production environments.  This minimum is required
-      for SLAs to apply to your instance.  Note that Cloud Spanner performance
-      is highly dependent on workload, schema design, and dataset
-      characteristics. The performance numbers above are estimates, and assume
-      [best practices](https://cloud.google.com/spanner/docs/bulk-loading) are
-      followed.
+      `READY`.  See [the documentation](https://cloud.google.com/spanner/docs/
+      instances#node_count) for more information about nodes.
     state: Output only. The current instance state. For CreateInstance, the
       state must be either omitted or set to `CREATING`. For UpdateInstance,
       the state must be either omitted or set to `READY`.
   """
 
   class StateValueValuesEnum(_messages.Enum):
-    """Output only. The current instance state. For CreateInstance, the state
+    r"""Output only. The current instance state. For CreateInstance, the state
     must be either omitted or set to `CREATING`. For UpdateInstance, the state
     must be either omitted or set to `READY`.
 
@@ -761,7 +824,7 @@ class Instance(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Cloud Labels are a flexible and lightweight mechanism for organizing
+    r"""Cloud Labels are a flexible and lightweight mechanism for organizing
     cloud resources into groups that reflect a customer's organizational needs
     and deployment strategies. Cloud Labels can be used to filter collections
     of resources. They can be used to control how resource metrics are
@@ -788,7 +851,7 @@ class Instance(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -809,7 +872,7 @@ class Instance(_messages.Message):
 
 
 class InstanceConfig(_messages.Message):
-  """A possible configuration for a Cloud Spanner instance. Configurations
+  r"""A possible configuration for a Cloud Spanner instance. Configurations
   define the geographic placement of nodes and their replication.
 
   Fields:
@@ -823,7 +886,7 @@ class InstanceConfig(_messages.Message):
 
 
 class KeyRange(_messages.Message):
-  """KeyRange represents a range of rows in a table or index.  A range has a
+  r"""KeyRange represents a range of rows in a table or index.  A range has a
   start key and an end key. These keys can be open or closed, indicating if
   the range includes rows with that key.  Keys are represented by lists, where
   the ith value in the list corresponds to the ith component of the table or
@@ -879,7 +942,7 @@ class KeyRange(_messages.Message):
 
 
 class KeySet(_messages.Message):
-  """`KeySet` defines a collection of Cloud Spanner keys and/or key ranges.
+  r"""`KeySet` defines a collection of Cloud Spanner keys and/or key ranges.
   All the keys are expected to be in the same table or index. The keys need
   not be sorted in any particular way.  If the same key is specified multiple
   times in the set (for example if two ranges, two keys, or a key and a range
@@ -901,7 +964,7 @@ class KeySet(_messages.Message):
   """
 
   class KeysValueListEntry(_messages.Message):
-    """Single entry in a KeysValue.
+    r"""Single entry in a KeysValue.
 
     Fields:
       entry: A extra_types.JsonValue attribute.
@@ -915,7 +978,7 @@ class KeySet(_messages.Message):
 
 
 class ListDatabasesResponse(_messages.Message):
-  """The response for ListDatabases.
+  r"""The response for ListDatabases.
 
   Fields:
     databases: Databases that matched the request.
@@ -928,7 +991,7 @@ class ListDatabasesResponse(_messages.Message):
 
 
 class ListInstanceConfigsResponse(_messages.Message):
-  """The response for ListInstanceConfigs.
+  r"""The response for ListInstanceConfigs.
 
   Fields:
     instanceConfigs: The list of requested instance configurations.
@@ -942,7 +1005,7 @@ class ListInstanceConfigsResponse(_messages.Message):
 
 
 class ListInstancesResponse(_messages.Message):
-  """The response for ListInstances.
+  r"""The response for ListInstances.
 
   Fields:
     instances: The list of requested instances.
@@ -955,7 +1018,7 @@ class ListInstancesResponse(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -967,21 +1030,21 @@ class ListOperationsResponse(_messages.Message):
   operations = _messages.MessageField('Operation', 2, repeated=True)
 
 
+class ListSessionsResponse(_messages.Message):
+  r"""The response for ListSessions.
+
+  Fields:
+    nextPageToken: `next_page_token` can be sent in a subsequent ListSessions
+      call to fetch more of the matching sessions.
+    sessions: The list of requested sessions.
+  """
+
+  nextPageToken = _messages.StringField(1)
+  sessions = _messages.MessageField('Session', 2, repeated=True)
+
+
 class LogConfig(_messages.Message):
-  """Specifies what kind of log the caller must write Increment a streamz
-  counter with the specified metric and field names.  Metric names should
-  start with a '/', generally be lowercase-only, and end in "_count". Field
-  names should not contain an initial slash. The actual exported metric names
-  will have "/iam/policy" prepended.  Field names correspond to IAM request
-  parameters and field values are their respective values.  At present the
-  only supported field names are    - "iam_principal", corresponding to
-  IAMContext.principal;    - "" (empty string), resulting in one aggretated
-  counter with no field.  Examples:   counter { metric: "/debug_access_count"
-  field: "iam_principal" }   ==> increment counter
-  /iam/policy/backend_debug_access_count
-  {iam_principal=[value of IAMContext.principal]}  At this time we do not
-  support: * multiple field names (though this may be supported in the future)
-  * decrementing the counter * incrementing it by anything other than 1
+  r"""Specifies what kind of log the caller must write
 
   Fields:
     cloudAudit: Cloud audit options.
@@ -995,7 +1058,7 @@ class LogConfig(_messages.Message):
 
 
 class Mutation(_messages.Message):
-  """A modification to one or more Cloud Spanner rows.  Mutations can be
+  r"""A modification to one or more Cloud Spanner rows.  Mutations can be
   applied to a Cloud Spanner database by sending them in a Commit call.
 
   Fields:
@@ -1022,8 +1085,8 @@ class Mutation(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
     MetadataValue: Service-specific metadata associated with the operation.
@@ -1041,7 +1104,7 @@ class Operation(_messages.Message):
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
@@ -1064,7 +1127,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata associated with the operation.  It typically
+    r"""Service-specific metadata associated with the operation.  It typically
     contains progress information and common metadata such as create time.
     Some services might not provide such metadata.  Any method that returns a
     long-running operation should document the metadata type, if any.
@@ -1078,7 +1141,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1092,7 +1155,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """The normal response of the operation in case of success.  If the
+    r"""The normal response of the operation in case of success.  If the
     original method returns no data on success, such as `Delete`, the response
     is `google.protobuf.Empty`.  If the original method is standard
     `Get`/`Create`/`Update`, the response should be the resource.  For other
@@ -1109,7 +1172,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1129,7 +1192,7 @@ class Operation(_messages.Message):
 
 
 class PartialResultSet(_messages.Message):
-  """Partial results from a streaming read or SQL query. Streaming reads and
+  r"""Partial results from a streaming read or SQL query. Streaming reads and
   SQL queries better tolerate large result sets, large rows, and large values,
   but are a little trickier to consume.
 
@@ -1144,7 +1207,7 @@ class PartialResultSet(_messages.Message):
       results can be resumed by re-sending the original request and including
       `resume_token`. Note that executing any other transaction in the same
       session invalidates the token.
-    stats: Query plan and execution statistics for the query that produced
+    stats: Query plan and execution statistics for the statement that produced
       this streaming result set. These can be requested by setting
       ExecuteSqlRequest.query_mode and are sent only once with the last
       response in the stream.
@@ -1194,8 +1257,205 @@ class PartialResultSet(_messages.Message):
   values = _messages.MessageField('extra_types.JsonValue', 5, repeated=True)
 
 
+class Partition(_messages.Message):
+  r"""Information returned for each partition returned in a PartitionResponse.
+
+  Fields:
+    partitionToken: This token can be passed to Read, StreamingRead,
+      ExecuteSql, or ExecuteStreamingSql requests to restrict the results to
+      those identified by this partition token.
+  """
+
+  partitionToken = _messages.BytesField(1)
+
+
+class PartitionOptions(_messages.Message):
+  r"""Options for a PartitionQueryRequest and PartitionReadRequest.
+
+  Fields:
+    maxPartitions: **Note:** This hint is currently ignored by PartitionQuery
+      and PartitionRead requests.  The desired maximum number of partitions to
+      return.  For example, this may be set to the number of workers
+      available.  The default for this option is currently 10,000. The maximum
+      value is currently 200,000.  This is only a hint.  The actual number of
+      partitions returned may be smaller or larger than this maximum count
+      request.
+    partitionSizeBytes: **Note:** This hint is currently ignored by
+      PartitionQuery and PartitionRead requests.  The desired data size for
+      each partition generated.  The default for this option is currently 1
+      GiB.  This is only a hint. The actual size of each partition may be
+      smaller or larger than this size request.
+  """
+
+  maxPartitions = _messages.IntegerField(1)
+  partitionSizeBytes = _messages.IntegerField(2)
+
+
+class PartitionQueryRequest(_messages.Message):
+  r"""The request for PartitionQuery
+
+  Messages:
+    ParamTypesValue: It is not always possible for Cloud Spanner to infer the
+      right SQL type from a JSON value.  For example, values of type `BYTES`
+      and values of type `STRING` both appear in params as JSON strings.  In
+      these cases, `param_types` can be used to specify the exact SQL type for
+      some or all of the SQL query parameters. See the definition of Type for
+      more information about SQL types.
+    ParamsValue: The SQL query string can contain parameter placeholders. A
+      parameter placeholder consists of `'@'` followed by the parameter name.
+      Parameter names consist of any combination of letters, numbers, and
+      underscores.  Parameters can appear anywhere that a literal value is
+      expected.  The same parameter name can be used more than once, for
+      example:   `"WHERE id > @msg_id AND id < @msg_id + 100"`  It is an error
+      to execute an SQL query with unbound parameters.  Parameter values are
+      specified using `params`, which is a JSON object whose keys are
+      parameter names, and whose values are the corresponding parameter
+      values.
+
+  Fields:
+    paramTypes: It is not always possible for Cloud Spanner to infer the right
+      SQL type from a JSON value.  For example, values of type `BYTES` and
+      values of type `STRING` both appear in params as JSON strings.  In these
+      cases, `param_types` can be used to specify the exact SQL type for some
+      or all of the SQL query parameters. See the definition of Type for more
+      information about SQL types.
+    params: The SQL query string can contain parameter placeholders. A
+      parameter placeholder consists of `'@'` followed by the parameter name.
+      Parameter names consist of any combination of letters, numbers, and
+      underscores.  Parameters can appear anywhere that a literal value is
+      expected.  The same parameter name can be used more than once, for
+      example:   `"WHERE id > @msg_id AND id < @msg_id + 100"`  It is an error
+      to execute an SQL query with unbound parameters.  Parameter values are
+      specified using `params`, which is a JSON object whose keys are
+      parameter names, and whose values are the corresponding parameter
+      values.
+    partitionOptions: Additional options that affect how many partitions are
+      created.
+    sql: The query request to generate partitions for. The request will fail
+      if the query is not root partitionable. The query plan of a root
+      partitionable query has a single distributed union operator. A
+      distributed union operator conceptually divides one or more tables into
+      multiple splits, remotely evaluates a subquery independently on each
+      split, and then unions all results.
+    transaction: Read only snapshot transactions are supported, read/write and
+      single use transactions are not.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class ParamTypesValue(_messages.Message):
+    r"""It is not always possible for Cloud Spanner to infer the right SQL
+    type from a JSON value.  For example, values of type `BYTES` and values of
+    type `STRING` both appear in params as JSON strings.  In these cases,
+    `param_types` can be used to specify the exact SQL type for some or all of
+    the SQL query parameters. See the definition of Type for more information
+    about SQL types.
+
+    Messages:
+      AdditionalProperty: An additional property for a ParamTypesValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type ParamTypesValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a ParamTypesValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A Type attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.MessageField('Type', 2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class ParamsValue(_messages.Message):
+    r"""The SQL query string can contain parameter placeholders. A parameter
+    placeholder consists of `'@'` followed by the parameter name. Parameter
+    names consist of any combination of letters, numbers, and underscores.
+    Parameters can appear anywhere that a literal value is expected.  The same
+    parameter name can be used more than once, for example:   `"WHERE id >
+    @msg_id AND id < @msg_id + 100"`  It is an error to execute an SQL query
+    with unbound parameters.  Parameter values are specified using `params`,
+    which is a JSON object whose keys are parameter names, and whose values
+    are the corresponding parameter values.
+
+    Messages:
+      AdditionalProperty: An additional property for a ParamsValue object.
+
+    Fields:
+      additionalProperties: Properties of the object.
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a ParamsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A extra_types.JsonValue attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.MessageField('extra_types.JsonValue', 2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  paramTypes = _messages.MessageField('ParamTypesValue', 1)
+  params = _messages.MessageField('ParamsValue', 2)
+  partitionOptions = _messages.MessageField('PartitionOptions', 3)
+  sql = _messages.StringField(4)
+  transaction = _messages.MessageField('TransactionSelector', 5)
+
+
+class PartitionReadRequest(_messages.Message):
+  r"""The request for PartitionRead
+
+  Fields:
+    columns: The columns of table to be returned for each row matching this
+      request.
+    index: If non-empty, the name of an index on table. This index is used
+      instead of the table primary key when interpreting key_set and sorting
+      result rows. See key_set for further information.
+    keySet: Required. `key_set` identifies the rows to be yielded. `key_set`
+      names the primary keys of the rows in table to be yielded, unless index
+      is present. If index is present, then key_set instead names index keys
+      in index.  It is not an error for the `key_set` to name rows that do not
+      exist in the database. Read yields nothing for nonexistent rows.
+    partitionOptions: Additional options that affect how many partitions are
+      created.
+    table: Required. The name of the table in the database to be read.
+    transaction: Read only snapshot transactions are supported, read/write and
+      single use transactions are not.
+  """
+
+  columns = _messages.StringField(1, repeated=True)
+  index = _messages.StringField(2)
+  keySet = _messages.MessageField('KeySet', 3)
+  partitionOptions = _messages.MessageField('PartitionOptions', 4)
+  table = _messages.StringField(5)
+  transaction = _messages.MessageField('TransactionSelector', 6)
+
+
+class PartitionResponse(_messages.Message):
+  r"""The response for PartitionQuery or PartitionRead
+
+  Fields:
+    partitions: Partitions created by this request.
+    transaction: Transaction created by this request.
+  """
+
+  partitions = _messages.MessageField('Partition', 1, repeated=True)
+  transaction = _messages.MessageField('Transaction', 2)
+
+
+class PartitionedDml(_messages.Message):
+  r"""Message type to initiate a Partitioned DML transaction."""
+
+
 class PlanNode(_messages.Message):
-  """Node information for nodes appearing in a QueryPlan.plan_nodes.
+  r"""Node information for nodes appearing in a QueryPlan.plan_nodes.
 
   Enums:
     KindValueValuesEnum: Used to determine the type of node. May be needed for
@@ -1234,7 +1494,7 @@ class PlanNode(_messages.Message):
   """
 
   class KindValueValuesEnum(_messages.Enum):
-    """Used to determine the type of node. May be needed for visualizing
+    r"""Used to determine the type of node. May be needed for visualizing
     different kinds of nodes differently. For example, If the node is a SCALAR
     node, it will have a condensed representation which can be used to
     directly embed a description of the node in its parent.
@@ -1256,10 +1516,10 @@ class PlanNode(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ExecutionStatsValue(_messages.Message):
-    """The execution statistics associated with the node, contained in a group
-    of key-value pairs. Only present if the plan was returned as a result of a
-    profile query. For example, number of executions, number of rows/time per
-    execution etc.
+    r"""The execution statistics associated with the node, contained in a
+    group of key-value pairs. Only present if the plan was returned as a
+    result of a profile query. For example, number of executions, number of
+    rows/time per execution etc.
 
     Messages:
       AdditionalProperty: An additional property for a ExecutionStatsValue
@@ -1270,7 +1530,7 @@ class PlanNode(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ExecutionStatsValue object.
+      r"""An additional property for a ExecutionStatsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1284,7 +1544,7 @@ class PlanNode(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Attributes relevant to the node contained in a group of key-value
+    r"""Attributes relevant to the node contained in a group of key-value
     pairs. For example, a Parameter Reference node could have the following
     information in its metadata:      {       "parameter_reference": "param1",
     "parameter_type": "array"     }
@@ -1297,7 +1557,7 @@ class PlanNode(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1319,19 +1579,24 @@ class PlanNode(_messages.Message):
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.   A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**      {       "bindings": [         {
+  defined by IAM.  **JSON Example**      {       "bindings": [         {
   "role": "roles/owner",           "members": [
   "user:mike@example.com",             "group:admins@example.com",
   "domain:google.com",             "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com",           ]         },         {
+  app@appspot.gserviceaccount.com"           ]         },         {
   "role": "roles/viewer",           "members": ["user:sean@example.com"]
-  }       ]     }  For a description of IAM and its features, see the [IAM
-  developer's guide](https://cloud.google.com/iam).
+  }       ]     }  **YAML Example**      bindings:     - members:       -
+  user:mike@example.com       - group:admins@example.com       -
+  domain:google.com       - serviceAccount:my-other-
+  app@appspot.gserviceaccount.com       role: roles/owner     - members:
+  - user:sean@example.com       role: roles/viewer   For a description of IAM
+  and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     auditConfigs: Specifies cloud audit logging configuration for this policy.
@@ -1354,7 +1619,7 @@ class Policy(_messages.Message):
       any ALLOW/ALLOW_WITH_LOG rule matches, permission is   granted.
       Logging will be applied if one or more matching rule requires logging. -
       Otherwise, if no rule applies, permission is denied.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   auditConfigs = _messages.MessageField('AuditConfig', 1, repeated=True)
@@ -1366,7 +1631,7 @@ class Policy(_messages.Message):
 
 
 class QueryPlan(_messages.Message):
-  """Contains an ordered list of nodes appearing in the query plan.
+  r"""Contains an ordered list of nodes appearing in the query plan.
 
   Fields:
     planNodes: The nodes in the query plan. Plan nodes are returned in pre-
@@ -1378,7 +1643,7 @@ class QueryPlan(_messages.Message):
 
 
 class ReadOnly(_messages.Message):
-  """Message type to initiate a read-only transaction.
+  r"""Message type to initiate a read-only transaction.
 
   Fields:
     exactStaleness: Executes all reads at a timestamp that is
@@ -1401,14 +1666,17 @@ class ReadOnly(_messages.Message):
       `min_read_timestamp`.  This is useful for requesting fresher data than
       some previous read, or data that is fresh enough to observe the effects
       of some previously committed transaction whose timestamp is known.  Note
-      that this option can only be used in single-use transactions.
+      that this option can only be used in single-use transactions.  A
+      timestamp in RFC3339 UTC \"Zulu\" format, accurate to nanoseconds.
+      Example: `"2014-10-02T15:01:23.045123456Z"`.
     readTimestamp: Executes all reads at the given timestamp. Unlike other
       modes, reads at a specific timestamp are repeatable; the same read at
       the same timestamp always returns the same data. If the timestamp is in
       the future, the read will block until the specified timestamp, modulo
       the read's deadline.  Useful for large scale consistent reads such as
       mapreduces, or for coordinating many reads against a consistent snapshot
-      of the data.
+      of the data.  A timestamp in RFC3339 UTC \"Zulu\" format, accurate to
+      nanoseconds. Example: `"2014-10-02T15:01:23.045123456Z"`.
     returnReadTimestamp: If true, the Cloud Spanner-selected read timestamp is
       included in the Transaction message that describes the transaction.
     strong: Read at a timestamp where all previously committed transactions
@@ -1424,7 +1692,7 @@ class ReadOnly(_messages.Message):
 
 
 class ReadRequest(_messages.Message):
-  """The request for Read and StreamingRead.
+  r"""The request for Read and StreamingRead.
 
   Fields:
     columns: The columns of table to be returned for each row matching this
@@ -1435,12 +1703,19 @@ class ReadRequest(_messages.Message):
     keySet: Required. `key_set` identifies the rows to be yielded. `key_set`
       names the primary keys of the rows in table to be yielded, unless index
       is present. If index is present, then key_set instead names index keys
-      in index.  Rows are yielded in table primary key order (if index is
-      empty) or index key order (if index is non-empty).  It is not an error
-      for the `key_set` to name rows that do not exist in the database. Read
-      yields nothing for nonexistent rows.
+      in index.  If the partition_token field is empty, rows are yielded in
+      table primary key order (if index is empty) or index key order (if index
+      is non-empty).  If the partition_token field is not empty, rows will be
+      yielded in an unspecified order.  It is not an error for the `key_set`
+      to name rows that do not exist in the database. Read yields nothing for
+      nonexistent rows.
     limit: If greater than zero, only the first `limit` rows are yielded. If
-      `limit` is zero, the default is no limit.
+      `limit` is zero, the default is no limit. A limit cannot be specified if
+      `partition_token` is set.
+    partitionToken: If present, results will be restricted to the specified
+      partition previously created using PartitionRead().    There must be an
+      exact match for the values of fields common to this message and the
+      PartitionReadRequest message used to create this partition_token.
     resumeToken: If this request is resuming a previously interrupted read,
       `resume_token` should be copied from the last PartialResultSet yielded
       before the interruption. Doing this enables the new read to resume where
@@ -1455,20 +1730,21 @@ class ReadRequest(_messages.Message):
   index = _messages.StringField(2)
   keySet = _messages.MessageField('KeySet', 3)
   limit = _messages.IntegerField(4)
-  resumeToken = _messages.BytesField(5)
-  table = _messages.StringField(6)
-  transaction = _messages.MessageField('TransactionSelector', 7)
+  partitionToken = _messages.BytesField(5)
+  resumeToken = _messages.BytesField(6)
+  table = _messages.StringField(7)
+  transaction = _messages.MessageField('TransactionSelector', 8)
 
 
 class ReadWrite(_messages.Message):
-  """Message type to initiate a read-write transaction. Currently this
+  r"""Message type to initiate a read-write transaction. Currently this
   transaction type has no options.
   """
 
 
 
 class ResultSet(_messages.Message):
-  """Results from Read or ExecuteSql.
+  r"""Results from Read or ExecuteSql.
 
   Messages:
     RowsValueListEntry: Single entry in a RowsValue.
@@ -1478,13 +1754,13 @@ class ResultSet(_messages.Message):
     rows: Each element in `rows` is a row whose format is defined by
       metadata.row_type. The ith element in each row matches the ith field in
       metadata.row_type. Elements are encoded based on type as described here.
-    stats: Query plan and execution statistics for the query that produced
-      this result set. These can be requested by setting
+    stats: Query plan and execution statistics for the SQL statement that
+      produced this result set. These can be requested by setting
       ExecuteSqlRequest.query_mode.
   """
 
   class RowsValueListEntry(_messages.Message):
-    """Single entry in a RowsValue.
+    r"""Single entry in a RowsValue.
 
     Fields:
       entry: A extra_types.JsonValue attribute.
@@ -1498,7 +1774,7 @@ class ResultSet(_messages.Message):
 
 
 class ResultSetMetadata(_messages.Message):
-  """Metadata about a ResultSet or PartialResultSet.
+  r"""Metadata about a ResultSet or PartialResultSet.
 
   Fields:
     rowType: Indicates the field names and types for the rows in the result
@@ -1515,7 +1791,7 @@ class ResultSetMetadata(_messages.Message):
 
 
 class ResultSetStats(_messages.Message):
-  """Additional statistics about a ResultSet or PartialResultSet.
+  r"""Additional statistics about a ResultSet or PartialResultSet.
 
   Messages:
     QueryStatsValue: Aggregated statistics from the execution of the query.
@@ -1529,11 +1805,15 @@ class ResultSetStats(_messages.Message):
       present when the query is profiled. For example, a query could return
       the statistics as follows:      {       "rows_returned": "3",
       "elapsed_time": "1.22 secs",       "cpu_time": "1.19 secs"     }
+    rowCountExact: Standard DML returns an exact count of rows that were
+      modified.
+    rowCountLowerBound: Partitioned DML does not offer exactly-once semantics,
+      so it returns a lower bound of the rows modified.
   """
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class QueryStatsValue(_messages.Message):
-    """Aggregated statistics from the execution of the query. Only present
+    r"""Aggregated statistics from the execution of the query. Only present
     when the query is profiled. For example, a query could return the
     statistics as follows:      {       "rows_returned": "3",
     "elapsed_time": "1.22 secs",       "cpu_time": "1.19 secs"     }
@@ -1546,7 +1826,7 @@ class ResultSetStats(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a QueryStatsValue object.
+      r"""An additional property for a QueryStatsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1560,10 +1840,12 @@ class ResultSetStats(_messages.Message):
 
   queryPlan = _messages.MessageField('QueryPlan', 1)
   queryStats = _messages.MessageField('QueryStatsValue', 2)
+  rowCountExact = _messages.IntegerField(3)
+  rowCountLowerBound = _messages.IntegerField(4)
 
 
 class RollbackRequest(_messages.Message):
-  """The request for Rollback.
+  r"""The request for Rollback.
 
   Fields:
     transactionId: Required. The transaction to roll back.
@@ -1573,14 +1855,15 @@ class RollbackRequest(_messages.Message):
 
 
 class Rule(_messages.Message):
-  """A rule to be applied in a Policy.
+  r"""A rule to be applied in a Policy.
 
   Enums:
     ActionValueValuesEnum: Required
 
   Fields:
     action: Required
-    conditions: Additional restrictions that must be met
+    conditions: Additional restrictions that must be met. All conditions must
+      pass for the rule to match.
     description: Human-readable description of the rule.
     in_: If one or more 'in' clauses are specified, the rule matches if the
       PRINCIPAL/AUTHORITY_SELECTOR is in at least one of these entries.
@@ -1588,8 +1871,8 @@ class Rule(_messages.Message):
       any entries that match the LOG action.
     notIn: If one or more 'not_in' clauses are specified, the rule matches if
       the PRINCIPAL/AUTHORITY_SELECTOR is in none of the entries. The format
-      for in and not_in entries is the same as for members in a Binding (see
-      google/iam/v1/policy.proto).
+      for in and not_in entries can be found at in the Local IAM documentation
+      (see go/local-iam#features).
     permissions: A permission is a string of form '<service>.<resource
       type>.<verb>' (e.g., 'storage.buckets.list'). A value of '*' matches all
       permissions, and a verb part of '*' (e.g., 'storage.buckets.*') matches
@@ -1597,7 +1880,7 @@ class Rule(_messages.Message):
   """
 
   class ActionValueValuesEnum(_messages.Enum):
-    """Required
+    r"""Required
 
     Values:
       NO_ACTION: Default no action.
@@ -1626,17 +1909,71 @@ class Rule(_messages.Message):
 
 
 class Session(_messages.Message):
-  """A session in the Cloud Spanner API.
+  r"""A session in the Cloud Spanner API.
+
+  Messages:
+    LabelsValue: The labels for the session.   * Label keys must be between 1
+      and 63 characters long and must conform to    the following regular
+      expression: `[a-z]([-a-z0-9]*[a-z0-9])?`.  * Label values must be
+      between 0 and 63 characters long and must conform    to the regular
+      expression `([a-z]([-a-z0-9]*[a-z0-9])?)?`.  * No more than 64 labels
+      can be associated with a given session.  See https://goo.gl/xmQnxf for
+      more information on and examples of labels.
 
   Fields:
-    name: Required. The name of the session.
+    approximateLastUseTime: Output only. The approximate timestamp when the
+      session is last used. It is typically earlier than the actual last use
+      time.
+    createTime: Output only. The timestamp when the session is created.
+    labels: The labels for the session.   * Label keys must be between 1 and
+      63 characters long and must conform to    the following regular
+      expression: `[a-z]([-a-z0-9]*[a-z0-9])?`.  * Label values must be
+      between 0 and 63 characters long and must conform    to the regular
+      expression `([a-z]([-a-z0-9]*[a-z0-9])?)?`.  * No more than 64 labels
+      can be associated with a given session.  See https://goo.gl/xmQnxf for
+      more information on and examples of labels.
+    name: The name of the session. This is always system-assigned; values
+      provided when creating a session are ignored.
   """
 
-  name = _messages.StringField(1)
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""The labels for the session.   * Label keys must be between 1 and 63
+    characters long and must conform to    the following regular expression:
+    `[a-z]([-a-z0-9]*[a-z0-9])?`.  * Label values must be between 0 and 63
+    characters long and must conform    to the regular expression
+    `([a-z]([-a-z0-9]*[a-z0-9])?)?`.  * No more than 64 labels can be
+    associated with a given session.  See https://goo.gl/xmQnxf for more
+    information on and examples of labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  approximateLastUseTime = _messages.StringField(1)
+  createTime = _messages.StringField(2)
+  labels = _messages.MessageField('LabelsValue', 3)
+  name = _messages.StringField(4)
 
 
 class SetIamPolicyRequest(_messages.Message):
-  """Request message for `SetIamPolicy` method.
+  r"""Request message for `SetIamPolicy` method.
 
   Fields:
     policy: REQUIRED: The complete policy to be applied to the `resource`. The
@@ -1654,7 +1991,7 @@ class SetIamPolicyRequest(_messages.Message):
 
 
 class ShortRepresentation(_messages.Message):
-  """Condensed representation of a node and its subtree. Only present for
+  r"""Condensed representation of a node and its subtree. Only present for
   `SCALAR` PlanNode(s).
 
   Messages:
@@ -1676,7 +2013,7 @@ class ShortRepresentation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class SubqueriesValue(_messages.Message):
-    """A mapping of (subquery variable name) -> (subquery node id) for cases
+    r"""A mapping of (subquery variable name) -> (subquery node id) for cases
     where the `description` string of this node references a `SCALAR` subquery
     contained in the expression subtree rooted at this node. The referenced
     `SCALAR` subquery may not necessarily be a direct child of this node.
@@ -1689,7 +2026,7 @@ class ShortRepresentation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a SubqueriesValue object.
+      r"""An additional property for a SubqueriesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1706,7 +2043,7 @@ class ShortRepresentation(_messages.Message):
 
 
 class SpannerProjectsInstanceConfigsGetRequest(_messages.Message):
-  """A SpannerProjectsInstanceConfigsGetRequest object.
+  r"""A SpannerProjectsInstanceConfigsGetRequest object.
 
   Fields:
     name: Required. The name of the requested instance configuration. Values
@@ -1717,7 +2054,7 @@ class SpannerProjectsInstanceConfigsGetRequest(_messages.Message):
 
 
 class SpannerProjectsInstanceConfigsListRequest(_messages.Message):
-  """A SpannerProjectsInstanceConfigsListRequest object.
+  r"""A SpannerProjectsInstanceConfigsListRequest object.
 
   Fields:
     pageSize: Number of instance configurations to be returned in the
@@ -1736,7 +2073,7 @@ class SpannerProjectsInstanceConfigsListRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesCreateRequest(_messages.Message):
-  """A SpannerProjectsInstancesCreateRequest object.
+  r"""A SpannerProjectsInstancesCreateRequest object.
 
   Fields:
     createInstanceRequest: A CreateInstanceRequest resource to be passed as
@@ -1750,7 +2087,7 @@ class SpannerProjectsInstancesCreateRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesCreateRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesCreateRequest object.
+  r"""A SpannerProjectsInstancesDatabasesCreateRequest object.
 
   Fields:
     createDatabaseRequest: A CreateDatabaseRequest resource to be passed as
@@ -1765,7 +2102,7 @@ class SpannerProjectsInstancesDatabasesCreateRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesDropDatabaseRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesDropDatabaseRequest object.
+  r"""A SpannerProjectsInstancesDatabasesDropDatabaseRequest object.
 
   Fields:
     database: Required. The database to be dropped.
@@ -1775,7 +2112,7 @@ class SpannerProjectsInstancesDatabasesDropDatabaseRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesGetDdlRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesGetDdlRequest object.
+  r"""A SpannerProjectsInstancesDatabasesGetDdlRequest object.
 
   Fields:
     database: Required. The database whose schema we wish to get.
@@ -1785,7 +2122,7 @@ class SpannerProjectsInstancesDatabasesGetDdlRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesGetIamPolicyRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesGetIamPolicyRequest object.
+  r"""A SpannerProjectsInstancesDatabasesGetIamPolicyRequest object.
 
   Fields:
     getIamPolicyRequest: A GetIamPolicyRequest resource to be passed as the
@@ -1802,7 +2139,7 @@ class SpannerProjectsInstancesDatabasesGetIamPolicyRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesGetRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesGetRequest object.
+  r"""A SpannerProjectsInstancesDatabasesGetRequest object.
 
   Fields:
     name: Required. The name of the requested database. Values are of the form
@@ -1813,7 +2150,7 @@ class SpannerProjectsInstancesDatabasesGetRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesListRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesListRequest object.
+  r"""A SpannerProjectsInstancesDatabasesListRequest object.
 
   Fields:
     pageSize: Number of databases to be returned in the response. If 0 or
@@ -1830,7 +2167,7 @@ class SpannerProjectsInstancesDatabasesListRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesOperationsCancelRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesOperationsCancelRequest object.
+  r"""A SpannerProjectsInstancesDatabasesOperationsCancelRequest object.
 
   Fields:
     name: The name of the operation resource to be cancelled.
@@ -1840,7 +2177,7 @@ class SpannerProjectsInstancesDatabasesOperationsCancelRequest(_messages.Message
 
 
 class SpannerProjectsInstancesDatabasesOperationsDeleteRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesOperationsDeleteRequest object.
+  r"""A SpannerProjectsInstancesDatabasesOperationsDeleteRequest object.
 
   Fields:
     name: The name of the operation resource to be deleted.
@@ -1850,7 +2187,7 @@ class SpannerProjectsInstancesDatabasesOperationsDeleteRequest(_messages.Message
 
 
 class SpannerProjectsInstancesDatabasesOperationsGetRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesOperationsGetRequest object.
+  r"""A SpannerProjectsInstancesDatabasesOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -1860,7 +2197,7 @@ class SpannerProjectsInstancesDatabasesOperationsGetRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesOperationsListRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesOperationsListRequest object.
+  r"""A SpannerProjectsInstancesDatabasesOperationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -1876,7 +2213,7 @@ class SpannerProjectsInstancesDatabasesOperationsListRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesSessionsBeginTransactionRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsBeginTransactionRequest
+  r"""A SpannerProjectsInstancesDatabasesSessionsBeginTransactionRequest
   object.
 
   Fields:
@@ -1890,7 +2227,7 @@ class SpannerProjectsInstancesDatabasesSessionsBeginTransactionRequest(_messages
 
 
 class SpannerProjectsInstancesDatabasesSessionsCommitRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsCommitRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsCommitRequest object.
 
   Fields:
     commitRequest: A CommitRequest resource to be passed as the request body.
@@ -1903,17 +2240,20 @@ class SpannerProjectsInstancesDatabasesSessionsCommitRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesSessionsCreateRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsCreateRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsCreateRequest object.
 
   Fields:
+    createSessionRequest: A CreateSessionRequest resource to be passed as the
+      request body.
     database: Required. The database in which the new session is created.
   """
 
-  database = _messages.StringField(1, required=True)
+  createSessionRequest = _messages.MessageField('CreateSessionRequest', 1)
+  database = _messages.StringField(2, required=True)
 
 
 class SpannerProjectsInstancesDatabasesSessionsDeleteRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsDeleteRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsDeleteRequest object.
 
   Fields:
     name: Required. The name of the session to delete.
@@ -1923,7 +2263,7 @@ class SpannerProjectsInstancesDatabasesSessionsDeleteRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesSessionsExecuteSqlRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsExecuteSqlRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsExecuteSqlRequest object.
 
   Fields:
     executeSqlRequest: A ExecuteSqlRequest resource to be passed as the
@@ -1936,7 +2276,7 @@ class SpannerProjectsInstancesDatabasesSessionsExecuteSqlRequest(_messages.Messa
 
 
 class SpannerProjectsInstancesDatabasesSessionsExecuteStreamingSqlRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsExecuteStreamingSqlRequest
+  r"""A SpannerProjectsInstancesDatabasesSessionsExecuteStreamingSqlRequest
   object.
 
   Fields:
@@ -1950,7 +2290,7 @@ class SpannerProjectsInstancesDatabasesSessionsExecuteStreamingSqlRequest(_messa
 
 
 class SpannerProjectsInstancesDatabasesSessionsGetRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsGetRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsGetRequest object.
 
   Fields:
     name: Required. The name of the session to retrieve.
@@ -1959,8 +2299,57 @@ class SpannerProjectsInstancesDatabasesSessionsGetRequest(_messages.Message):
   name = _messages.StringField(1, required=True)
 
 
+class SpannerProjectsInstancesDatabasesSessionsListRequest(_messages.Message):
+  r"""A SpannerProjectsInstancesDatabasesSessionsListRequest object.
+
+  Fields:
+    database: Required. The database in which to list sessions.
+    filter: An expression for filtering the results of the request. Filter
+      rules are case insensitive. The fields eligible for filtering are:    *
+      `labels.key` where key is the name of a label  Some examples of using
+      filters are:    * `labels.env:*` --> The session has the label "env".
+      * `labels.env:dev` --> The session has the label "env" and the value of
+      the label contains the string "dev".
+    pageSize: Number of sessions to be returned in the response. If 0 or less,
+      defaults to the server's maximum allowed page size.
+    pageToken: If non-empty, `page_token` should contain a next_page_token
+      from a previous ListSessionsResponse.
+  """
+
+  database = _messages.StringField(1, required=True)
+  filter = _messages.StringField(2)
+  pageSize = _messages.IntegerField(3, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(4)
+
+
+class SpannerProjectsInstancesDatabasesSessionsPartitionQueryRequest(_messages.Message):
+  r"""A SpannerProjectsInstancesDatabasesSessionsPartitionQueryRequest object.
+
+  Fields:
+    partitionQueryRequest: A PartitionQueryRequest resource to be passed as
+      the request body.
+    session: Required. The session used to create the partitions.
+  """
+
+  partitionQueryRequest = _messages.MessageField('PartitionQueryRequest', 1)
+  session = _messages.StringField(2, required=True)
+
+
+class SpannerProjectsInstancesDatabasesSessionsPartitionReadRequest(_messages.Message):
+  r"""A SpannerProjectsInstancesDatabasesSessionsPartitionReadRequest object.
+
+  Fields:
+    partitionReadRequest: A PartitionReadRequest resource to be passed as the
+      request body.
+    session: Required. The session used to create the partitions.
+  """
+
+  partitionReadRequest = _messages.MessageField('PartitionReadRequest', 1)
+  session = _messages.StringField(2, required=True)
+
+
 class SpannerProjectsInstancesDatabasesSessionsReadRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsReadRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsReadRequest object.
 
   Fields:
     readRequest: A ReadRequest resource to be passed as the request body.
@@ -1972,7 +2361,7 @@ class SpannerProjectsInstancesDatabasesSessionsReadRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesSessionsRollbackRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsRollbackRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsRollbackRequest object.
 
   Fields:
     rollbackRequest: A RollbackRequest resource to be passed as the request
@@ -1986,7 +2375,7 @@ class SpannerProjectsInstancesDatabasesSessionsRollbackRequest(_messages.Message
 
 
 class SpannerProjectsInstancesDatabasesSessionsStreamingReadRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSessionsStreamingReadRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSessionsStreamingReadRequest object.
 
   Fields:
     readRequest: A ReadRequest resource to be passed as the request body.
@@ -1998,7 +2387,7 @@ class SpannerProjectsInstancesDatabasesSessionsStreamingReadRequest(_messages.Me
 
 
 class SpannerProjectsInstancesDatabasesSetIamPolicyRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesSetIamPolicyRequest object.
+  r"""A SpannerProjectsInstancesDatabasesSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The Cloud Spanner resource for which the policy is
@@ -2014,7 +2403,7 @@ class SpannerProjectsInstancesDatabasesSetIamPolicyRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDatabasesTestIamPermissionsRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesTestIamPermissionsRequest object.
+  r"""A SpannerProjectsInstancesDatabasesTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The Cloud Spanner resource for which permissions are
@@ -2031,7 +2420,7 @@ class SpannerProjectsInstancesDatabasesTestIamPermissionsRequest(_messages.Messa
 
 
 class SpannerProjectsInstancesDatabasesUpdateDdlRequest(_messages.Message):
-  """A SpannerProjectsInstancesDatabasesUpdateDdlRequest object.
+  r"""A SpannerProjectsInstancesDatabasesUpdateDdlRequest object.
 
   Fields:
     database: Required. The database to update.
@@ -2044,7 +2433,7 @@ class SpannerProjectsInstancesDatabasesUpdateDdlRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesDeleteRequest(_messages.Message):
-  """A SpannerProjectsInstancesDeleteRequest object.
+  r"""A SpannerProjectsInstancesDeleteRequest object.
 
   Fields:
     name: Required. The name of the instance to be deleted. Values are of the
@@ -2055,7 +2444,7 @@ class SpannerProjectsInstancesDeleteRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesGetIamPolicyRequest(_messages.Message):
-  """A SpannerProjectsInstancesGetIamPolicyRequest object.
+  r"""A SpannerProjectsInstancesGetIamPolicyRequest object.
 
   Fields:
     getIamPolicyRequest: A GetIamPolicyRequest resource to be passed as the
@@ -2072,7 +2461,7 @@ class SpannerProjectsInstancesGetIamPolicyRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesGetRequest(_messages.Message):
-  """A SpannerProjectsInstancesGetRequest object.
+  r"""A SpannerProjectsInstancesGetRequest object.
 
   Fields:
     name: Required. The name of the requested instance. Values are of the form
@@ -2083,21 +2472,21 @@ class SpannerProjectsInstancesGetRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesListRequest(_messages.Message):
-  """A SpannerProjectsInstancesListRequest object.
+  r"""A SpannerProjectsInstancesListRequest object.
 
   Fields:
     filter: An expression for filtering the results of the request. Filter
       rules are case insensitive. The fields eligible for filtering are:    *
-      name   * display_name   * labels.key where key is the name of a label
-      Some examples of using filters are:    * name:* --> The instance has a
-      name.   * name:Howl --> The instance's name contains the string "howl".
-      * name:HOWL --> Equivalent to above.   * NAME:howl --> Equivalent to
-      above.   * labels.env:* --> The instance has the label "env".   *
-      labels.env:dev --> The instance has the label "env" and the value of
-      the label contains the string "dev".   * name:howl labels.env:dev -->
-      The instance's name contains "howl" and
-      it has the label "env" with its value
-      containing "dev".
+      `name`   * `display_name`   * `labels.key` where key is the name of a
+      label  Some examples of using filters are:    * `name:*` --> The
+      instance has a name.   * `name:Howl` --> The instance's name contains
+      the string "howl".   * `name:HOWL` --> Equivalent to above.   *
+      `NAME:howl` --> Equivalent to above.   * `labels.env:*` --> The instance
+      has the label "env".   * `labels.env:dev` --> The instance has the label
+      "env" and the value of                        the label contains the
+      string "dev".   * `name:howl labels.env:dev` --> The instance's name
+      contains "howl" and                                  it has the label
+      "env" with its value                                  containing "dev".
     pageSize: Number of instances to be returned in the response. If 0 or
       less, defaults to the server's maximum allowed page size.
     pageToken: If non-empty, `page_token` should contain a next_page_token
@@ -2113,7 +2502,7 @@ class SpannerProjectsInstancesListRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesOperationsCancelRequest(_messages.Message):
-  """A SpannerProjectsInstancesOperationsCancelRequest object.
+  r"""A SpannerProjectsInstancesOperationsCancelRequest object.
 
   Fields:
     name: The name of the operation resource to be cancelled.
@@ -2123,7 +2512,7 @@ class SpannerProjectsInstancesOperationsCancelRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesOperationsDeleteRequest(_messages.Message):
-  """A SpannerProjectsInstancesOperationsDeleteRequest object.
+  r"""A SpannerProjectsInstancesOperationsDeleteRequest object.
 
   Fields:
     name: The name of the operation resource to be deleted.
@@ -2133,7 +2522,7 @@ class SpannerProjectsInstancesOperationsDeleteRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesOperationsGetRequest(_messages.Message):
-  """A SpannerProjectsInstancesOperationsGetRequest object.
+  r"""A SpannerProjectsInstancesOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -2143,7 +2532,7 @@ class SpannerProjectsInstancesOperationsGetRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesOperationsListRequest(_messages.Message):
-  """A SpannerProjectsInstancesOperationsListRequest object.
+  r"""A SpannerProjectsInstancesOperationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -2159,7 +2548,7 @@ class SpannerProjectsInstancesOperationsListRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesPatchRequest(_messages.Message):
-  """A SpannerProjectsInstancesPatchRequest object.
+  r"""A SpannerProjectsInstancesPatchRequest object.
 
   Fields:
     name: Required. A unique identifier for the instance, which cannot be
@@ -2175,7 +2564,7 @@ class SpannerProjectsInstancesPatchRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesSetIamPolicyRequest(_messages.Message):
-  """A SpannerProjectsInstancesSetIamPolicyRequest object.
+  r"""A SpannerProjectsInstancesSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The Cloud Spanner resource for which the policy is
@@ -2191,7 +2580,7 @@ class SpannerProjectsInstancesSetIamPolicyRequest(_messages.Message):
 
 
 class SpannerProjectsInstancesTestIamPermissionsRequest(_messages.Message):
-  """A SpannerProjectsInstancesTestIamPermissionsRequest object.
+  r"""A SpannerProjectsInstancesTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The Cloud Spanner resource for which permissions are
@@ -2208,7 +2597,7 @@ class SpannerProjectsInstancesTestIamPermissionsRequest(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -2237,7 +2626,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -2249,7 +2638,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -2275,7 +2664,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -2323,7 +2712,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -2335,7 +2724,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -2353,7 +2742,7 @@ class Status(_messages.Message):
 
 
 class StructType(_messages.Message):
-  """`StructType` defines the fields of a STRUCT type.
+  r"""`StructType` defines the fields of a STRUCT type.
 
   Fields:
     fields: The list of fields that make up this struct. Order is significant,
@@ -2367,7 +2756,7 @@ class StructType(_messages.Message):
 
 
 class TestIamPermissionsRequest(_messages.Message):
-  """Request message for `TestIamPermissions` method.
+  r"""Request message for `TestIamPermissions` method.
 
   Fields:
     permissions: REQUIRED: The set of permissions to check for 'resource'.
@@ -2379,7 +2768,7 @@ class TestIamPermissionsRequest(_messages.Message):
 
 
 class TestIamPermissionsResponse(_messages.Message):
-  """Response message for `TestIamPermissions` method.
+  r"""Response message for `TestIamPermissions` method.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -2390,7 +2779,7 @@ class TestIamPermissionsResponse(_messages.Message):
 
 
 class Transaction(_messages.Message):
-  """A transaction.
+  r"""A transaction.
 
   Fields:
     id: `id` may be used to identify the transaction in subsequent Read,
@@ -2399,7 +2788,9 @@ class Transaction(_messages.Message):
       support multiple requests.
     readTimestamp: For snapshot read-only transactions, the read timestamp
       chosen for the transaction. Not returned by default: see
-      TransactionOptions.ReadOnly.return_read_timestamp.
+      TransactionOptions.ReadOnly.return_read_timestamp.  A timestamp in
+      RFC3339 UTC \"Zulu\" format, accurate to nanoseconds. Example:
+      `"2014-10-02T15:01:23.045123456Z"`.
   """
 
   id = _messages.BytesField(1)
@@ -2407,7 +2798,7 @@ class Transaction(_messages.Message):
 
 
 class TransactionOptions(_messages.Message):
-  """# Transactions   Each session can have at most one active transaction at
+  r"""# Transactions   Each session can have at most one active transaction at
   a time. After the active transaction is completed, the session can
   immediately be re-used for the next transaction. It is not necessary to
   create a new session for each transaction.  # Transaction Modes  Cloud
@@ -2419,7 +2810,7 @@ class TransactionOptions(_messages.Message):
   provides guaranteed      consistency across several reads, but does not
   allow      writes. Snapshot read-only transactions can be configured to
   read at timestamps in the past. Snapshot read-only      transactions do not
-  need to be committed.  For transactions that only read, snapshot read-only
+  need to be committed.   For transactions that only read, snapshot read-only
   transactions provide simpler semantics and are almost always faster. In
   particular, read-only transactions do not take locks, so they do not
   conflict with read-write transactions. As a consequence of not taking locks,
@@ -2531,9 +2922,10 @@ class TransactionOptions(_messages.Message):
   read timestamps more than one hour in the past. This restriction also
   applies to in-progress reads and/or SQL queries whose timestamp become too
   old while executing. Reads and SQL queries with too-old read timestamps fail
-  with the error `FAILED_PRECONDITION`.
+  with the error `FAILED_PRECONDITION`.  ##
 
   Fields:
+    partitionedDml: A PartitionedDml attribute.
     readOnly: Transaction will not write.  Authorization to begin a read-only
       transaction requires `spanner.databases.beginReadOnlyTransaction`
       permission on the `session` resource.
@@ -2543,12 +2935,13 @@ class TransactionOptions(_messages.Message):
       the `session` resource.
   """
 
-  readOnly = _messages.MessageField('ReadOnly', 1)
-  readWrite = _messages.MessageField('ReadWrite', 2)
+  partitionedDml = _messages.MessageField('PartitionedDml', 1)
+  readOnly = _messages.MessageField('ReadOnly', 2)
+  readWrite = _messages.MessageField('ReadWrite', 3)
 
 
 class TransactionSelector(_messages.Message):
-  """This message is used to select the transaction in which a Read or
+  r"""This message is used to select the transaction in which a Read or
   ExecuteSql call runs.  See TransactionOptions for more information about
   transactions.
 
@@ -2568,8 +2961,8 @@ class TransactionSelector(_messages.Message):
 
 
 class Type(_messages.Message):
-  """`Type` indicates the type of a Cloud Spanner value, as might be stored in
-  a table cell or returned from an SQL query.
+  r"""`Type` indicates the type of a Cloud Spanner value, as might be stored
+  in a table cell or returned from an SQL query.
 
   Enums:
     CodeValueValuesEnum: Required. The TypeCode for this type.
@@ -2583,7 +2976,7 @@ class Type(_messages.Message):
   """
 
   class CodeValueValuesEnum(_messages.Enum):
-    """Required. The TypeCode for this type.
+    r"""Required. The TypeCode for this type.
 
     Values:
       TYPE_CODE_UNSPECIFIED: Not specified.
@@ -2592,7 +2985,10 @@ class Type(_messages.Message):
       FLOAT64: Encoded as `number`, or the strings `"NaN"`, `"Infinity"`, or
         `"-Infinity"`.
       TIMESTAMP: Encoded as `string` in RFC 3339 timestamp format. The time
-        zone must be present, and must be `"Z"`.
+        zone must be present, and must be `"Z"`.  If the schema has the column
+        option `allow_commit_timestamp=true`, the placeholder string
+        `"spanner.commit_timestamp()"` can be used to instruct the system to
+        insert the commit timestamp associated with the transaction commit.
       DATE: Encoded as `string` in RFC 3339 date format.
       STRING: Encoded as `string`.
       BYTES: Encoded as a base64-encoded `string`, as described in RFC 4648,
@@ -2620,7 +3016,7 @@ class Type(_messages.Message):
 
 
 class UpdateDatabaseDdlMetadata(_messages.Message):
-  """Metadata type for the operation returned by UpdateDatabaseDdl.
+  r"""Metadata type for the operation returned by UpdateDatabaseDdl.
 
   Fields:
     commitTimestamps: Reports the commit timestamps of all statements that
@@ -2637,7 +3033,7 @@ class UpdateDatabaseDdlMetadata(_messages.Message):
 
 
 class UpdateDatabaseDdlRequest(_messages.Message):
-  """Enqueues the given DDL statements to be applied, in order but not
+  r"""Enqueues the given DDL statements to be applied, in order but not
   necessarily all at once, to the database schema at some point (or points) in
   the future. The server checks that the statements are executable
   (syntactically valid, name tables that exist, etc.) before enqueueing them,
@@ -2670,7 +3066,7 @@ class UpdateDatabaseDdlRequest(_messages.Message):
 
 
 class UpdateInstanceMetadata(_messages.Message):
-  """Metadata type for the operation returned by UpdateInstance.
+  r"""Metadata type for the operation returned by UpdateInstance.
 
   Fields:
     cancelTime: The time at which this operation was cancelled. If set, this
@@ -2689,7 +3085,7 @@ class UpdateInstanceMetadata(_messages.Message):
 
 
 class UpdateInstanceRequest(_messages.Message):
-  """The request for UpdateInstance.
+  r"""The request for UpdateInstance.
 
   Fields:
     fieldMask: Required. A mask specifying which fields in
@@ -2709,7 +3105,7 @@ class UpdateInstanceRequest(_messages.Message):
 
 
 class Write(_messages.Message):
-  """Arguments to insert, update, insert_or_update, and replace operations.
+  r"""Arguments to insert, update, insert_or_update, and replace operations.
 
   Messages:
     ValuesValueListEntry: Single entry in a ValuesValue.
@@ -2729,7 +3125,7 @@ class Write(_messages.Message):
   """
 
   class ValuesValueListEntry(_messages.Message):
-    """Single entry in a ValuesValue.
+    r"""Single entry in a ValuesValue.
 
     Fields:
       entry: A extra_types.JsonValue attribute.
@@ -2743,14 +3139,10 @@ class Write(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    Rule, 'in_', 'in',
-    package=u'spanner')
+    Rule, 'in_', 'in')
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'spanner')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'spanner')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'spanner')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

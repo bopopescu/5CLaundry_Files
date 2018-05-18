@@ -13,25 +13,25 @@
 # limitations under the License.
 """Create node pool command."""
 
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
-from googlecloudsdk.api_lib.compute import constants as compute_constants
 from googlecloudsdk.api_lib.container import api_adapter
 from googlecloudsdk.api_lib.container import util
-from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.container import constants
 from googlecloudsdk.command_lib.container import flags
 from googlecloudsdk.command_lib.container import messages
 from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
 
 DETAILED_HELP = {
     'DESCRIPTION':
         """\
         *{command}* facilitates the creation of a node pool in a Google
-        Container Engine cluster. A variety of options exists to customize the
+        Kubernetes Engine cluster. A variety of options exists to customize the
         node configuration and the number of nodes created.
         """,
     'EXAMPLES':
@@ -60,59 +60,25 @@ def _Args(parser):
   """
   flags.AddNodePoolNameArg(parser, 'The name of the node pool to create.')
   flags.AddNodePoolClusterFlag(parser, 'The cluster to add the node pool to.')
-  parser.add_argument(
-      '--enable-cloud-endpoints',
-      action='store_true',
-      default=True,
-      help='Automatically enable Google Cloud Endpoints to take advantage of '
-      'API management features.')
   # Timeout in seconds for operation
   parser.add_argument(
-      '--timeout', type=int, default=1800, help=argparse.SUPPRESS)
+      '--timeout', type=int, default=1800, hidden=True,
+      help='THIS ARGUMENT NEEDS HELP TEXT.')
   parser.add_argument(
       '--num-nodes',
       type=int,
       help='The number of nodes in the node pool in each of the '
       'cluster\'s zones.',
       default=3)
-  parser.add_argument(
-      '--machine-type',
-      '-m',
-      help='The type of machine to use for nodes. Defaults to n1-standard-1')
+  flags.AddMachineTypeFlag(parser)
   parser.add_argument(
       '--disk-size',
       type=int,
       help='Size in GB for node VM boot disks. Defaults to 100GB.')
-  parser.add_argument(
-      '--scopes',
-      type=arg_parsers.ArgList(min_length=1),
-      metavar='SCOPE',
-      help="""\
-Specifies scopes for the node instances. The project's default
-service account is used. Examples:
-
-  $ {{command}} node-pool-1 --cluster=example-cluster --scopes https://www.googleapis.com/auth/devstorage.read_only
-
-  $ {{command}} node-pool-1 --cluster=example-cluster --scopes bigquery,storage-rw,compute-ro
-
-Multiple SCOPEs can specified, separated by commas. The scopes
-necessary for the cluster to function properly (compute-rw, storage-ro),
-are always added, even if not explicitly specified.
-
-SCOPE can be either the full URI of the scope or an alias.
-Available aliases are:
-
-[options="header",format="csv",grid="none",frame="none"]
-|========
-Alias,URI
-{aliases}
-|========
-
-{scope_deprecation_msg}
-""".format(
-    aliases=compute_constants.ScopesForHelp(),
-    scope_deprecation_msg=compute_constants.DEPRECATED_SCOPES_MESSAGES))
   flags.AddImageTypeFlag(parser, 'node pool')
+  flags.AddImageFlag(parser, hidden=True)
+  flags.AddImageProjectFlag(parser, hidden=True)
+  flags.AddImageFamilyFlag(parser, hidden=True)
   flags.AddNodeLabelsFlag(parser, for_node_pool=True)
   flags.AddTagsFlag(parser, """\
 Applies the given Compute Engine tags (comma separated) on all nodes in the new
@@ -125,24 +91,37 @@ on the Compute Engine API instance object and can be used in firewall rules.
 See https://cloud.google.com/sdk/gcloud/reference/compute/firewall-rules/create
 for examples.
 """)
+  # TODO(b/36071127): unhide this flag after we have enough ssd.
   flags.AddDiskTypeFlag(parser, suppressed=True)
+  flags.AddEnableAutoUpgradeFlag(parser, for_node_pool=True)
   parser.display_info.AddFormat(util.NODEPOOLS_FORMAT)
+  flags.AddNodeVersionFlag(parser)
 
 
 def ParseCreateNodePoolOptionsBase(args):
+  if (args.IsSpecified('enable_cloud_endpoints') and
+      properties.VALUES.container.new_scopes_behavior.GetBool()):
+    raise util.Error('Flag --[no-]enable-cloud-endpoints is not allowed if '
+                     'property container/ new_scopes_behavior is set to true.')
+  flags.WarnForUnspecifiedAutorepair(args)
   return api_adapter.CreateNodePoolOptions(
       machine_type=args.machine_type,
       disk_size_gb=args.disk_size,
       scopes=args.scopes,
+      node_version=args.node_version,
       enable_cloud_endpoints=args.enable_cloud_endpoints,
       num_nodes=args.num_nodes,
       local_ssd_count=args.local_ssd_count,
       tags=args.tags,
       node_labels=args.node_labels,
+      node_taints=args.node_taints,
       enable_autoscaling=args.enable_autoscaling,
       max_nodes=args.max_nodes,
       min_nodes=args.min_nodes,
       image_type=args.image_type,
+      image=args.image,
+      image_project=args.image_project,
+      image_family=args.image_family,
       preemptible=args.preemptible,
       enable_autorepair=args.enable_autorepair,
       enable_autoupgrade=args.enable_autoupgrade,
@@ -157,12 +136,13 @@ class Create(base.CreateCommand):
   @staticmethod
   def Args(parser):
     _Args(parser)
-    flags.AddClusterAutoscalingFlags(parser, hidden=True)
-    flags.AddLocalSSDFlag(parser, suppressed=True)
-    flags.AddPreemptibleFlag(parser, for_node_pool=True, suppressed=True)
-    flags.AddEnableAutoRepairFlag(parser, for_node_pool=True, suppressed=True)
-    flags.AddEnableAutoUpgradeFlag(parser, for_node_pool=True, suppressed=True)
-    flags.AddServiceAccountFlag(parser, suppressed=True)
+    flags.AddClusterAutoscalingFlags(parser)
+    flags.AddLocalSSDFlag(parser)
+    flags.AddPreemptibleFlag(parser, for_node_pool=True)
+    flags.AddEnableAutoRepairFlag(parser, for_node_pool=True)
+    flags.AddMinCpuPlatformFlag(parser, for_node_pool=True)
+    flags.AddNodeTaintsFlag(parser, for_node_pool=True)
+    flags.AddDeprecatedNodePoolNodeIdentityFlags(parser)
 
   def ParseCreateNodePoolOptions(self, args):
     return ParseCreateNodePoolOptionsBase(args)
@@ -183,12 +163,8 @@ class Create(base.CreateCommand):
     adapter = self.context['api_adapter']
     location_get = self.context['location_get']
     location = location_get(args)
-    if not args.scopes:
-      args.scopes = []
 
     try:
-      if not args.scopes:
-        args.scopes = []
       pool_ref = adapter.ParseNodePool(args.name, location)
       options = self.ParseCreateNodePoolOptions(args)
 
@@ -201,6 +177,9 @@ class Create(base.CreateCommand):
         log.status.Print(
             messages.AutoUpdateUpgradeRepairMessage(options.enable_autoupgrade,
                                                     'autoupgrade'))
+
+      if options.accelerators is not None:
+        log.status.Print(constants.KUBERNETES_GPU_LIMITATION_MSG)
 
       operation_ref = adapter.CreateNodePool(pool_ref, options)
 
@@ -223,12 +202,23 @@ class CreateBeta(Create):
   @staticmethod
   def Args(parser):
     _Args(parser)
-    flags.AddClusterAutoscalingFlags(parser, hidden=True)
+    flags.AddAcceleratorArgs(parser)
+    flags.AddClusterAutoscalingFlags(parser)
     flags.AddLocalSSDFlag(parser)
     flags.AddPreemptibleFlag(parser, for_node_pool=True)
     flags.AddEnableAutoRepairFlag(parser, for_node_pool=True)
-    flags.AddEnableAutoUpgradeFlag(parser, for_node_pool=True)
-    flags.AddServiceAccountFlag(parser)
+    flags.AddMinCpuPlatformFlag(parser, for_node_pool=True)
+    flags.AddWorkloadMetadataFromNodeFlag(parser)
+    flags.AddNodeTaintsFlag(parser, for_node_pool=True)
+    flags.AddNodePoolNodeIdentityFlags(parser)
+
+  def ParseCreateNodePoolOptions(self, args):
+    ops = ParseCreateNodePoolOptionsBase(args)
+    ops.accelerators = args.accelerator
+    ops.min_cpu_platform = args.min_cpu_platform
+    ops.workload_metadata_from_node = args.workload_metadata_from_node
+    ops.new_scopes_behavior = True
+    return ops
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
@@ -238,18 +228,26 @@ class CreateAlpha(Create):
   def ParseCreateNodePoolOptions(self, args):
     ops = ParseCreateNodePoolOptionsBase(args)
     ops.accelerators = args.accelerator
+    ops.min_cpu_platform = args.min_cpu_platform
+    ops.workload_metadata_from_node = args.workload_metadata_from_node
+    ops.enable_autoprovisioning = args.enable_autoprovisioning
+    ops.new_scopes_behavior = True
+    ops.local_ssd_volume_configs = args.local_ssd_volumes
     return ops
 
   @staticmethod
   def Args(parser):
     _Args(parser)
     flags.AddClusterAutoscalingFlags(parser)
-    flags.AddLocalSSDFlag(parser)
+    flags.AddNodePoolAutoprovisioningFlag(parser, hidden=True)
+    flags.AddLocalSSDAndLocalSSDVolumeConfigsFlag(parser, for_node_pool=True)
     flags.AddPreemptibleFlag(parser, for_node_pool=True)
     flags.AddEnableAutoRepairFlag(parser, for_node_pool=True)
-    flags.AddEnableAutoUpgradeFlag(parser, for_node_pool=True)
-    flags.AddServiceAccountFlag(parser)
     flags.AddAcceleratorArgs(parser)
+    flags.AddMinCpuPlatformFlag(parser, for_node_pool=True)
+    flags.AddWorkloadMetadataFromNodeFlag(parser)
+    flags.AddNodeTaintsFlag(parser, for_node_pool=True)
+    flags.AddNodePoolNodeIdentityFlags(parser)
 
 
 Create.detailed_help = DETAILED_HELP

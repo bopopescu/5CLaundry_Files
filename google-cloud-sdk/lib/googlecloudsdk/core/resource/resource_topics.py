@@ -14,12 +14,18 @@
 
 """Common resource topic text."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import pkgutil
 import textwrap
 
-from googlecloudsdk import api_lib
+from googlecloudsdk import api_lib  # pytype: disable=import-error
 from googlecloudsdk.core.resource import resource_printer
 from googlecloudsdk.core.resource import resource_transform
+
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 def ResourceDescription(name):
@@ -54,6 +60,9 @@ def ResourceDescription(name):
 
   To list a subset of resource keys in a resource, use projections. \
   {see_projection}
+
+  To work through an interactive tutorial about using the filter and format
+  flags instead, see: https://console.cloud.google.com/cloudshell/open?git_repo=https://github.com/GoogleCloudPlatform/cloud-shell-tutorials&page=editor&tutorial=cloudsdk/tutorial.md
   """
   # topic <name> => gcloud topic <command>
   topics = {
@@ -66,7 +75,7 @@ def ResourceDescription(name):
     raise ValueError('Expected one of [{topics}], got [{name}].'.format(
         topics=','.join(sorted(topics)), name=name))
   see = {}
-  for topic, command in topics.iteritems():
+  for topic, command in six.iteritems(topics):
     if topic == name:
       see[topic] = 'Resource {topic}s are described in detail below.'.format(
           topic=topic)
@@ -218,7 +227,8 @@ def FormatRegistryDescriptions():
   """Returns help markdown for all registered resource printer formats."""
   # Generate the printer markdown.
   descriptions = ['The formats and format specific attributes are:\n']
-  for name, printer in sorted(resource_printer.GetFormatRegistry().iteritems()):
+  for name, printer in sorted(
+      six.iteritems(resource_printer.GetFormatRegistry())):
     description, attributes, example = _ParseFormatDocString(printer)
     descriptions.append('\n*{name}*::\n{description}\n'.format(
         name=name, description=description))
@@ -352,6 +362,9 @@ def _ParseTransformDocString(func):
     default = argspec.defaults[default_index] if default_index >= 0 else None
     if default is not None:
       default_display = repr(default).replace("'", '"')
+      # Trim off the unicode 'u'.
+      if default_display.startswith('u"'):
+        default_display = default_display[1:]
       if default_display == 'False':
         default_display = 'false'
       elif default_display == 'True':
@@ -377,7 +390,7 @@ def TransformsDescriptions(transforms):
     The resource transform help text markdown for transforms.
   """
   descriptions = []
-  for name, transform in sorted(transforms.iteritems()):
+  for name, transform in sorted(six.iteritems(transforms)):
     description, prototype, args, example = _ParseTransformDocString(transform)
     if not description:
       continue

@@ -14,8 +14,8 @@
 
 """Delete node pool command."""
 
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.container import util
@@ -28,7 +28,7 @@ from googlecloudsdk.core.console import console_io
 
 DETAILED_HELP = {
     'DESCRIPTION': """\
-        *{command}* deletes a node pool from a Google Container Engine cluster.
+        *{command}* deletes a node pool from a Google Kubernetes Engine cluster.
         This command does not gracefully drain the nodes prior to deleting them.
         Use "kubectl drain NODE_NAME" to drain each node to have containers
         running on these nodes terminate gracefully.
@@ -59,8 +59,9 @@ class Delete(base.DeleteCommand):
         '--timeout',
         type=int,
         default=1800,
-        help=argparse.SUPPRESS)
-    flags.AddClustersWaitAndAsyncFlags(parser)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
+    flags.AddAsyncFlag(parser)
     flags.AddNodePoolClusterFlag(
         parser,
         'The cluster from which to delete the node pool.')
@@ -95,7 +96,7 @@ class Delete(base.DeleteCommand):
       adapter.GetNodePool(pool_ref)
 
       op_ref = adapter.DeleteNodePool(pool_ref)
-      if not flags.GetAsyncValueFromAsyncAndWaitFlags(args.async, args.wait):
+      if not args.async:
         adapter.WaitForOperation(
             op_ref,
             'Deleting node pool {0}'.format(pool_ref.nodePoolId),

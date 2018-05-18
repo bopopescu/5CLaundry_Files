@@ -15,8 +15,18 @@
 """Facility for displaying information about a Job message to a user.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.dataflow import apis
-from googlecloudsdk.command_lib.dataflow import time_util
+from googlecloudsdk.core.util import times
+
+
+def FormatDateTime(string):
+  """Returns a yyyy-mm-dd hh:mm:ss formatted date/time for string."""
+  dt = times.ParseDateTime(string)
+  if not times.GetTimeStampFromDateTime(dt):
+    return None
+  return times.FormatDateTime(dt, '%Y-%m-%d %H:%M:%S')
 
 
 class DisplayInfo(object):
@@ -29,6 +39,7 @@ class DisplayInfo(object):
     state: string representing the current job status
     creationTime: in the form yyyy-mm-dd hh:mm:ss
     stateTime: in the form yyyy-mm-dd hh:mm:ss
+    location: the job's regional endpoint
   """
 
   def __init__(self, job):
@@ -36,18 +47,19 @@ class DisplayInfo(object):
     self.name = job.name
     self.type = DisplayInfo._JobTypeForJob(job.type)
     self.state = DisplayInfo._StatusForJob(job.currentState)
+    self.location = job.location
 
     # We ignore these errors to make the field names more consistent across
     # commands using the --filter argument. This is because most commands are
     # more or less a straight dump of the API response which has camel-case
-    # naming conventions. This class is only used for formmating jobs for
+    # naming conventions. This class is only used for formatting jobs for
     # display purposes.
     #
     # Don't worry, be happy.
     #
     # pylint: disable=invalid-name
-    self.stateTime = time_util.FormatTimestamp(job.currentStateTime)
-    self.creationTime = time_util.FormatTimestamp(job.createTime)
+    self.stateTime = FormatDateTime(job.currentStateTime)
+    self.creationTime = FormatDateTime(job.createTime)
     # pylint: enable=invalid-name
 
   @staticmethod

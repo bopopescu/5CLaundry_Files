@@ -12,19 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for listing URL maps."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute import lister
+from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute.url_maps import flags
 
 
-class List(base_classes.GlobalLister):
+class List(base.ListCommand):
   """List URL maps."""
 
-  @property
-  def service(self):
-    return self.compute.urlMaps
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
+    lister.AddBaseListerArgs(parser)
+    parser.display_info.AddCacheUpdater(flags.UrlMapsCompleter)
 
-  @property
-  def resource_type(self):
-    return 'urlMaps'
+  def Run(self, args):
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
+
+    request_data = lister.ParseNamesAndRegexpFlags(args, holder.resources)
+
+    list_implementation = lister.GlobalLister(
+        client, client.apitools_client.urlMaps)
+
+    return lister.Invoke(request_data, list_implementation)
 
 
 List.detailed_help = base_classes.GetGlobalListerHelp('URL maps')

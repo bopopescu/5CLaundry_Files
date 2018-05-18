@@ -13,12 +13,9 @@
 # limitations under the License.
 """List images command."""
 
-import httplib
-from containerregistry.client.v2_2 import docker_http
 from containerregistry.client.v2_2 import docker_image
 from googlecloudsdk.api_lib.container.images import util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import http
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
@@ -73,14 +70,17 @@ class List(base.ListCommand):
     Raises:
       exceptions.Error: If the repository could not be found, or access was
       denied.
-      docker_http.V2DiagnosticException: Any other error occured while
+      docker_http.V2DiagnosticException: Any other error occurred while
       accessing GCR.
     """
     repository_arg = args.repository
     self._epilog = None
     if not repository_arg:
+      project_id = properties.VALUES.core.project.Get(required=True)
+      # Handle domain-scoped projects...
+      project_id = project_id.replace(':', '/', 1)
       repository_arg = 'gcr.io/{0}'.format(
-          properties.VALUES.core.project.Get(required=True))
+          project_id)
       self._epilog = 'Only listing images in {0}. '.format(repository_arg)
       self._epilog += 'Use --repository to list images in other repositories.'
 
@@ -92,19 +92,12 @@ class List(base.ListCommand):
       return '{0}/{1}'.format(repository, c)
 
     http_obj = http.Http()
-    with docker_image.FromRegistry(basic_creds=util.CredentialProvider(),
-                                   name=repository,
-                                   transport=http_obj) as r:
-      try:
+    with util.WrapExpectedDockerlessErrors(repository):
+      with docker_image.FromRegistry(basic_creds=util.CredentialProvider(),
+                                     name=repository,
+                                     transport=http_obj) as r:
         images = [{'name': _DisplayName(c)} for c in r.children()]
         return images
-      except docker_http.V2DiagnosticException as err:
-        if err.status in [httplib.UNAUTHORIZED, httplib.FORBIDDEN]:
-          raise exceptions.Error('Access denied: {0}'.format(repository))
-        elif err.status == httplib.NOT_FOUND:
-          raise exceptions.Error('Not found: {0}'.format(repository))
-        else:
-          raise
 
   def Epilog(self, resources_were_displayed=True):
     super(List, self).Epilog(resources_were_displayed)

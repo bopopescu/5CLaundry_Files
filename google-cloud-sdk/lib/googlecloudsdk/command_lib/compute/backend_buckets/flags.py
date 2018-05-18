@@ -14,12 +14,15 @@
 
 """Flags and helpers for the compute backend-buckets commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
+
 _GCS_BUCKET_DETAILED_HELP = """\
 The name of the Google Cloud Storage bucket to serve from. The storage
-        bucket must be owned by the project's owner."""
+        bucket must be in the same project."""
 
 DEFAULT_LIST_FORMAT = """\
     table(

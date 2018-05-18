@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for listing target TCP proxies."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import list_pager
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import filter_rewrite
@@ -23,14 +25,15 @@ from googlecloudsdk.core import properties
 class List(base.ListCommand):
   """List target TCP proxies."""
 
-  def DeprecatedFormat(self, args):
-    return """
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat("""
         table(
           name,
           proxyHeader,
           service.basename()
         )
-    """
+    """)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())

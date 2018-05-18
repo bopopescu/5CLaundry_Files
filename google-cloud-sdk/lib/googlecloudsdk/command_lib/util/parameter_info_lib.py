@@ -14,6 +14,8 @@
 
 """Calliope parsed resource parameter info objects."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import re
 
 from googlecloudsdk.calliope import parser_errors
@@ -79,7 +81,7 @@ class ParameterInfoByConvention(resource_cache.ParameterInfo):
     super(ParameterInfoByConvention, self).__init__(**kwargs)
     self._parsed_args = parsed_args
     self._argument = argument
-    self._prefix = argument.dest
+    self._prefix = argument.dest if argument else None
     self._api = collection.split('.')[0] if collection else None
 
   @property
@@ -143,7 +145,7 @@ class ParameterInfoByConvention(resource_cache.ParameterInfo):
     return GetDestFromParam(parameter_name, prefix=prefix)
 
   def GetFlag(self, parameter_name, parameter_value=None,
-              check_properties=True):
+              check_properties=True, for_update=False):
     """Returns the command line flag for parameter[=parameter_value].
 
     Args:
@@ -151,10 +153,12 @@ class ParameterInfoByConvention(resource_cache.ParameterInfo):
       parameter_value: The parameter value if not None. Otherwise
         GetValue() is used to get the value.
       check_properties: Check property values if parsed_args don't help.
+      for_update: Return flag for a cache update command.
 
     Returns:
       The command line flag the for parameter.
     """
+    del for_update
     dest = self.GetDest(parameter_name)
     flag, flag_dest = self._GetFlagAndDest(dest)
     if not flag:
@@ -180,7 +184,7 @@ class ParameterInfoByConvention(resource_cache.ParameterInfo):
 
     Args:
       parameter_name: The parameter name.
-      check_properties: Passed to GetParameterValue().
+      check_properties: Check property values if parsed_args don't help.
 
     Returns:
       The program state value for parameter_name.

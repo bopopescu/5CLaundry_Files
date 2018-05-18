@@ -42,13 +42,14 @@ class Execute(base.ListCommand):
   def Args(parser):
     flags.GetZoneArg().AddToParser(parser)
     parser.display_info.AddFormat(flags.CHANGES_FORMAT)
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     api_version = 'v1'
     # If in the future there are differences between API version, do NOT use
     # this patter of checking ReleaseTrack. Break this into multiple classes.
     if self.ReleaseTrack() == base.ReleaseTrack.BETA:
-      api_version = 'v2beta1'
+      api_version = 'v1beta2'
 
     with transaction_util.TransactionFile(args.transaction_file) as trans_file:
       change = transaction_util.ChangeFromYamlFile(

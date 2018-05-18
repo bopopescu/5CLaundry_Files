@@ -14,6 +14,8 @@
 
 """List command for gcloud debug snapshots command group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.debug import debug
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.debug import flags
@@ -44,5 +46,7 @@ class Describe(base.DescribeCommand):
     debugger = debug.Debugger(project_id)
     debuggee = debugger.FindDebuggee(args.target)
     return debuggee.ListBreakpoints(args.location,
+                                    include_all_users=True,
                                     resource_ids=args.ids,
-                                    restrict_to_type=debugger.SNAPSHOT_TYPE)
+                                    restrict_to_type=debugger.SNAPSHOT_TYPE,
+                                    full_details=True)

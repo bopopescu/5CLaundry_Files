@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for updating Google Compute Engine routers."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import routers_utils
 from googlecloudsdk.api_lib.compute.operations import poller
@@ -24,8 +26,7 @@ from googlecloudsdk.core import log
 from googlecloudsdk.core import resources
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class UpdateAlpha(base.UpdateCommand):
+class Update(base.UpdateCommand):
   """Update a Google Compute Engine router."""
 
   ROUTER_ARG = None
@@ -35,7 +36,7 @@ class UpdateAlpha(base.UpdateCommand):
     cls.ROUTER_ARG = flags.RouterArgument()
     cls.ROUTER_ARG.AddArgument(parser, operation_type='update')
     base.ASYNC_FLAG.AddToParser(parser)
-    flags.AddCustomAdvertisementArgs(parser, 'router')
+    flags.AddUpdateCustomAdvertisementArgs(parser, 'router')
 
   def Run(self, args):
     # Manually ensure replace/incremental flags are mutually exclusive.
@@ -52,7 +53,7 @@ class UpdateAlpha(base.UpdateCommand):
     existing_mode = replacement.bgp.advertiseMode
 
     if router_utils.HasReplaceAdvertisementFlags(args):
-      mode, groups, prefixes = router_utils.ParseAdvertisements(
+      mode, groups, ranges = router_utils.ParseAdvertisements(
           messages=messages, resource_class=messages.RouterBgp, args=args)
 
       router_utils.PromptIfSwitchToDefaultMode(
@@ -64,7 +65,7 @@ class UpdateAlpha(base.UpdateCommand):
       attrs = {
           'advertiseMode': mode,
           'advertisedGroups': groups,
-          'advertisedPrefixs': prefixes,
+          'advertisedIpRanges': ranges,
       }
 
       for attr, value in attrs.items():
@@ -98,7 +99,7 @@ class UpdateAlpha(base.UpdateCommand):
       if args.add_advertisement_ranges:
         ip_ranges_to_add = routers_utils.ParseIpRanges(
             messages=messages, ip_ranges=args.add_advertisement_ranges)
-        replacement.bgp.advertisedPrefixs.extend(ip_ranges_to_add)
+        replacement.bgp.advertisedIpRanges.extend(ip_ranges_to_add)
 
       if args.remove_advertisement_ranges:
         router_utils.RemoveIpRangesFromAdvertisements(
@@ -111,8 +112,8 @@ class UpdateAlpha(base.UpdateCommand):
     cleared_fields = []
     if not replacement.bgp.advertisedGroups:
       cleared_fields.append('bgp.advertisedGroups')
-    if not replacement.bgp.advertisedPrefixs:
-      cleared_fields.append('bgp.advertisedPrefixs')
+    if not replacement.bgp.advertisedIpRanges:
+      cleared_fields.append('bgp.advertisedIpRanges')
 
     with holder.client.apitools_client.IncludeFields(cleared_fields):
       request_type = messages.ComputeRoutersPatchRequest
@@ -135,7 +136,7 @@ class UpdateAlpha(base.UpdateCommand):
       log.UpdatedResource(
           operation_ref,
           kind='router [{0}]'.format(router_ref.Name()),
-          async=True,
+          is_async=True,
           details='Run the [gcloud compute operations describe] command '
           'to check the status of this operation.')
       return result
@@ -153,7 +154,7 @@ class UpdateAlpha(base.UpdateCommand):
                           'Updating router [{0}]'.format(router_ref.Name()))
 
 
-UpdateAlpha.detailed_help = {
+Update.detailed_help = {
     'DESCRIPTION':
         """
         *{command}* is used to update a Google Compute Engine router.

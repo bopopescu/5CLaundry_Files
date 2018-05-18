@@ -11,34 +11,70 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """`gcloud iot registries update` command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import registries
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iot import flags
+from googlecloudsdk.command_lib.iot import resource_args
 from googlecloudsdk.command_lib.iot import util
 from googlecloudsdk.core import log
 
 
+def _Run(args, supports_deprecated_event_config_flags=False):
+  """Updates a Cloud IoT Device Registry."""
+  client = registries.RegistriesClient()
+
+  registry_ref = args.CONCEPTS.registry.Parse()
+  mqtt_state = util.ParseEnableMqttConfig(args.enable_mqtt_config,
+                                          client=client)
+  http_state = util.ParseEnableHttpConfig(args.enable_http_config,
+                                          client=client)
+
+  event_pubsub_topic = None
+  if supports_deprecated_event_config_flags:
+    event_pubsub_topic = args.event_pubsub_topic
+  event_notification_configs = util.ParseEventNotificationConfig(
+      args.event_notification_configs, event_pubsub_topic)
+  state_pubsub_topic_ref = util.ParsePubsubTopic(args.state_pubsub_topic)
+
+  response = client.Patch(
+      registry_ref,
+      event_notification_configs=event_notification_configs,
+      state_pubsub_topic=state_pubsub_topic_ref,
+      mqtt_enabled_state=mqtt_state,
+      http_enabled_state=http_state)
+  log.UpdatedResource(registry_ref.Name(), 'registry')
+  return response
+
+
+@base.ReleaseTracks(base.ReleaseTrack.GA)
+class UpdateGA(base.UpdateCommand):
+  """Update a device registry."""
+
+  @staticmethod
+  def Args(parser):
+    resource_args.AddRegistryResourceArg(parser, 'to update')
+    flags.AddDeviceRegistrySettingsFlagsToParser(
+        parser, defaults=False, include_deprecated=False)
+
+  def Run(self, args):
+    return _Run(args)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class Update(base.UpdateCommand):
   """Update a device registry."""
 
   @staticmethod
   def Args(parser):
-    flags.AddRegistryResourceFlags(parser, 'to update')
-    for flag in flags.GetDeviceRegistrySettingsFlags(defaults=False):
-      flag.AddToParser(parser)
+    resource_args.AddRegistryResourceArg(parser, 'to update')
+    flags.AddDeviceRegistrySettingsFlagsToParser(
+        parser, defaults=False)
 
   def Run(self, args):
-    client = registries.RegistriesClient()
-
-    registry_ref = util.ParseRegistry(args.id, region=args.region)
-    mqtt_state = util.ParseEnableMqttConfig(args.enable_mqtt_config,
-                                            client=client)
-    pubsub_topic_ref = util.ParsePubsubTopic(args.pubsub_topic)
-
-    response = client.Patch(
-        registry_ref,
-        pubsub_topic=pubsub_topic_ref,
-        mqtt_config_state=mqtt_state)
-    log.UpdatedResource(registry_ref.Name(), 'registry')
-    return response
+    return _Run(args, supports_deprecated_event_config_flags=True)

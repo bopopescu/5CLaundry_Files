@@ -16,12 +16,13 @@
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import csek_utils
 from googlecloudsdk.api_lib.compute import image_utils
+from googlecloudsdk.api_lib.compute import kms_utils
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.images import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 def _Args(parser, release_track):
@@ -38,10 +39,13 @@ def _Args(parser, release_track):
   csek_utils.AddCsekKeyArgs(parser, resource_type='image')
 
   labels_util.AddCreateLabelsFlags(parser)
+  flags.MakeForceArg().AddToParser(parser)
+  flags.AddCloningImagesArgs(parser, sources_group)
+  flags.AddCreatingImageFromSnapshotArgs(parser, sources_group)
 
   # Alpha and Beta Args
   if release_track in (base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA):
-    flags.AddCloningImagesArgs(parser, sources_group)
+    # Deprecated as of Aug 2017.
     flags.MakeForceCreateArg().AddToParser(parser)
 
 
@@ -51,12 +55,11 @@ class Create(base.CreateCommand):
 
   _ALLOW_RSA_ENCRYPTED_CSEK_KEYS = False
 
-  _GUEST_OS_FEATURES = image_utils.GUEST_OS_FEATURES
-
   @classmethod
   def Args(cls, parser):
     _Args(parser, cls.ReleaseTrack())
-    flags.AddGuestOsFeaturesArg(parser, cls._GUEST_OS_FEATURES)
+    image_utils.AddGuestOsFeaturesArg(parser, cls.ReleaseTrack())
+    parser.display_info.AddCacheUpdater(flags.ImagesCompleter)
 
   def Run(self, args):
     """Returns a list of requests necessary for adding images."""
@@ -79,6 +82,9 @@ class Create(base.CreateCommand):
           csek_keys.LookupKey(image_ref,
                               raise_if_missing=args.require_csek_key_create),
           client.apitools_client)
+    image.imageEncryptionKey = kms_utils.MaybeGetKmsKey(
+        args, image_ref.project, client.apitools_client,
+        image.imageEncryptionKey)
 
     # Validate parameters.
     if args.source_disk_zone and not args.source_disk:
@@ -86,9 +92,9 @@ class Create(base.CreateCommand):
           'You cannot specify [--source-disk-zone] unless you are specifying '
           '[--source-disk].')
 
-    source_image_project = getattr(args, 'source_image_project', None)
-    source_image = getattr(args, 'source_image', None)
-    source_image_family = getattr(args, 'source_image_family', None)
+    source_image_project = args.source_image_project
+    source_image = args.source_image
+    source_image_family = args.source_image_family
 
     if source_image_project and not (source_image or source_image_family):
       raise exceptions.ToolException(
@@ -118,6 +124,14 @@ class Create(base.CreateCommand):
       image.sourceDisk = source_disk_ref.SelfLink()
       image.sourceDiskEncryptionKey = csek_utils.MaybeLookupKeyMessage(
           csek_keys, source_disk_ref, client.apitools_client)
+    elif hasattr(args, 'source_snapshot') and args.source_snapshot:
+      source_snapshot_ref = flags.SOURCE_SNAPSHOT_ARG.ResolveAsResource(
+          args,
+          holder.resources,
+          scope_lister=compute_flags.GetDefaultScopeLister(client))
+      image.sourceSnapshot = source_snapshot_ref.SelfLink()
+      image.sourceSnapshotEncryptionKey = csek_utils.MaybeLookupKeyMessage(
+          csek_keys, source_snapshot_ref, client.apitools_client)
 
     if args.licenses:
       image.licenses = args.licenses
@@ -144,9 +158,8 @@ class Create(base.CreateCommand):
           for key, value in sorted(args_labels.iteritems())])
       request.image.labels = labels
 
-    alpha_or_beta = self.ReleaseTrack() in (
-        base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
-    if alpha_or_beta and args.force_create:
+    # --force is in GA, --force-create is in beta and deprecated.
+    if args.force or getattr(args, 'force_create', None):
       request.forceCreate = True
 
     return client.MakeRequests([(client.apitools_client.images, 'Insert',
@@ -160,25 +173,31 @@ class CreateBeta(Create):
   # alpha/beta, *not* GA.
   _ALLOW_RSA_ENCRYPTED_CSEK_KEYS = True
 
-  _GUEST_OS_FEATURES = image_utils.GUEST_OS_FEATURES_BETA
-
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class CreateAlpha(CreateBeta):
 
-  _GUEST_OS_FEATURES = image_utils.GUEST_OS_FEATURES_ALPHA
+  @classmethod
+  def Args(cls, parser):
+    _Args(parser, cls.ReleaseTrack())
+    image_utils.AddGuestOsFeaturesArg(parser, cls.ReleaseTrack())
+    kms_utils.AddKmsKeyArgs(parser, resource_type='image')
+    parser.display_info.AddCacheUpdater(flags.ImagesCompleter)
 
 
 Create.detailed_help = {
-    'brief': 'Create Google Compute Engine images',
-    'DESCRIPTION': """\
+    'brief':
+        'Create Google Compute Engine images',
+    'DESCRIPTION':
+        """\
         *{command}* is used to create custom disk images.
         The resulting image can be provided during instance or disk creation
         so that the instance attached to the resulting disks has access
         to a known set of software or files from the image.
 
         Images can be created from gzipped compressed tarball containing raw
-        disk data or from existing disks in any zone.
+        disk data, existing disks in any zone, existing images, and existing
+        snapshots inside the same project.
 
         Images are global resources, so they can be used across zones and
         projects.

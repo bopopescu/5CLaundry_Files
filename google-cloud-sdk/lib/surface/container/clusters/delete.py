@@ -13,10 +13,11 @@
 # limitations under the License.
 
 """Delete cluster command."""
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
+from googlecloudsdk.api_lib.container import kubeconfig as kconfig
 from googlecloudsdk.api_lib.container import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
@@ -46,7 +47,8 @@ class Delete(base.DeleteCommand):
         '--timeout',
         type=int,
         default=1800,
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
     flags.AddAsyncFlag(parser)
 
   def Run(self, args):
@@ -62,7 +64,6 @@ class Delete(base.DeleteCommand):
     adapter = self.context['api_adapter']
     location_get = self.context['location_get']
     location = location_get(args)
-
     cluster_refs = []
     for name in args.names:
       cluster_refs.append(adapter.ParseCluster(name, location))
@@ -99,9 +100,13 @@ class Delete(base.DeleteCommand):
               'Deleting cluster {0}'.format(cluster_ref.clusterId),
               timeout_s=args.timeout)
           # Purge cached config files
-          util.ClusterConfig.Purge(cluster_ref.clusterId,
-                                   adapter.Zone(cluster_ref),
-                                   cluster_ref.projectId)
+          try:
+            util.ClusterConfig.Purge(cluster_ref.clusterId,
+                                     adapter.Zone(cluster_ref),
+                                     cluster_ref.projectId)
+          except kconfig.MissingEnvVarError as error:
+            log.warning(error)
+
           if properties.VALUES.container.cluster.Get() == cluster_ref.clusterId:
             properties.PersistProperty(
                 properties.VALUES.container.cluster, None)

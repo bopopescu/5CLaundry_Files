@@ -15,14 +15,14 @@
 
 import textwrap
 
+from googlecloudsdk.api_lib.iam import util
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.iam import base_classes
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.core.util import times
 
 
-class List(base_classes.BaseIamCommand, base.ListCommand):
+class List(base.ListCommand):
   """List the keys for a service account."""
 
   detailed_help = {
@@ -46,7 +46,8 @@ class List(base_classes.BaseIamCommand, base.ListCommand):
         type=arg_parsers.Datetime.Parse,
         help=('Return only keys created before the specified time. '
               'Common time formats are accepted. This is equivalent to '
-              '--filter="validAfterTime<DATE_TIME".'))
+              '--filter="validAfterTime<DATE_TIME". See '
+              '$ gcloud topic datetimes for information on time formats.'))
 
     parser.add_argument('--iam-account',
                         required=True,
@@ -55,8 +56,9 @@ class List(base_classes.BaseIamCommand, base.ListCommand):
     parser.display_info.AddFormat(iam_util.SERVICE_ACCOUNT_KEY_FORMAT)
 
   def Run(self, args):
-    result = self.iam_client.projects_serviceAccounts_keys.List(
-        self.messages.IamProjectsServiceAccountsKeysListRequest(
+    client, messages = util.GetClientAndMessages()
+    result = client.projects_serviceAccounts_keys.List(
+        messages.IamProjectsServiceAccountsKeysListRequest(
             name=iam_util.EmailToAccountResourceName(args.iam_account),
             keyTypes=iam_util.ManagedByFromString(args.managed_by)))
 

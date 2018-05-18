@@ -13,8 +13,11 @@
 # limitations under the License.
 """Describe a keyring."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.kms import flags
 
 
@@ -39,6 +42,9 @@ class Describe(base.DescribeCommand):
     client = cloudkms_base.GetClientInstance()
     messages = cloudkms_base.GetMessagesModule()
     key_ring_ref = flags.ParseKeyRingName(args)
+    if not key_ring_ref.Name():
+      raise exceptions.InvalidArgumentException('keyring',
+                                                'keyring id must be non-empty.')
     return client.projects_locations_keyRings.Get(
         messages.CloudkmsProjectsLocationsKeyRingsGetRequest(
             name=key_ring_ref.RelativeName()))

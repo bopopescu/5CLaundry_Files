@@ -11,25 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command for creating a role from an existing role."""
 
-from googlecloudsdk.api_lib.util import apis
+from googlecloudsdk.api_lib.iam import util
+from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope.exceptions import RequiredArgumentException
-from googlecloudsdk.command_lib.iam import base_classes
 from googlecloudsdk.command_lib.iam import iam_util
+from googlecloudsdk.core import log
 
 
-class Copy(base_classes.BaseIamCommand):
+class Copy(base.Command):
   r"""Create a role from an existing role.
 
   This command creates a role from an existing role.
 
   ## EXAMPLES
 
-  To create a role from an existing role, run:
+  To create a copy of an existing role into an organization with
+  ORGANIZATION_ID.
 
-    $ {command} --source viewer --destination reader \
-        --source-organization org1 --dest-organization org1
+    ${command} --source "roles/viewer" --destination CustomViewer
+     --dest-organization ORGANIZATION_ID
+
+  To create a copy of an existing role into a project with PROJECT_ID.
+
+    ${command} --source "roles/spanner.databaseAdmin"
+     --destination CustomSpannerDbAdmin --dest-project PROJECT_ID
+
+  To modify the newly created role see the roles update command.
   """
 
   @staticmethod
@@ -57,8 +67,7 @@ class Copy(base_classes.BaseIamCommand):
         '--dest-project', help='The project of the destination role.')
 
   def Run(self, args):
-    iam_client = apis.GetClientInstance('iam', 'v1')
-    messages = apis.GetMessagesModule('iam', 'v1')
+    client, messages = util.GetClientAndMessages()
     if args.source is None:
       raise RequiredArgumentException('source', 'the source role is required.')
     if args.destination is None:
@@ -75,39 +84,37 @@ class Copy(base_classes.BaseIamCommand):
         args.dest_project,
         attribute='the destination custom role')
 
-    source_role = iam_client.organizations_roles.Get(
+    source_role = client.organizations_roles.Get(
         messages.IamOrganizationsRolesGetRequest(name=source_role_name))
 
     new_role = messages.Role(
         title=source_role.title,
-        description=source_role.description,
-        includedPermissions=source_role.includedPermissions)
+        description=source_role.description)
 
-    if source_role.includedPermissions:
-      full_resource_name = '//cloudresourcemanager.googleapis.com/'
-      if args.dest_project:
-        full_resource_name += 'projects/{0}'.format(args.dest_project)
-      else:
-        full_resource_name += 'organizations/{0}'.format(args.dest_organization)
-      valid_permissions = []
-      token = None
-      source_permissions = set(source_role.includedPermissions)
-      while len(source_role.includedPermissions) != len(valid_permissions):
-        resp = iam_client.permissions.QueryTestablePermissions(
-            messages.QueryTestablePermissionsRequest(
-                fullResourceName=full_resource_name, pageToken=token))
-        for testable_permission in resp.permissions:
-          if (testable_permission.name in source_permissions and
-              (testable_permission.customRolesSupportLevel !=
-               messages.Permission.CustomRolesSupportLevelValueValuesEnum.
-               NOT_SUPPORTED)):
-            valid_permissions.append(testable_permission.name)
-        token = resp.nextPageToken
-        if not token:
-          break
-      new_role.includedPermissions = valid_permissions
+    permissions_helper = util.PermissionsHelper(client, messages,
+                                                iam_util.GetResourceReference(
+                                                    args.dest_project,
+                                                    args.dest_organization),
+                                                source_role.includedPermissions)
+    not_supported_permissions = permissions_helper.GetNotSupportedPermissions()
+    if not_supported_permissions:
+      log.warning(
+          'Permissions don\'t support custom roles and won\'t be added: ['
+          + ', '.join(not_supported_permissions) + '] \n')
+    not_applicable_permissions = permissions_helper.GetNotApplicablePermissions(
+    )
+    if not_applicable_permissions:
+      log.warning(
+          'Permissions not applicable to the current resource and won\'t'
+          ' be added: [' + ', '.join(not_applicable_permissions) + '] \n')
+    api_diabled_permissions = permissions_helper.GetApiDisabledPermissons()
+    iam_util.ApiDisabledPermissionsWarning(api_diabled_permissions)
+    testing_permissions = permissions_helper.GetTestingPermissions()
+    iam_util.TestingPermissionsWarning(testing_permissions)
+    valid_permissions = permissions_helper.GetValidPermissions()
+    new_role.includedPermissions = valid_permissions
 
-    result = iam_client.organizations_roles.Create(
+    result = client.organizations_roles.Create(
         messages.IamOrganizationsRolesCreateRequest(
             createRoleRequest=messages.CreateRoleRequest(
                 role=new_role, roleId=args.destination),

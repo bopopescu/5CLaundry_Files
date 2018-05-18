@@ -13,14 +13,17 @@
 # limitations under the License.
 """Command to update forwarding-rules."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute import constants
 from googlecloudsdk.api_lib.compute.operations import poller
 from googlecloudsdk.api_lib.util import waiter
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.forwarding_rules import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 def _Args(cls, parser):
@@ -86,9 +89,8 @@ class Update(base.UpdateCommand):
         holder.resources,
         scope_lister=compute_flags.GetDefaultScopeLister(holder.client))
 
-    update_labels = labels_util.GetUpdateLabelsDictFromArgs(args)
-    remove_labels = labels_util.GetRemoveLabelsListFromArgs(args)
-    if update_labels is None and remove_labels is None:
+    labels_diff = labels_util.Diff.FromUpdateArgs(args)
+    if not labels_diff.MayHaveUpdates():
       raise calliope_exceptions.RequiredArgumentException(
           'LABELS', 'At least one of --update-labels or '
           '--remove-labels must be specified.')
@@ -104,18 +106,14 @@ class Update(base.UpdateCommand):
               **forwarding_rule_ref.AsDict()))
       labels_value = messages.RegionSetLabelsRequest.LabelsValue
 
-    replacement = labels_util.UpdateLabels(
-        forwarding_rule.labels,
-        labels_value,
-        update_labels=update_labels,
-        remove_labels=remove_labels)
+    labels_update = labels_diff.Apply(labels_value, forwarding_rule.labels)
 
-    if not replacement:
+    if not labels_update.needs_update:
       return forwarding_rule
 
     if forwarding_rule_ref.Collection() == 'compute.globalForwardingRules':
       request = self._CreateGlobalSetLabelsRequest(
-          messages, forwarding_rule_ref, forwarding_rule, replacement)
+          messages, forwarding_rule_ref, forwarding_rule, labels_update.labels)
 
       operation = client.globalForwardingRules.SetLabels(request)
       operation_ref = holder.resources.Parse(
@@ -124,7 +122,7 @@ class Update(base.UpdateCommand):
       operation_poller = poller.Poller(client.globalForwardingRules)
     else:
       request = self._CreateRegionalSetLabelsRequest(
-          messages, forwarding_rule_ref, forwarding_rule, replacement)
+          messages, forwarding_rule_ref, forwarding_rule, labels_update.labels)
 
       operation = client.forwardingRules.SetLabels(request)
       operation_ref = holder.resources.Parse(
@@ -164,11 +162,18 @@ class UpdateAlpha(Update):
   @classmethod
   def Args(cls, parser):
     _Args(cls, parser)
-    flags.AddNetworkTier(parser, include_alpha=True, for_update=True)
+    flags.AddNetworkTier(
+        parser, supports_network_tier_flag=True, for_update=True)
 
   def ConstructNetworkTier(self, messages, network_tier):
     if network_tier:
-      return messages.ForwardingRule.NetworkTierValueValuesEnum(network_tier)
+      network_tier = network_tier.upper()
+      if network_tier in constants.NETWORK_TIER_CHOICES_FOR_INSTANCE:
+        return messages.ForwardingRule.NetworkTierValueValuesEnum(network_tier)
+      else:
+        raise calliope_exceptions.InvalidArgumentException(
+            '--network-tier',
+            'Invalid network tier [{tier}]'.format(tier=network_tier))
     else:
       return
 
@@ -192,10 +197,8 @@ class UpdateAlpha(Update):
         holder.resources,
         scope_lister=compute_flags.GetDefaultScopeLister(holder.client))
 
-    update_labels = labels_util.GetUpdateLabelsDictFromArgs(args)
-    remove_labels = labels_util.GetRemoveLabelsListFromArgs(args)
-    if (update_labels is None and remove_labels is None and
-        args.network_tier is None):
+    labels_diff = labels_util.Diff.FromUpdateArgs(args)
+    if not labels_diff.MayHaveUpdates() and args.network_tier is None:
       raise calliope_exceptions.ToolException(
           'At least one property must be specified.')
 
@@ -218,11 +221,7 @@ class UpdateAlpha(Update):
     forwarding_rule = objects[0]
 
     forwarding_rule_replacement = self.Modify(messages, args, forwarding_rule)
-    label_replacement = labels_util.UpdateLabels(
-        forwarding_rule.labels,
-        labels_value,
-        update_labels=update_labels,
-        remove_labels=remove_labels)
+    label_update = labels_diff.Apply(labels_value, forwarding_rule.labels)
 
     # Create requests.
     requests = []
@@ -234,9 +233,9 @@ class UpdateAlpha(Update):
             forwardingRuleResource=forwarding_rule_replacement,
             project=forwarding_rule_ref.project)
         requests.append((client.globalForwardingRules, 'Patch', request))
-      if label_replacement:
+      if label_update.needs_update:
         request = self._CreateGlobalSetLabelsRequest(
-            messages, forwarding_rule_ref, forwarding_rule, label_replacement)
+            messages, forwarding_rule_ref, forwarding_rule, label_update.labels)
         requests.append((client.globalForwardingRules, 'SetLabels', request))
     else:
       if forwarding_rule_replacement:
@@ -246,9 +245,9 @@ class UpdateAlpha(Update):
             project=forwarding_rule_ref.project,
             region=forwarding_rule_ref.region)
         requests.append((client.forwardingRules, 'Patch', request))
-      if label_replacement:
+      if label_update.needs_update:
         request = self._CreateRegionalSetLabelsRequest(
-            messages, forwarding_rule_ref, forwarding_rule, label_replacement)
+            messages, forwarding_rule_ref, forwarding_rule, label_update.labels)
         requests.append((client.forwardingRules, 'SetLabels', request))
 
     return holder.client.MakeRequests(requests)

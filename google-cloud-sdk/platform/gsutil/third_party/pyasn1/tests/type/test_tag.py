@@ -2,27 +2,31 @@
 # This file is part of pyasn1 software.
 #
 # Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# License: http://snmplabs.com/pyasn1/license.html
 #
 import sys
+
 try:
     import unittest2 as unittest
 
 except ImportError:
     import unittest
 
+from tests.base import BaseTestCase
+
 from pyasn1.type import tag
 
 
-class TagTestCaseBase(unittest.TestCase):
+class TagTestCaseBase(BaseTestCase):
     def setUp(self):
+        BaseTestCase.setUp(self)
         self.t1 = tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 3)
         self.t2 = tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 3)
 
 
 class TagReprTestCase(TagTestCaseBase):
     def testRepr(self):
-        assert eval(repr(self.t1), {'Tag': tag.Tag}) == self.t1, 'repr() fails'
+        assert 'Tag' in repr(self.t1)
 
 
 class TagCmpTestCase(TagTestCaseBase):
@@ -38,11 +42,14 @@ class TagCmpTestCase(TagTestCaseBase):
                self.t1[2] == self.t2[2], 'tag sequence protocol fails'
 
 
-class TagSetTestCaseBase(unittest.TestCase):
+class TagSetTestCaseBase(BaseTestCase):
     def setUp(self):
+        BaseTestCase.setUp(self)
+
         self.ts1 = tag.initTagSet(
             tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 12)
         )
+
         self.ts2 = tag.initTagSet(
             tag.Tag(tag.tagClassUniversal, tag.tagFormatSimple, 12)
         )
@@ -50,7 +57,7 @@ class TagSetTestCaseBase(unittest.TestCase):
 
 class TagSetReprTestCase(TagSetTestCaseBase):
     def testRepr(self):
-        assert eval(repr(self.ts1), {'TagSet': tag.TagSet, 'Tag': tag.Tag}) == self.ts1, 'repr() fails'
+        assert 'TagSet' in repr(self.ts1)
 
 
 class TagSetCmpTestCase(TagSetTestCaseBase):

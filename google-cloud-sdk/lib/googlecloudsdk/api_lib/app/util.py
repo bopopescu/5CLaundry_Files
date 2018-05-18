@@ -14,23 +14,26 @@
 
 """Utility functions for gcloud app."""
 
+from __future__ import absolute_import
 import datetime
 import os
+import posixpath
 import sys
 import time
-import urllib2
-
-import enum
-
 from googlecloudsdk.core import config
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core.util import platforms
 from googlecloudsdk.third_party.appengine.api import client_deployinfo
+from six.moves import urllib
 
 
 class Error(exceptions.Error):
   """Exceptions for the appcfg module."""
+
+
+class NoFieldsSpecifiedError(Error):
+  """The user specified no fields to a command which requires at least one."""
 
 
 class NoCloudSDKError(Error):
@@ -112,6 +115,33 @@ def GenerateVersionId(datetime_getter=datetime.datetime.now):
   return datetime_getter().isoformat().lower().translate(None, ':-')[:15]
 
 
+def ConvertToPosixPath(path):
+  """Converts a native-OS path to /-separated: os.path.join('a', 'b')->'a/b'."""
+  return posixpath.join(*path.split(os.path.sep))
+
+
+def ShouldSkip(skip_files, path):
+  """Returns whether the given path should be skipped by the skip_files field.
+
+  A user can specify a `skip_files` field in their .yaml file, which is a list
+  of regular expressions matching files that should be skipped. By this point in
+  the code, it's been turned into one mega-regex that matches any file to skip.
+
+  Args:
+    skip_files: A regular expression object for files/directories to skip.
+    path: str, the path to the file/directory which might be skipped (relative
+      to the application root)
+
+  Returns:
+    bool, whether the file/dir should be skipped.
+  """
+  # On Windows, os.path.join uses the path separator '\' instead of '/'.
+  # However, the skip_files regular expression always uses '/'.
+  # To handle this, we'll replace '\' characters with '/' characters.
+  path = ConvertToPosixPath(path)
+  return skip_files.match(path)
+
+
 def FileIterator(base, skip_files):
   """Walks a directory tree, returning all the files. Follows symlinks.
 
@@ -129,30 +159,22 @@ def FileIterator(base, skip_files):
     current_dir = dirs.pop()
     entries = set(os.listdir(os.path.join(base, current_dir)))
     for entry in sorted(entries):
-      true_name = os.path.join(current_dir, entry)
-      fullname = os.path.join(base, true_name)
-
-      # On Windows, os.path.join uses the path separator '\' instead of '/'.
-      # However, the skip_files regular expression always uses '/'.
-      # To handle this, we'll replace '\' characters with '/' characters.
-      if os.path.sep == '\\':
-        name = true_name.replace('\\', '/')
-      else:
-        name = true_name
+      name = os.path.join(current_dir, entry)
+      fullname = os.path.join(base, name)
 
       if os.path.isfile(fullname):
-        if skip_files.match(name):
-          log.info('Ignoring file [%s]: File matches ignore regex.', true_name)
+        if ShouldSkip(skip_files, name):
+          log.info('Ignoring file [%s]: File matches ignore regex.', name)
           contains_skipped_modules = True
         else:
-          yield true_name
+          yield name
       elif os.path.isdir(fullname):
-        if skip_files.match(name):
+        if ShouldSkip(skip_files, name):
           log.info('Ignoring directory [%s]: Directory matches ignore regex.',
-                   true_name)
+                   name)
           contains_skipped_modules = True
         else:
-          dirs.append(true_name)
+          dirs.append(name)
 
   if contains_skipped_modules:
     log.status.Print(
@@ -268,31 +290,6 @@ def GetUserAgent():
   return ' '.join(product_tokens)
 
 
-class Environment(enum.Enum):
-  """Enum for different application environments.
-
-  STANDARD corresponds to App Engine Standard applications.
-  FLEX corresponds to any App Engine `env: flex` applications.
-  MANAGED_VMS corresponds to `vm: true` applications.
-  """
-
-  STANDARD = 1
-  MANAGED_VMS = 2
-  FLEX = 3
-
-  @classmethod
-  def IsFlexible(cls, env):
-    return env in [cls.FLEX, cls.MANAGED_VMS]
-
-
-def IsFlex(env):
-  return env in ['2', 'flex', 'flexible']
-
-
-def IsStandard(env):
-  return env in ['1', 'standard']
-
-
 class ClientDeployLoggingContext(object):
   """Context for sending and recording server rpc requests.
 
@@ -378,7 +375,7 @@ class ClientDeployLoggingContext(object):
           success=success,
           sdk_version=config.CLOUD_SDK_VERSION)
       self.Send('/api/logclientdeploy', info.ToYAML())
-    except BaseException, e:
+    except BaseException as e:  # pylint: disable=broad-except
       log.debug('Exception logging deploy info continuing - {0}'.format(e))
 
 
@@ -401,15 +398,10 @@ class RPCServer(object):
       response = self._server.Send(*args, **kwargs)
       log.debug('Got response: %s', response)
       return response
-    except urllib2.HTTPError as e:
-      (_, _, exc_traceback) = sys.exc_info()
-      # The 3 element form takes (type, instance, traceback).  If the first
-      # element is an instance, it is used as the type and instance and the
-      # second element must be None.  This preserves the original traceback.
-
+    except urllib.error.HTTPError as e:
       # This is the message body, if included in e
       if hasattr(e, 'read'):
         body = e.read()
       else:
         body = ''
-      raise RPCError(e, body=body), None, exc_traceback
+      exceptions.reraise(RPCError(e, body=body))

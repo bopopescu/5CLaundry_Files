@@ -15,6 +15,8 @@
 """A shared library to validate 'gcloud test' CLI argument values."""
 
 import datetime
+import os
+import posixpath
 import random
 import re
 import string
@@ -67,7 +69,7 @@ def ValidateArgFromFile(arg_internal_name, arg_value):
 POSITIVE_INT_PARSER = arg_parsers.BoundedInt(1, sys.maxint)
 NONNEGATIVE_INT_PARSER = arg_parsers.BoundedInt(0, sys.maxint)
 TIMEOUT_PARSER = arg_parsers.Duration(lower_bound='1m', upper_bound='6h')
-ORIENTATION_LIST = ['portrait', 'landscape']
+ORIENTATION_LIST = ['portrait', 'landscape', 'default']
 
 
 def ValidateStringList(arg_internal_name, arg_value):
@@ -170,7 +172,7 @@ def _ValidatePositiveIntList(arg_internal_name, arg_value):
 
 
 def _ValidateOrientationList(arg_internal_name, arg_value):
-  """Validates that 'orientations' only contains 'portrait' and 'landscape'."""
+  """Validates that 'orientations' only contains allowable values."""
   arg_value = ValidateStringList(arg_internal_name, arg_value)
   for orientation in arg_value:
     _ValidateOrientation(orientation)
@@ -191,6 +193,18 @@ def _ValidateObbFileList(arg_internal_name, arg_value):
   if len(arg_value) > 2:
     raise test_exceptions.InvalidArgException(
         arg_internal_name, 'At most two OBB files may be specified.')
+  return arg_value
+
+
+def _ValidateAdditionalApksList(arg_internal_name, arg_value):
+  """Validates that 'additional-apks' contains [1, 100] entries."""
+  arg_value = ValidateStringList(arg_internal_name, arg_value)
+  if len(arg_value) < 1:
+    raise test_exceptions.InvalidArgException(
+        arg_internal_name, 'At least 1 additional apk must be specified.')
+  if len(arg_value) > 100:
+    raise test_exceptions.InvalidArgException(
+        arg_internal_name, 'At most 100 additional apks may be specified.')
   return arg_value
 
 
@@ -228,26 +242,31 @@ def _ValidateListOfStringToStringDicts(arg_internal_name, arg_value):
 # Map of internal arg names to their appropriate validation functions.
 # Any arg not appearing in this map is assumed to be a simple string.
 _FILE_ARG_VALIDATORS = {
+    'additional_apks': _ValidateAdditionalApksList,
     'async': _ValidateBool,
     'auto_google_login': _ValidateBool,
-    'timeout': _ValidateDuration,
     'device': _ValidateListOfStringToStringDicts,
     'device_ids': ValidateStringList,
-    'os_version_ids': ValidateStringList,
+    'directories_to_pull': ValidateStringList,
+    'environment_variables': _ValidateKeyValueStringPairs,
+    'event_count': _ValidatePositiveInteger,
+    'event_delay': _ValidateNonNegativeInteger,
     'locales': ValidateStringList,
     'orientations': _ValidateOrientationList,
     'obb_files': _ValidateObbFileList,
-    'test_targets': ValidateStringList,
-    'event_count': _ValidatePositiveInteger,
-    'event_delay': _ValidateNonNegativeInteger,
     'random_seed': _ValidateInteger,
     'max_steps': _ValidateNonNegativeInteger,
     'max_depth': _ValidatePositiveInteger,
+    'os_version_ids': ValidateStringList,
+    'other_files': _ValidateKeyValueStringPairs,
+    'performance_metrics': _ValidateBool,
+    'record_video': _ValidateBool,
     'robo_directives': _ValidateKeyValueStringPairs,
     'scenario_labels': ValidateStringList,
     'scenario_numbers': _ValidatePositiveIntList,
-    'environment_variables': _ValidateKeyValueStringPairs,
-    'directories_to_pull': ValidateStringList,
+    'test_targets': ValidateStringList,
+    'timeout': _ValidateDuration,
+    'use_orchestrator': _ValidateBool,
 }
 
 
@@ -383,8 +402,21 @@ _OBB_FILE_REGEX = re.compile(
     r'(.*[\\/:])?(main|patch)\.\d+(\.[a-zA-Z]\w*)+\.obb$')
 
 
-def ValidateObbFileNames(obb_files):
-  """Confirm that any OBB file names follow the required Android pattern."""
+def NormalizeAndValidateObbFileNames(obb_files):
+  """Confirm that any OBB file names follow the required Android pattern.
+
+  Also expand local paths with "~"
+
+  Args:
+    obb_files: list of obb file references. Each one is either a filename on the
+      local FS or a gs:// reference.
+  """
+  if obb_files:
+    obb_files[:] = [
+        obb_file if not obb_file or
+        obb_file.startswith(storage_util.GSUTIL_BUCKET_PREFIX) else
+        os.path.expanduser(obb_file) for obb_file in obb_files
+    ]
   for obb_file in (obb_files or []):
     if not _OBB_FILE_REGEX.match(obb_file):
       raise test_exceptions.InvalidArgException(
@@ -436,12 +468,23 @@ def ValidateEnvironmentVariablesList(args):
           'Invalid environment variable [{0}]'.format(key))
 
 
-_DIRECTORIES_TO_PULL_PATH_REGEX = re.compile(r'^(/.*)+/?$')
+_DIRECTORIES_TO_PULL_PATH_REGEX = re.compile(
+    r'^/?/(?:sdcard|data/local/tmp)(?:/[\w\-\.\+ /]+)*$')
 
 
-def ValidateDirectoriesToPullList(args):
-  """Validates list of file paths for 'directories-to-pull' flag."""
-  for file_path in (args.directories_to_pull or []):
+def NormalizeAndValidateDirectoriesToPullList(dirs):
+  """Validate list of file paths for 'directories-to-pull' flag.
+
+  Also collapse paths to remove "." ".." and "//".
+
+  Args:
+    dirs: list of directory names to pull from the device.
+  """
+  if dirs:
+    # Expand posix paths (Note: blank entries will fail in the next loop)
+    dirs[:] = [posixpath.abspath(path) if path else path for path in dirs]
+
+  for file_path in (dirs or []):
     # Check for correct file path format.
     if not _DIRECTORIES_TO_PULL_PATH_REGEX.match(file_path):
       raise test_exceptions.InvalidArgException(
@@ -474,3 +517,24 @@ def ValidateDeviceList(args, catalog_mgr):
       device_spec['locale'] = catalog_mgr.GetDefaultLocale()
     if 'orientation' not in device_spec:
       device_spec['orientation'] = catalog_mgr.GetDefaultOrientation()
+
+
+def ValidateIosDeviceList(args, catalog_mgr):
+  """Validates that --device contains a valid set of iOS dimensions & values."""
+  if not args.device:
+    return
+
+  for device_spec in args.device:
+    for (dim, val) in device_spec.items():
+      device_spec[dim] = catalog_mgr.ValidateDimensionAndValue(dim, val)
+
+    # Fill in any missing dimensions with default dimension values
+    if 'model' not in device_spec:
+      device_spec['model'] = catalog_mgr.GetDefaultModel()
+    if 'version' not in device_spec:
+      device_spec['version'] = catalog_mgr.GetDefaultVersion()
+    # TODO(b/78015882): add proper support for locales and orientations
+    # if 'locale' not in device_spec:
+    #   device_spec['locale'] = catalog_mgr.GetDefaultLocale()
+    # if 'orientation' not in device_spec:
+    #   device_spec['orientation'] = catalog_mgr.GetDefaultOrientation()

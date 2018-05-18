@@ -13,18 +13,13 @@
 # limitations under the License.
 """Command for setting usage buckets."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
-from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
-from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
-
-
-# TODO(b/33690890): remove after deprecation
-class BucketRequiredError(exceptions.Error):
-  """One of the required bucket flags was not specified."""
 
 
 class SetUsageBucket(base.SilentCommand):
@@ -45,19 +40,12 @@ class SetUsageBucket(base.SilentCommand):
 
   @staticmethod
   def Args(parser):
-    # TODO(b/33690890): add required=True for this group
-    bucket_group = parser.add_mutually_exclusive_group()
+    bucket_group = parser.add_mutually_exclusive_group(required=True)
     bucket_group.add_argument(
         '--no-bucket', action='store_true',
         help='Unsets the bucket. This disables usage report storage.')
     bucket_group.add_argument(
         '--bucket',
-        nargs='?',
-        action=arg_parsers.HandleNoArgAction(
-            'no_bucket',
-            'Use of --bucket without an argument is deprecated and will stop '
-            'working in the future. To unset the bucket, please use '
-            '--no-bucket'),
         help="""\
         The URI of a Google Cloud Storage bucket where the usage
         report object should be stored. The Google Service Account for
@@ -81,14 +69,6 @@ class SetUsageBucket(base.SilentCommand):
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     client = holder.client
-
-    # TODO(b/33690890): remove this check after the deprecation
-    if args.bucket is None and not args.no_bucket:
-      # The user gave neither flag but one of them is required. Using
-      # required=True for the group would be the prefered way to handle this
-      # but it would prevent the deprecated case.
-      raise BucketRequiredError('one of the arguments --no-bucket --bucket '
-                                'is required')
 
     if not args.bucket and args.prefix:
       raise calliope_exceptions.ToolException(

@@ -13,18 +13,13 @@
 # limitations under the License.
 """Command for setting a backup target pool."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
-from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.target_pools import flags
-from googlecloudsdk.core import exceptions
-
-
-# TODO(b/33690890): remove after deprecation
-class BackupPoolRequiredError(exceptions.Error):
-  """One of the required bucket flags was not specified."""
 
 
 class SetBackup(base.SilentCommand):
@@ -62,19 +57,12 @@ class SetBackup(base.SilentCommand):
     cls.TARGET_POOL_ARG.AddArgument(
         parser, operation_type='set a backup pool for')
 
-    # TODO(b/33690890): add required=True to group after deprecation.
-    backup_pool_group = parser.add_mutually_exclusive_group()
+    backup_pool_group = parser.add_mutually_exclusive_group(required=True)
     backup_pool_group.add_argument(
         '--no-backup-pool', action='store_true',
         help='Unsets the backup pool. This disables failover.')
     backup_pool_group.add_argument(
         '--backup-pool',
-        nargs='?',
-        action=arg_parsers.HandleNoArgAction(
-            'no_backup_pool',
-            'Use of --backup-pool without an argument is deprecated and will '
-            'stop working in the future. Please use --no-backup-pool to disable'
-            ' the backup pool.'),
         completer=flags.TargetPoolsCompleter,
         help='Name of the target pool that will serve as backup.')
 
@@ -88,14 +76,6 @@ class SetBackup(base.SilentCommand):
     """Issues a request necessary for setting a backup target pool."""
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     client = holder.client
-
-    # TODO(b/33690890): remove this check after the deprecation
-    if args.backup_pool is None and not args.no_backup_pool:
-      # The user gave neither flag but one of them is required. Using
-      # required=True for the group would be the prefered way to handle this
-      # but it would prevent the deprecated case.
-      raise BackupPoolRequiredError('one of the arguments --no-backup-pool '
-                                    '--backup-pool is required')
 
     target_pool_ref = self.TARGET_POOL_ARG.ResolveAsResource(
         args,

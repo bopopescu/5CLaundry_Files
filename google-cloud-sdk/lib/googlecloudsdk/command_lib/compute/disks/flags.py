@@ -14,8 +14,7 @@
 
 """Flags and helpers for the compute disks commands."""
 
-import argparse
-
+from __future__ import absolute_import
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
@@ -43,6 +42,17 @@ DEFAULT_LIST_FORMAT = """\
       type.basename(),
       status
     )"""
+
+
+MULTISCOPE_LIST_FORMAT = """
+    table(
+      name,
+      location(),
+      location_scope(),
+      sizeGb,
+      type.basename(),
+      status
+      )"""
 
 
 class SnapshotsCompleter(compute_completers.ListCommandCompleter):
@@ -73,7 +83,7 @@ def MakeDiskArgZonalOrRegional(plural):
       zonal_collection='compute.disks',
       regional_collection='compute.regionDisks',
       zone_explanation=compute_flags.ZONE_PROPERTY_EXPLANATION,
-      region_explanation=argparse.SUPPRESS)
+      region_explanation=compute_flags.REGION_PROPERTY_EXPLANATION)
 
 SOURCE_SNAPSHOT_ARG = compute_flags.ResourceArgument(
     resource_name='snapshot',

@@ -14,7 +14,8 @@
 
 """The command to remove gcloud components."""
 
-import argparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.components import util
@@ -55,7 +56,8 @@ class Remove(base.SilentCommand):
         '--allow-no-backup',
         required=False,
         action='store_true',
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
   def Run(self, args):
     """Runs the list command."""

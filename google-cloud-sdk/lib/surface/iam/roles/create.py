@@ -11,17 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command to create a custom role for a project or an organization."""
 
-from googlecloudsdk.api_lib.util import apis
-from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.iam import base_classes
+from googlecloudsdk.api_lib.iam import util
+from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iam import flags
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.core import log
 
 
-class Create(base_classes.BaseIamCommand):
+class Create(base.Command):
   r"""Create a custom role for a project or an organization.
 
   This command creates a custom role with the provided information.
@@ -41,30 +41,31 @@ class Create(base_classes.BaseIamCommand):
 
   @staticmethod
   def Args(parser):
-    parser.add_argument(
+    roles_group = parser.add_group(mutex=True)
+    settings_flags_group = roles_group.add_group('Roles Settings')
+    settings_flags_group.add_argument(
         '--title', help='The title of the role you want to create.')
-    parser.add_argument(
+    settings_flags_group.add_argument(
         '--description', help='The description of the role you want to create.')
-    parser.add_argument(
-        '--stage', help='The state of the role you want to create.')
-    parser.add_argument(
+    settings_flags_group.add_argument(
+        '--stage', help='The state of the role you want to create. '
+        'This represents a role\'s lifecycle phase: `ALPHA`, `BETA`, `GA`, '
+        '`DEPRECATED`, `DISABLED`, `EAP`.')
+    settings_flags_group.add_argument(
         '--permissions',
         help='The permissions of the role you want to create. '
         'Use commas to separate them.')
-    parser.add_argument(
+    roles_group.add_argument(
         '--file',
-        help='The Yaml file you want to use to create a role. '
-        'Can not be specified with other flags except role-id.')
+        help='The JSON or YAML file with the IAM Role to create. See '
+             'https://cloud.google.com/iam/reference/rest/v1/projects.roles.')
     flags.GetOrgFlag('create').AddToParser(parser)
     flags.GetCustomRoleFlag('create').AddToParser(parser)
 
   def Run(self, args):
-    iam_client = apis.GetClientInstance('iam', 'v1')
-    messages = apis.GetMessagesModule('iam', 'v1')
+    client, messages = util.GetClientAndMessages()
     parent_name = iam_util.GetParentName(args.organization, args.project)
     if args.file:
-      if args.title or args.description or args.stage or args.permissions:
-        raise exceptions.ConflictingArgumentsException('file', 'others')
       role = iam_util.ParseYamlToRole(args.file, messages.Role)
       role.name = None
       role.etag = None
@@ -78,7 +79,18 @@ class Create(base_classes.BaseIamCommand):
     if not role.title:
       role.title = args.role
 
-    result = iam_client.organizations_roles.Create(
+    if not args.quiet:
+      permissions_helper = util.PermissionsHelper(client, messages,
+                                                  iam_util.GetResourceReference(
+                                                      args.project,
+                                                      args.organization),
+                                                  role.includedPermissions)
+      api_diabled_permissions = permissions_helper.GetApiDisabledPermissons()
+      iam_util.ApiDisabledPermissionsWarning(api_diabled_permissions)
+      testing_permissions = permissions_helper.GetTestingPermissions()
+      iam_util.TestingPermissionsWarning(testing_permissions)
+
+    result = client.organizations_roles.Create(
         messages.IamOrganizationsRolesCreateRequest(
             createRoleRequest=messages.CreateRoleRequest(
                 role=role, roleId=args.role),

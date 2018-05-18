@@ -13,21 +13,30 @@
 # limitations under the License.
 
 """A library that is used to support Functions commands."""
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import argparse
 import functools
 import json
 import os
 import re
-import sys
 
 from apitools.base.py import exceptions as apitools_exceptions
 
-import enum
 from googlecloudsdk.api_lib.functions import exceptions
+from googlecloudsdk.api_lib.functions import operations
+from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import exceptions as base_exceptions
+from googlecloudsdk.core import exceptions as core_exceptions
+from googlecloudsdk.core import properties
+from googlecloudsdk.core import resources
 from googlecloudsdk.core.util import encoding
+
+import six.moves.http_client
+
+_DEPLOY_WAIT_NOTICE = 'Deploying function (may take a while - up to 2 minutes)'
 
 _ENTRY_POINT_NAME_RE = re.compile(
     r'^(?=.{1,128}$)[_a-zA-Z0-9]+(?:\.[_a-zA-Z0-9]+)*$')
@@ -37,7 +46,7 @@ _ENTRY_POINT_NAME_ERROR = (
     'characters long. It can neither begin nor end with a dot (.), '
     'nor contain two consecutive dots (..).')
 
-_FUNCTION_NAME_RE = re.compile(r'^[A-Za-z](?:[-_A-Za-z0-9]{0,46}[A-Za-z0-9])?$')
+_FUNCTION_NAME_RE = re.compile(r'^[A-Za-z](?:[-_A-Za-z0-9]{0,61}[A-Za-z0-9])?$')
 _FUNCTION_NAME_ERROR = (
     'Function name must contain only lower case Latin letters, digits and a '
     'hyphen (-). It must start with letter, must not end with a hyphen, '
@@ -49,16 +58,10 @@ _TOPIC_NAME_ERROR = (
     'the characters - + . _ ~ %. It must start with a letter and be from 3 to '
     '255 characters long.')
 
-_BUCKET_URI_RE = re.compile(
-    r'^(?:gs://)?[a-z\d][a-z\d\._-]{1,230}[a-z\d]/?$')
-_BUCKET_URI_ERROR = (
-    'Bucket must only contain lower case Latin letters, digits and '
-    'characters . _ -. It must start and end with a letter or digit '
-    'and be from 3 to 232 characters long. You may optionally prepend the '
-    'bucket name with gs:// and append / at the end.')
+_BUCKET_RESOURCE_URI_RE = re.compile(r'^projects/_/buckets/.{3,222}$')
 
 _API_NAME = 'cloudfunctions'
-_API_VERSION = 'v1beta2'
+_API_VERSION = 'v1'
 
 
 def GetApiClientInstance():
@@ -69,96 +72,19 @@ def GetApiMessagesModule():
   return apis.GetMessagesModule(_API_NAME, _API_VERSION)
 
 
-@enum.unique
-class Resources(enum.Enum):
-
-  class Resource(object):
-
-    def __init__(self, name, collection_id):
-      self.name = name
-      self.collection_id = collection_id
-  TOPIC = Resource('topic', 'pubsub.projects.topics')
-  BUCKET = Resource('bucket', 'cloudfunctions.projects.buckets')
-  PROJECT = Resource('project', 'cloudresourcemanager.projects')
+def GetLocationRef():
+  return resources.REGISTRY.Parse(
+      properties.VALUES.functions.region.Get(),
+      params={'projectsId': properties.VALUES.core.project.Get(required=True)},
+      collection='cloudfunctions.projects.locations')
 
 
-class TriggerProvider(object):
-  """Represents --trigger-provider flag value options."""
-
-  def __init__(self, label, events):
-    self.label = label
-    self.events = events
-    for event in self.events:
-      event.provider = self
-
-  @property
-  def default_event(self):
-    return self.events[0]
-
-
-class TriggerEvent(object):
-  """Represents --trigger-event flag value options."""
-
-  # Currently any and only project resource is optional
-  optional_resource_types = [Resources.PROJECT]
-
-  def __init__(self, label, resource_type):
-    self.label = label
-    self.resource_type = resource_type
-
-  @property
-  def event_is_optional(self):
-    return self.provider.default_event == self
-
-  # TODO(b/33097692) Let TriggerEvent know how to handle optional resources.
-  @property
-  def resource_is_optional(self):
-    return self.resource_type in TriggerEvent.optional_resource_types
-
-# Don't use those structures directly. Use registry object instead.
-# By convention, first event type is default.
-_BETA_PROVIDERS = [
-    TriggerProvider('cloud.pubsub', [
-        TriggerEvent('topic.publish', Resources.TOPIC),
-    ]),
-    TriggerProvider('cloud.storage', [
-        TriggerEvent('object.change', Resources.BUCKET),
-    ]),
-]
-
-_ALPHA_PROVIDERS = [
-    TriggerProvider('firebase.auth', [
-        TriggerEvent('user.create', Resources.PROJECT),
-        TriggerEvent('user.delete', Resources.PROJECT),
-    ]),
-    TriggerProvider('firebase.database', [
-        TriggerEvent('data.write', Resources.PROJECT),
-    ])
-]
-
-
-class _TriggerProviderRegistry(object):
-  """This class encapsulates all Event Trigger related functionality."""
-
-  def __init__(self, all_providers):
-    self.providers = all_providers
-
-  def ProvidersLabels(self):
-    return (p.label for p in self.providers)
-
-  def Provider(self, provider):
-    return next((p for p in self.providers if p.label == provider))
-
-  def EventsLabels(self, provider):
-    return (e.label for e in self.Provider(provider).events)
-
-  def Event(self, provider, event):
-    return next((e for e in self.Provider(provider).events if e.label == event))
-
-
-output_trigger_provider_registry = _TriggerProviderRegistry(_BETA_PROVIDERS)
-input_trigger_provider_registry = _TriggerProviderRegistry(
-    _BETA_PROVIDERS + _ALPHA_PROVIDERS)
+def GetFunctionRef(name):
+  return resources.REGISTRY.Parse(
+      name, params={
+          'projectsId': properties.VALUES.core.project.Get(required=True),
+          'locationsId': properties.VALUES.functions.region.Get()},
+      collection='cloudfunctions.projects.locations.functions')
 
 
 _ID_CHAR = '[a-zA-Z0-9_]'
@@ -202,21 +128,8 @@ def GetHttpErrorMessage(error):
         message += '\nProblems:\n' + violations
   except (ValueError, TypeError):
     message = error.content
-  return u'ResponseError: status=[{0}], code=[{1}], message=[{2}]'.format(
+  return 'ResponseError: status=[{0}], code=[{1}], message=[{2}]'.format(
       status, code, encoding.Decode(message))
-
-
-def GetOperationError(error):
-  """Returns a human readable string representation from the operation.
-
-  Args:
-    error: A string representing the raw json of the operation error.
-
-  Returns:
-    A human readable string representation of the error.
-  """
-  return u'OperationError: code={0}, message={1}'.format(
-      error.code, encoding.Decode(error.message))
 
 
 def _ValidateArgumentByRegexOrRaise(argument, regex, error_message):
@@ -270,12 +183,18 @@ def ValidateAndStandarizeBucketUriOrRaise(bucket):
   Raises:
     ArgumentTypeError: If the name provided by user is not valid.
   """
-  bucket = _ValidateArgumentByRegexOrRaise(bucket, _BUCKET_URI_RE,
-                                           _BUCKET_URI_ERROR)
-  if not bucket.endswith('/'):
-    bucket += '/'
-  if not bucket.startswith('gs://'):
-    bucket = 'gs://' + bucket
+  if _BUCKET_RESOURCE_URI_RE.match(bucket):
+    bucket_ref = storage_util.BucketReference.FromBucketUrl(bucket)
+  else:
+    try:
+      bucket_ref = storage_util.BucketReference.FromArgument(
+          bucket, require_prefix=False)
+    except argparse.ArgumentTypeError as e:
+      raise arg_parsers.ArgumentTypeError(
+          "Invalid value '{}': {}".format(bucket, e))
+
+  # strip any extrenuous '/' and append single '/'
+  bucket = bucket_ref.ToBucketUrl().rstrip('/') + '/'
   return bucket
 
 
@@ -356,11 +275,6 @@ def _GetViolationsFromError(error_info):
 
 
 def CatchHTTPErrorRaiseHTTPException(func):
-  # TODO(b/36052526): merge this function with HandleHttpError defined
-  # elsewhere:
-  # * shared/projects/util.py
-  # * shared/dns/util.py
-  # (obstacle: GetHttpErrorMessage function may be project-specific)
   """Decorator that catches HttpError and raises corresponding exception."""
 
   @functools.wraps(func)
@@ -368,9 +282,8 @@ def CatchHTTPErrorRaiseHTTPException(func):
     try:
       return func(*args, **kwargs)
     except apitools_exceptions.HttpError as error:
-      msg = GetHttpErrorMessage(error)
-      unused_type, unused_value, traceback = sys.exc_info()
-      raise base_exceptions.HttpException, msg, traceback
+      core_exceptions.reraise(
+          base_exceptions.HttpException(GetHttpErrorMessage(error)))
 
   return CatchHTTPErrorRaiseHTTPExceptionFn
 
@@ -384,3 +297,55 @@ def FormatTimestamp(timestamp):
     Formatted timestamp string.
   """
   return re.sub(r'(\.\d{3})\d*Z$', r'\1', timestamp.replace('T', ' '))
+
+
+@CatchHTTPErrorRaiseHTTPException
+def GetFunction(function_name):
+  client = GetApiClientInstance()
+  messages = client.MESSAGES_MODULE
+  try:
+    # We got response for a get request so a function exists.
+    return client.projects_locations_functions.Get(
+        messages.CloudfunctionsProjectsLocationsFunctionsGetRequest(
+            name=function_name))
+  except apitools_exceptions.HttpError as error:
+    if error.status_code == six.moves.http_client.NOT_FOUND:
+      # The function has not been found.
+      return None
+    raise
+
+
+@CatchHTTPErrorRaiseHTTPException
+def PatchFunction(function, fields_to_patch):
+  """Call the api to patch a function based on updated fields.
+
+  Args:
+    function: the function to patch
+    fields_to_patch: the fields to patch on the function
+  Returns:
+    The patched function.
+  """
+  client = GetApiClientInstance()
+  messages = client.MESSAGES_MODULE
+  fields_to_patch_str = ','.join(sorted(fields_to_patch))
+  op = client.projects_locations_functions.Patch(
+      messages.CloudfunctionsProjectsLocationsFunctionsPatchRequest(
+          cloudFunction=function,
+          name=function.name,
+          updateMask=fields_to_patch_str,
+      )
+  )
+  operations.Wait(op, messages, client, _DEPLOY_WAIT_NOTICE)
+  return GetFunction(function.name)
+
+
+@CatchHTTPErrorRaiseHTTPException
+def CreateFunction(function):
+  location = GetLocationRef().RelativeName()
+  client = GetApiClientInstance()
+  messages = client.MESSAGES_MODULE
+  op = client.projects_locations_functions.Create(
+      messages.CloudfunctionsProjectsLocationsFunctionsCreateRequest(
+          location=location, cloudFunction=function))
+  operations.Wait(op, messages, client, _DEPLOY_WAIT_NOTICE)
+  return GetFunction(function.name)

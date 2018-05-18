@@ -15,6 +15,8 @@
 """A list of resources and their canonical format. This is deprecated."""
 
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.core.resource import resource_info
 
 
@@ -132,19 +134,6 @@ RESOURCE_REGISTRY = {
           )
         """,),
     'compute.firewalls':
-        resource_info.ResourceInfo(
-            cache_command='compute firewall-rules list',
-            list_format="""
-          table(
-            name,
-            network.basename(),
-            sourceRanges.list():label=SRC_RANGES,
-            allowed[].map().firewall_rule().list():label=RULES,
-            sourceTags.list():label=SRC_TAGS,
-            targetTags.list():label=TARGET_TAGS
-          )
-        """,),
-    'compute.firewalls.beta':
         resource_info.ResourceInfo(
             cache_command='compute firewall-rules list',
             list_format="""

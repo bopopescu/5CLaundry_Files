@@ -31,7 +31,6 @@ import json
 import logging
 import multiprocessing
 import os
-import Queue
 import signal
 import sys
 import textwrap
@@ -41,6 +40,8 @@ import traceback
 
 import boto
 from boto.storage_uri import StorageUri
+from six.moves import queue as Queue
+
 import gslib
 from gslib.cloud_api import AccessDeniedException
 from gslib.cloud_api import ArgumentException
@@ -57,12 +58,6 @@ from gslib.name_expansion import CopyObjectsIterator
 from gslib.name_expansion import NameExpansionIterator
 from gslib.name_expansion import NameExpansionResult
 from gslib.name_expansion import SeekAheadNameExpansionIterator
-from gslib.parallelism_framework_util import AtomicDict
-from gslib.parallelism_framework_util import ProcessAndThreadSafeInt
-from gslib.parallelism_framework_util import PutToQueueWithTimeout
-from gslib.parallelism_framework_util import SEEK_AHEAD_JOIN_TIMEOUT
-from gslib.parallelism_framework_util import UI_THREAD_JOIN_TIMEOUT
-from gslib.parallelism_framework_util import ZERO_TASKS_TO_DO_ARGUMENT
 from gslib.plurality_checkable_iterator import PluralityCheckableIterator
 from gslib.seek_ahead_thread import SeekAheadThread
 from gslib.sig_handling import ChildProcessSignalHandler
@@ -70,30 +65,36 @@ from gslib.sig_handling import GetCaughtSignals
 from gslib.sig_handling import KillProcess
 from gslib.sig_handling import MultithreadedMainSignalHandler
 from gslib.sig_handling import RegisterSignalHandler
+from gslib.storage_url import HaveFileUrls
+from gslib.storage_url import HaveProviderUrls
 from gslib.storage_url import StorageUrlFromString
+from gslib.storage_url import UrlsAreForSingleProvider
 from gslib.third_party.storage_apitools import storage_v1_messages as apitools_messages
 from gslib.thread_message import FinalMessage
 from gslib.thread_message import MetadataMessage
 from gslib.thread_message import PerformanceSummaryMessage
 from gslib.thread_message import ProducerThreadMessage
-from gslib.translation_helper import AclTranslation
-from gslib.translation_helper import PRIVATE_DEFAULT_OBJ_ACL
 from gslib.ui_controller import MainThreadUIQueue
 from gslib.ui_controller import UIController
 from gslib.ui_controller import UIThread
-from gslib.util import CheckMultiprocessingAvailableAndInit
-from gslib.util import GetConfigFilePaths
-from gslib.util import GsutilStreamHandler
-from gslib.util import HaveFileUrls
-from gslib.util import HaveProviderUrls
-from gslib.util import IS_WINDOWS
-from gslib.util import NO_MAX
-from gslib.util import RsyncDiffToApply
-from gslib.util import UrlsAreForSingleProvider
-from gslib.util import UTF8
-
+from gslib.utils.boto_util import GetConfigFilePaths
+from gslib.utils.boto_util import GetMaxConcurrentCompressedUploads
+from gslib.utils.constants import NO_MAX
+from gslib.utils.constants import UTF8
+import gslib.utils.parallelism_framework_util
+from gslib.utils.parallelism_framework_util import AtomicDict
+from gslib.utils.parallelism_framework_util import CheckMultiprocessingAvailableAndInit
+from gslib.utils.parallelism_framework_util import ProcessAndThreadSafeInt
+from gslib.utils.parallelism_framework_util import PutToQueueWithTimeout
+from gslib.utils.parallelism_framework_util import SEEK_AHEAD_JOIN_TIMEOUT
+from gslib.utils.parallelism_framework_util import UI_THREAD_JOIN_TIMEOUT
+from gslib.utils.parallelism_framework_util import ZERO_TASKS_TO_DO_ARGUMENT
+from gslib.utils.rsync_util import RsyncDiffToApply
+from gslib.utils.system_util import IS_WINDOWS
+from gslib.utils.system_util import GetTermLines
+from gslib.utils.translation_helper import AclTranslation
+from gslib.utils.translation_helper import PRIVATE_DEFAULT_OBJ_ACL
 from gslib.wildcard_iterator import CreateWildcardIterator
-
 
 OFFER_GSUTIL_M_SUGGESTION_THRESHOLD = 5
 
@@ -115,7 +116,7 @@ def CreateGsutilLogger(command_name):
   log = logging.getLogger(command_name)
   log.propagate = False
   log.setLevel(logging.root.level)
-  log_handler = GsutilStreamHandler()
+  log_handler = logging.StreamHandler()
   log_handler.setFormatter(logging.Formatter('%(message)s'))
   # Commands that call other commands (like mv) would cause log handlers to be
   # added more than once, so avoid adding if one is already present.
@@ -161,15 +162,15 @@ queues = []
 
 
 def _NewMultiprocessingQueue():
-  queue = multiprocessing.Queue(MAX_QUEUE_SIZE)
-  queues.append(queue)
-  return queue
+  new_queue = multiprocessing.Queue(MAX_QUEUE_SIZE)
+  queues.append(new_queue)
+  return new_queue
 
 
 def _NewThreadsafeQueue():
-  queue = Queue.Queue(MAX_QUEUE_SIZE)
-  queues.append(queue)
-  return queue
+  new_queue = Queue.Queue(MAX_QUEUE_SIZE)
+  queues.append(new_queue)
+  return new_queue
 
 # The maximum size of a process- or thread-safe queue. Imposing this limit
 # prevents us from needing to hold an arbitrary amount of data in memory.
@@ -221,7 +222,7 @@ global total_tasks, call_completed_map, global_return_values_map
 global need_pool_or_done_cond, caller_id_finished_count, new_pool_needed
 global current_max_recursive_level, shared_vars_map, shared_vars_list_map
 global class_map, worker_checking_level_lock, failure_count, thread_stats
-global glob_status_queue, ui_controller
+global glob_status_queue, ui_controller, concurrent_compressed_upload_lock
 
 
 def InitializeMultiprocessingVariables():
@@ -237,7 +238,7 @@ def InitializeMultiprocessingVariables():
   the flow of startup/teardown looks like this:
 
   1. __main__: initializes multiprocessing variables, including any necessary
-     Manager processes (here and in gslib.util).
+     Manager processes (here and in gslib.utils.parallelism_framework_util).
   2. __main__: Registers signal handlers for terminating signals responsible
      for cleaning up multiprocessing variables and manager processes upon exit.
   3. Command.Apply registers signal handlers for the main process to kill
@@ -295,6 +296,7 @@ def InitializeMultiprocessingVariables():
   global need_pool_or_done_cond, caller_id_finished_count, new_pool_needed
   global current_max_recursive_level, shared_vars_map, shared_vars_list_map
   global class_map, worker_checking_level_lock, failure_count, glob_status_queue
+  global concurrent_compressed_upload_lock
 
   manager = multiprocessing.Manager()
 
@@ -367,6 +369,11 @@ def InitializeMultiprocessingVariables():
   # undefined behavior when trying to interact with a non-existent queue.
   glob_status_queue = manager.Queue(MAX_QUEUE_SIZE)
 
+  # Semaphore lock used to prevent resource exhaustion when running many
+  # compressed uploads in parallel.
+  concurrent_compressed_upload_lock = manager.BoundedSemaphore(
+      GetMaxConcurrentCompressedUploads())
+
 
 def TeardownMultiprocessingProcesses():
   """Should be called by signal handlers prior to shut down."""
@@ -377,7 +384,7 @@ def TeardownMultiprocessingProcesses():
   global manager
   # pylint: enable=global-variable-not-assigned,global-variable-undefined
   manager.shutdown()
-  gslib.util.manager.shutdown()
+  gslib.utils.parallelism_framework_util.top_level_manager.shutdown()
 
 
 def InitializeThreadingVariables():
@@ -394,6 +401,7 @@ def InitializeThreadingVariables():
   global need_pool_or_done_cond, call_completed_map, class_map, thread_stats
   global task_queues, caller_id_lock, caller_id_counter, glob_status_queue
   global worker_checking_level_lock, current_max_recursive_level
+  global concurrent_compressed_upload_lock
   caller_id_counter = ProcessAndThreadSafeInt(False)
   caller_id_finished_count = AtomicDict()
   caller_id_lock = threading.Lock()
@@ -410,6 +418,8 @@ def InitializeThreadingVariables():
   task_queues = []
   total_tasks = AtomicDict()
   worker_checking_level_lock = threading.Lock()
+  concurrent_compressed_upload_lock = threading.BoundedSemaphore(
+      GetMaxConcurrentCompressedUploads())
 
 
 # Each subclass of Command must define a property named 'command_spec' that is
@@ -451,6 +461,7 @@ class Command(HelpProvider):
 
   _commands_with_subcommands_and_subopts = ('acl',
                                             'defacl',
+                                            'kms',
                                             'label',
                                             'logging',
                                             'notification',
@@ -519,7 +530,8 @@ class Command(HelpProvider):
   def __init__(self, command_runner, args, headers, debug, trace_token,
                parallel_operations, bucket_storage_uri_class,
                gsutil_api_class_map_factory, logging_filters=None,
-               command_alias_used=None, perf_trace_token=None):
+               command_alias_used=None, perf_trace_token=None,
+               user_project=None):
     """Instantiates a Command.
 
     Args:
@@ -540,6 +552,7 @@ class Command(HelpProvider):
                           which will always correspond to the file name).
       perf_trace_token: Performance measurement trace token to use when making
           API calls.
+      user_project: Project to be billed for this request.
 
     Implementation note: subclasses shouldn't need to define an __init__
     method, and instead depend on the shared initialization that happens
@@ -555,6 +568,7 @@ class Command(HelpProvider):
     self.trace_token = trace_token
     self.perf_trace_token = perf_trace_token
     self.parallel_operations = parallel_operations
+    self.user_project = user_project
     self.bucket_storage_uri_class = bucket_storage_uri_class
     self.gsutil_api_class_map_factory = gsutil_api_class_map_factory
     self.exclude_symlinks = False
@@ -617,11 +631,12 @@ class Command(HelpProvider):
         self.logger,
         MainThreadUIQueue(sys.stderr, ui_controller),
         debug=self.debug, trace_token=self.trace_token,
-        perf_trace_token=self.perf_trace_token)
+        perf_trace_token=self.perf_trace_token,
+        user_project=self.user_project)
     # Cross-platform path to run gsutil binary.
     self.gsutil_cmd = ''
     # If running on Windows, invoke python interpreter explicitly.
-    if gslib.util.IS_WINDOWS:
+    if IS_WINDOWS:
       self.gsutil_cmd += 'python '
     # Add full path to gsutil to make sure we test the correct version.
     self.gsutil_path = gslib.GSUTIL_PATH
@@ -742,7 +757,8 @@ class Command(HelpProvider):
       self.seek_ahead_gsutil_api = CloudApiDelegator(
           self.bucket_storage_uri_class, self.gsutil_api_map,
           logging.getLogger('dummy'), glob_status_queue, debug=self.debug,
-          trace_token=self.trace_token, perf_trace_token=self.perf_trace_token)
+          trace_token=self.trace_token, perf_trace_token=self.perf_trace_token,
+          user_project=self.user_project)
     return self.seek_ahead_gsutil_api
 
   def RunCommand(self):
@@ -1402,7 +1418,7 @@ class Command(HelpProvider):
     # Create a WorkerThread to handle all of the logic needed to actually call
     # the function. Note that this thread will never be started, and all work
     # is done in the current thread.
-    worker_thread = WorkerThread(None, False)
+    worker_thread = WorkerThread(None, False, user_project=self.user_project)
     args_iterator = iter(args_iterator)
     # Count of sequential calls that have been made. Used for producing
     # suggestion to use gsutil -m.
@@ -1438,7 +1454,7 @@ class Command(HelpProvider):
                     should_return_results, arg_checker, fail_on_error)
         worker_thread.PerformTask(task, self)
 
-    if sequential_call_count >= gslib.util.GetTermLines():
+    if sequential_call_count >= GetTermLines():
       # Output suggestion at end of long run, in case user missed it at the
       # start and it scrolled off-screen.
       self._MaybeSuggestGsutilDashM()
@@ -1542,7 +1558,7 @@ class Command(HelpProvider):
             thread_count, self.logger, task_queue=task_queue,
             bucket_storage_uri_class=self.bucket_storage_uri_class,
             gsutil_api_map=self.gsutil_api_map, debug=self.debug,
-            status_queue=glob_status_queue)
+            status_queue=glob_status_queue, user_project=self.user_project)
 
     if process_count > 1:  # Handle process pool creation.
       # Check whether this call will need a new set of workers.
@@ -1583,7 +1599,7 @@ class Command(HelpProvider):
                 thread_count, self.logger, task_queue=task_queue,
                 bucket_storage_uri_class=self.bucket_storage_uri_class,
                 gsutil_api_map=self.gsutil_api_map, debug=self.debug,
-                status_queue=glob_status_queue)
+                status_queue=glob_status_queue, user_project=self.user_project)
         finally:
           worker_checking_level_lock.release()
 
@@ -1714,7 +1730,7 @@ class Command(HelpProvider):
         thread_count, self.logger, worker_semaphore=worker_semaphore,
         bucket_storage_uri_class=self.bucket_storage_uri_class,
         gsutil_api_map=self.gsutil_api_map, debug=self.debug,
-        status_queue=status_queue)
+        status_queue=status_queue, user_project=self.user_project)
 
     num_enqueued = 0
     while True:
@@ -1987,7 +2003,8 @@ class WorkerPool(object):
 
   def __init__(self, thread_count, logger, worker_semaphore=None,
                task_queue=None, bucket_storage_uri_class=None,
-               gsutil_api_map=None, debug=0, status_queue=None):
+               gsutil_api_map=None, debug=0, status_queue=None,
+               user_project=None):
     # In the multi-process case, a worker sempahore is required to ensure
     # even work distribution.
     #
@@ -1998,6 +2015,7 @@ class WorkerPool(object):
     #
     # Thus, exactly one of task_queue or worker_semaphore must be provided.
     assert (worker_semaphore is None) != (task_queue is None)
+    self.user_project = user_project
 
     self.task_queue = task_queue or _NewThreadsafeQueue()
     self.threads = []
@@ -2005,7 +2023,8 @@ class WorkerPool(object):
       worker_thread = WorkerThread(
           self.task_queue, logger, worker_semaphore=worker_semaphore,
           bucket_storage_uri_class=bucket_storage_uri_class,
-          gsutil_api_map=gsutil_api_map, debug=debug, status_queue=status_queue)
+          gsutil_api_map=gsutil_api_map, debug=debug, status_queue=status_queue,
+          user_project=self.user_project)
       self.threads.append(worker_thread)
       worker_thread.start()
 
@@ -2032,7 +2051,7 @@ class WorkerThread(threading.Thread):
 
   def __init__(self, task_queue, logger, worker_semaphore=None,
                bucket_storage_uri_class=None, gsutil_api_map=None, debug=0,
-               status_queue=None):
+               status_queue=None, user_project=None):
     """Initializes the worker thread.
 
     Args:
@@ -2048,6 +2067,7 @@ class WorkerThread(threading.Thread):
                       Used for the instantiating CloudApiDelegator class.
       debug: debug level for the CloudApiDelegator class.
       status_queue: Queue for reporting status updates.
+      user_project: Project to be billed for this request.
     """
     super(WorkerThread, self).__init__()
 
@@ -2058,15 +2078,16 @@ class WorkerThread(threading.Thread):
     self.daemon = True
     self.cached_classes = {}
     self.shared_vars_updater = _SharedVariablesUpdater()
+    self.user_project = user_project
 
     # Note that thread_gsutil_api is not initialized in the sequential
-    # case; task functions should use util.GetCloudApiInstance to
-    # retrieve the main thread's CloudApiDelegator in that case.
+    # case; task functions should use utils.cloud_api_helper.GetCloudApiInstance
+    # to retrieve the main thread's CloudApiDelegator in that case.
     self.thread_gsutil_api = None
     if bucket_storage_uri_class and gsutil_api_map:
       self.thread_gsutil_api = CloudApiDelegator(
           bucket_storage_uri_class, gsutil_api_map, logger, status_queue,
-          debug=debug)
+          debug=debug, user_project=self.user_project)
 
   @CaptureThreadStatException
   def _StartBlockedTime(self):

@@ -27,7 +27,6 @@ class Wait(base.Command):
   @staticmethod
   def Args(parser):
     flags.AddOperationArgument(parser)
-    flags.AddDeprecatedInstance(parser)
     parser.display_info.AddFormat(flags.OPERATION_FORMAT_BETA)
 
   def Run(self, args):
@@ -39,11 +38,6 @@ class Wait(base.Command):
 
     Yields:
       Operations that were waited for.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client

@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating Google Compute Engine routers."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute.operations import poller
 from googlecloudsdk.api_lib.util import waiter
@@ -22,56 +24,14 @@ from googlecloudsdk.command_lib.compute.routers import flags
 from googlecloudsdk.command_lib.compute.routers import router_utils
 from googlecloudsdk.core import log
 from googlecloudsdk.core import resources
+import six
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
-class Create(base.CreateCommand):
+class CreateWithCustomAdvertisements(base.CreateCommand):
   """Create a Google Compute Engine router.
 
-    *{command}* is used to create a router for use in dynamic
-  routing with vpn tunnels.
-  """
-
-  NETWORK_ARG = None
-  ROUTER_ARG = None
-
-  @classmethod
-  def Args(cls, parser):
-    parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
-    cls.NETWORK_ARG = network_flags.NetworkArgumentForOtherResource(
-        'The network for this router')
-    cls.NETWORK_ARG.AddArgument(parser)
-    cls.ROUTER_ARG = flags.RouterArgument()
-    cls.ROUTER_ARG.AddArgument(parser, operation_type='create')
-    flags.AddCreateRouterArgs(parser)
-
-  def Run(self, args):
-    """Issues requests necessary for adding a router."""
-    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    client = holder.client
-
-    router_ref = self.ROUTER_ARG.ResolveAsResource(args, holder.resources)
-    network_ref = self.NETWORK_ARG.ResolveAsResource(args, holder.resources)
-
-    request = client.messages.ComputeRoutersInsertRequest(
-        router=client.messages.Router(
-            description=args.description,
-            network=network_ref.SelfLink(),
-            bgp=client.messages.RouterBgp(asn=args.asn),
-            name=router_ref.Name()),
-        region=router_ref.region,
-        project=router_ref.project)
-
-    return client.MakeRequests([(client.apitools_client.routers, 'Insert',
-                                 request)])
-
-
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class CreateAlpha(base.CreateCommand):
-  """Create a Google Compute Engine router.
-
-    *{command}* is used to create a router for use in dynamic
-  routing with VPN tunnels.
+     *{command}* is used to create a router to provide dynamic routing to VPN
+     tunnels and interconnects.
   """
 
   ROUTER_ARG = None
@@ -89,6 +49,7 @@ class CreateAlpha(base.CreateCommand):
     base.ASYNC_FLAG.AddToParser(parser)
     flags.AddCreateRouterArgs(parser)
     flags.AddReplaceCustomAdvertisementArgs(parser, 'router')
+    parser.display_info.AddCacheUpdater(flags.RoutersCompleter)
 
   def Run(self, args):
     """See base.CreateCommand."""
@@ -107,16 +68,16 @@ class CreateAlpha(base.CreateCommand):
         bgp=messages.RouterBgp(asn=args.asn))
 
     if router_utils.HasReplaceAdvertisementFlags(args):
-      mode, groups, prefixes = router_utils.ParseAdvertisements(
+      mode, groups, ranges = router_utils.ParseAdvertisements(
           messages=messages, resource_class=messages.RouterBgp, args=args)
 
       attrs = {
           'advertiseMode': mode,
           'advertisedGroups': groups,
-          'advertisedPrefixs': prefixes,
+          'advertisedIpRanges': ranges,
       }
 
-      for attr, value in attrs.iteritems():
+      for attr, value in six.iteritems(attrs):
         if value is not None:
           setattr(router_resource.bgp, attr, value)
 
@@ -141,7 +102,7 @@ class CreateAlpha(base.CreateCommand):
       log.CreatedResource(
           operation_ref,
           kind='router [{0}]'.format(router_ref.Name()),
-          async=True,
+          is_async=True,
           details='Run the [gcloud compute operations describe] command '
           'to check the status of this operation.')
       return result

@@ -13,24 +13,26 @@
 # limitations under the License.
 """Command to create a new project."""
 
-import httplib
-import sys
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.cloudresourcemanager import projects_api
+from googlecloudsdk.api_lib.cloudresourcemanager import projects_util
 from googlecloudsdk.api_lib.resource_manager import operations
-from googlecloudsdk.api_lib.service_management import enable_api as services_enable_api
-from googlecloudsdk.api_lib.service_management import services_util
+from googlecloudsdk.api_lib.services import enable_api as services_enable_api
+from googlecloudsdk.api_lib.services import services_util
 
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.projects import flags as project_flags
 from googlecloudsdk.command_lib.projects import util as command_lib_util
 from googlecloudsdk.command_lib.resource_manager import flags
 
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
+from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
@@ -41,8 +43,37 @@ ID_DESCRIPTION = ('Project IDs must start with a lowercase letter and can '
                   'Project IDs must be between 6 and 30 characters.')
 
 
-class _BaseCreate(object):
-  """Create command base for all release tracks of project create."""
+@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.ALPHA)
+class Create(base.CreateCommand):
+  """Create a new project.
+
+  Creates a new project with the given project ID. By default, projects are not
+  created under a parent resource. To do so, use either the --organization or
+  --folder flag.
+
+  ## EXAMPLES
+
+  The following command creates a project with ID `example-foo-bar-1`, name
+  `Happy project` and label `type=happy`:
+
+    $ {command} example-foo-bar-1 --name="Happy project" --labels=type=happy
+
+  By default, projects are not created under a parent resource. The following
+  command creates a project with ID `example-2` with parent `folders/12345`:
+
+    $ {command} example-2 --folder=12345
+
+  The following command creates a project with ID `example-3` with parent
+  `organizations/2048`:
+
+    $ {command} example-3 --organization=2048
+
+  ## SEE ALSO
+
+  {see_also}
+  """
+
+  detailed_help = {'see_also': project_flags.CREATE_DELETE_IN_CONSOLE_SEE_ALSO}
 
   @staticmethod
   def Args(parser):
@@ -72,6 +103,7 @@ class _BaseCreate(object):
         default=False,
         help='Set newly created project as [core.project] property.')
     flags.OrganizationIdFlag('to use as a parent').AddToParser(parser)
+    flags.FolderIdFlag('to use as a parent').AddToParser(parser)
 
   def Run(self, args):
     """Default Run method implementation."""
@@ -89,22 +121,21 @@ class _BaseCreate(object):
       raise exceptions.RequiredArgumentException(
           'PROJECT_ID', 'an id must be provided for the new project')
     project_ref = command_lib_util.ParseProject(project_id)
+    labels = labels_util.ParseCreateArgs(
+        args, projects_util.GetMessages().Project.LabelsValue)
     try:
       create_op = projects_api.Create(
           project_ref,
           display_name=args.name,
           parent=projects_api.ParentNameToResourceId(
               flags.GetParentFromFlags(args)),
-          update_labels=labels_util.GetUpdateLabelsDictFromArgs(args))
-    except apitools_exceptions.HttpError as error:
-      if error.status_code == httplib.CONFLICT:
-        msg = ('Project creation failed. The project ID you specified is '
-               'already in use by another project. Please try an alternative '
-               'ID.')
-        unused_type, unused_value, traceback = sys.exc_info()
-        raise exceptions.HttpException, msg, traceback
-      raise
-    log.CreatedResource(project_ref, async=True)
+          labels=labels)
+    except apitools_exceptions.HttpConflictError:
+      msg = ('Project creation failed. The project ID you specified is '
+             'already in use by another project. Please try an alternative '
+             'ID.')
+      core_exceptions.reraise(exceptions.HttpException(msg))
+    log.CreatedResource(project_ref, is_async=True)
     create_op = operations.WaitForOperation(create_op)
 
     # Enable cloudapis.googleapis.com
@@ -127,53 +158,3 @@ class _BaseCreate(object):
                                                apis.GetMessagesModule(
                                                    'cloudresourcemanager',
                                                    'v1').Project)
-
-
-@base.ReleaseTracks(base.ReleaseTrack.GA)
-class Create(_BaseCreate, base.CreateCommand):
-  """Create a new project.
-
-  Creates a new project with the given project ID.
-
-  ## EXAMPLES
-
-  The following command creates a project with ID `example-foo-bar-1`, name
-  `Happy project` and label `type=happy`:
-
-    $ {command} example-foo-bar-1 --name="Happy project" --labels=type=happy
-
-  The following command creates a project with ID `example-3` with parent
-  `organizations/2048`:
-
-    $ {command} example-3 --organization=2048
-  """
-
-
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class CreateAlpha(_BaseCreate, base.CreateCommand):
-  """Create a new project.
-
-  Creates a new project with the given project ID.
-
-  ## EXAMPLES
-
-  The following command creates a project with ID `example-foo-bar-1`, name
-  `Happy project` and label `type=happy`:
-
-    $ {command} example-foo-bar-1 --name="Happy project" --labels=type=happy
-
-  The following command creates a project with ID `example-2` with parent
-  `folders/12345`:
-
-    $ {command} example-2 --folder=12345
-
-  The following command creates a project with ID `example-3` with parent
-  `organizations/2048`:
-
-    $ {command} example-3 --organization=2048
-  """
-
-  @staticmethod
-  def Args(parser):
-    _BaseCreate.Args(parser)
-    flags.FolderIdFlag('to use as a parent').AddToParser(parser)

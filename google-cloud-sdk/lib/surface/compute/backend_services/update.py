@@ -16,15 +16,23 @@
    There are separate alpha, beta, and GA command classes in this file.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import encoding
 
-from googlecloudsdk.api_lib.compute import backend_services_utils
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute.backend_services import (
+    client as backend_service_client)
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
+from googlecloudsdk.command_lib.compute import signed_url_flags
+from googlecloudsdk.command_lib.compute.backend_services import backend_services_utils
 from googlecloudsdk.command_lib.compute.backend_services import flags
+from googlecloudsdk.command_lib.compute.security_policies import (
+    flags as security_policy_flags)
 from googlecloudsdk.core import log
+from googlecloudsdk.core import resources as resources_exceptions
 
 
 def AddIapFlag(parser):
@@ -81,6 +89,13 @@ class UpdateGA(base.UpdateCommand):
     flags.AddCacheKeyIncludeQueryString(parser, default=None)
     flags.AddCacheKeyQueryStringList(parser)
     AddIapFlag(parser)
+
+  def _CreateSetSecurityPoliciesRequest(self, client, backend_service_ref,
+                                        security_policy_ref):
+    backend_service = backend_service_client.BackendService(
+        backend_service_ref, compute_client=client)
+    return backend_service.SetSecurityPolicy(
+        security_policy=security_policy_ref, only_generate_request=True)
 
   def GetGetRequest(self, client, backend_service_ref):
     """Create Backend Services get request."""
@@ -139,9 +154,6 @@ class UpdateGA(base.UpdateCommand):
     if args.timeout:
       replacement.timeoutSec = args.timeout
 
-    if args.port:
-      replacement.port = args.port
-
     if args.port_name:
       replacement.portName = args.port_name
 
@@ -183,7 +195,6 @@ class UpdateGA(base.UpdateCommand):
         args.http_health_checks,
         args.https_health_checks,
         args.IsSpecified('iap'),
-        args.port,
         args.port_name,
         args.protocol,
         args.session_affinity is not None,
@@ -213,13 +224,28 @@ class UpdateGA(base.UpdateCommand):
     # Modify() returns None, then there is no work to be done, so we
     # print the resource and return.
     if objects[0] == new_object:
-      log.status.Print(
-          'No change requested; skipping update for [{0}].'.format(
-              objects[0].name))
-      return objects
+      # Only skip push if security_policy is not set.
+      if getattr(args, 'security_policy', None) is None:
+        log.status.Print(
+            'No change requested; skipping update for [{0}].'.format(
+                objects[0].name))
+        return objects
+      requests = []
+    else:
+      requests = [self.GetSetRequest(client, backend_service_ref, new_object)]
 
-    return client.MakeRequests(
-        [self.GetSetRequest(client, backend_service_ref, new_object)])
+    # Empty string is a valid value.
+    if getattr(args, 'security_policy', None) is not None:
+      try:
+        security_policy_ref = self.SECURITY_POLICY_ARG.ResolveAsResource(
+            args, holder.resources).SelfLink()
+      # If security policy is an empty string we should clear the current policy
+      except resources_exceptions.InvalidResourceException:
+        security_policy_ref = None
+      requests += self._CreateSetSecurityPoliciesRequest(
+          client, backend_service_ref, security_policy_ref)
+
+    return client.MakeRequests(requests)
 
   def _ApplyIapArgs(self, client, iap_arg, existing, replacement):
     if iap_arg is not None:
@@ -244,6 +270,7 @@ class UpdateAlpha(UpdateGA):
   HEALTH_CHECK_ARG = None
   HTTP_HEALTH_CHECK_ARG = None
   HTTPS_HEALTH_CHECK_ARG = None
+  SECURITY_POLICY_ARG = None
 
   @classmethod
   def Args(cls, parser):
@@ -258,9 +285,16 @@ class UpdateAlpha(UpdateGA):
     cls.HTTPS_HEALTH_CHECK_ARG = flags.HttpsHealthCheckArgument()
     cls.HTTPS_HEALTH_CHECK_ARG.AddArgument(
         parser, cust_metavar='HTTPS_HEALTH_CHECK')
+    cls.SECURITY_POLICY_ARG = (
+        security_policy_flags.SecurityPolicyArgumentForTargetResource(
+            resource='backend service'))
+    cls.SECURITY_POLICY_ARG.AddArgument(parser)
     flags.AddTimeout(parser, default=None)
     flags.AddPortName(parser)
-    flags.AddProtocol(parser, default=None)
+    flags.AddProtocol(
+        parser,
+        default=None,
+        choices=['HTTP', 'HTTPS', 'HTTP2', 'SSL', 'TCP', 'UDP'])
 
     flags.AddConnectionDrainingTimeout(parser)
     flags.AddEnableCdn(parser, default=None)
@@ -270,7 +304,13 @@ class UpdateAlpha(UpdateGA):
     flags.AddCacheKeyQueryStringList(parser)
     flags.AddSessionAffinity(parser, internal_lb=True)
     flags.AddAffinityCookieTtl(parser)
+    signed_url_flags.AddSignedUrlCacheMaxAge(
+        parser, required=False, unspecified_help='')
+    flags.AddConnectionDrainOnFailover(parser, default=None)
+    flags.AddDropTrafficIfUnhealthy(parser, default=None)
+    flags.AddFailoverRatio(parser)
     AddIapFlag(parser)
+    flags.AddCustomRequestHeaders(parser, remove_all_flag=True, default=None)
 
   def Modify(self, client, resources, args, existing):
     """Modify Backend Service."""
@@ -280,6 +320,20 @@ class UpdateAlpha(UpdateGA):
     if args.connection_draining_timeout is not None:
       replacement.connectionDraining = client.messages.ConnectionDraining(
           drainingTimeoutSec=args.connection_draining_timeout)
+    if args.no_custom_request_headers is not None:
+      replacement.customRequestHeaders = []
+    if args.custom_request_header is not None:
+      replacement.customRequestHeaders = args.custom_request_header
+
+    backend_services_utils.ApplyCdnPolicyArgs(
+        client,
+        args,
+        replacement,
+        is_update=True,
+        apply_signed_url_cache_max_age=True)
+
+    backend_services_utils.ApplyFailoverPolicyArgs(client.messages, args,
+                                                   replacement)
 
     return replacement
 
@@ -288,6 +342,8 @@ class UpdateAlpha(UpdateGA):
     if not any([
         args.affinity_cookie_ttl is not None,
         args.connection_draining_timeout is not None,
+        args.no_custom_request_headers is not None,
+        args.custom_request_header is not None,
         args.description is not None,
         args.enable_cdn is not None,
         args.cache_key_include_protocol is not None,
@@ -295,17 +351,30 @@ class UpdateAlpha(UpdateGA):
         args.cache_key_include_query_string is not None,
         args.cache_key_query_string_whitelist is not None,
         args.cache_key_query_string_blacklist is not None,
+        args.IsSpecified('signed_url_cache_max_age'),
         args.http_health_checks,
         args.IsSpecified('iap'),
-        args.port,
         args.port_name,
         args.protocol,
+        args.security_policy is not None,
         args.session_affinity is not None,
         args.timeout is not None,
+        args.connection_drain_on_failover is not None,
+        args.drop_traffic_if_unhealthy is not None,
+        args.failover_ratio,
         getattr(args, 'health_checks', None),
         getattr(args, 'https_health_checks', None),
     ]):
       raise exceptions.ToolException('At least one property must be modified.')
+
+  def GetSetRequest(self, client, backend_service_ref, replacement):
+    if (backend_service_ref.Collection() == 'compute.backendServices') and (
+        replacement.failoverPolicy):
+      raise exceptions.InvalidArgumentException(
+          '--global',
+          'cannot specify failover policies for global backend services.')
+    return super(UpdateAlpha, self).GetSetRequest(client, backend_service_ref,
+                                                  replacement)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA)
@@ -318,6 +387,7 @@ class UpdateBeta(UpdateGA):
   HEALTH_CHECK_ARG = None
   HTTP_HEALTH_CHECK_ARG = None
   HTTPS_HEALTH_CHECK_ARG = None
+  SECURITY_POLICY_ARG = None
 
   @classmethod
   def Args(cls, parser):
@@ -332,6 +402,10 @@ class UpdateBeta(UpdateGA):
     cls.HTTPS_HEALTH_CHECK_ARG = flags.HttpsHealthCheckArgument()
     cls.HTTPS_HEALTH_CHECK_ARG.AddArgument(
         parser, cust_metavar='HTTPS_HEALTH_CHECK')
+    cls.SECURITY_POLICY_ARG = (
+        security_policy_flags.SecurityPolicyArgumentForTargetResource(
+            resource='backend service'))
+    cls.SECURITY_POLICY_ARG.AddArgument(parser)
     flags.AddTimeout(parser, default=None)
     flags.AddPortName(parser)
     flags.AddProtocol(parser, default=None)
@@ -345,6 +419,9 @@ class UpdateBeta(UpdateGA):
     flags.AddCacheKeyIncludeHost(parser, default=None)
     flags.AddCacheKeyIncludeQueryString(parser, default=None)
     flags.AddCacheKeyQueryStringList(parser)
+    flags.AddCustomRequestHeaders(parser, remove_all_flag=True, default=None)
+    signed_url_flags.AddSignedUrlCacheMaxAge(
+        parser, required=False, unspecified_help='')
 
   def Modify(self, client, resources, args, existing):
     """Modify Backend Service."""
@@ -354,6 +431,17 @@ class UpdateBeta(UpdateGA):
     if args.connection_draining_timeout is not None:
       replacement.connectionDraining = client.messages.ConnectionDraining(
           drainingTimeoutSec=args.connection_draining_timeout)
+    if args.no_custom_request_headers is not None:
+      replacement.customRequestHeaders = []
+    if args.custom_request_header is not None:
+      replacement.customRequestHeaders = args.custom_request_header
+
+    backend_services_utils.ApplyCdnPolicyArgs(
+        client,
+        args,
+        replacement,
+        is_update=True,
+        apply_signed_url_cache_max_age=True)
 
     return replacement
 
@@ -362,6 +450,8 @@ class UpdateBeta(UpdateGA):
     if not any([
         args.affinity_cookie_ttl is not None,
         args.connection_draining_timeout is not None,
+        args.no_custom_request_headers is not None,
+        args.custom_request_header is not None,
         args.description is not None,
         args.enable_cdn is not None,
         args.cache_key_include_protocol is not None,
@@ -373,10 +463,11 @@ class UpdateBeta(UpdateGA):
         args.http_health_checks,
         args.https_health_checks,
         args.IsSpecified('iap'),
-        args.port,
         args.port_name,
         args.protocol,
+        args.security_policy is not None,
         args.session_affinity is not None,
+        args.IsSpecified('signed_url_cache_max_age'),
         args.timeout is not None,
     ]):
       raise exceptions.ToolException('At least one property must be modified.')

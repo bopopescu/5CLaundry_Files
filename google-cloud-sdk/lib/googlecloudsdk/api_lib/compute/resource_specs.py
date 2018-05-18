@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Annotates the resource types with extra information."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import collections
-import httplib
 
 from apitools.base.protorpclite import messages
 
 from googlecloudsdk.api_lib.compute import instance_utils
 from googlecloudsdk.api_lib.compute import path_simplifier
 from googlecloudsdk.api_lib.compute import property_selector
+import six
+import six.moves.http_client
 
 
 def _FirewallRulesToCell(firewall):
@@ -221,7 +224,7 @@ def FormatDescribeMachineTypeName(resources, com_path):
 def _OperationHttpStatusToCell(operation):
   """Returns the HTTP response code of the given operation."""
   if operation.get('status') == 'DONE':
-    return operation.get('httpErrorStatusCode') or httplib.OK
+    return operation.get('httpErrorStatusCode') or six.moves.http_client.OK
   else:
     return ''
 
@@ -861,27 +864,6 @@ _SPECS_V1 = {
         editables=None
     ),
 
-    'urlMaps': _InternalSpec(
-        message_class_name='UrlMap',
-        table_cols=[
-            ('NAME', 'name'),
-            ('DEFAULT_SERVICE', 'defaultService'),
-        ],
-        transformations=[
-            ('defaultService', path_simplifier.TypeSuffix),
-            ('pathMatchers[].defaultService', path_simplifier.TypeSuffix),
-            ('pathMatchers[].pathRules[].service', path_simplifier.TypeSuffix),
-            ('tests[].service', path_simplifier.TypeSuffix),
-        ],
-        editables=[
-            'defaultService',
-            'description',
-            'hostRules',
-            'pathMatchers',
-            'tests',
-        ],
-    ),
-
     'users': _InternalSpec(
         message_class_name='User',
         table_cols=[
@@ -976,26 +958,6 @@ _SPECS_BETA['commitments'] = _InternalSpec(
 
 
 _SPECS_ALPHA = _SPECS_BETA.copy()
-_SPECS_ALPHA['hosts'] = _InternalSpec(
-    message_class_name='Host',
-    table_cols=[
-        ('NAME', 'name'),
-        ('REQUEST_PATH', 'requestPath'),
-    ],
-    transformations=[],
-    editables=None)
-_SPECS_ALPHA['hostTypes'] = _InternalSpec(
-    message_class_name='HostType',
-    table_cols=[
-        ('NAME', 'name'),
-        ('ZONE', 'zone'),
-        ('DEPRECATED', 'deprecated'),
-        ('CPUs', 'guestCpus'),
-        ('MEMORY(MB)', 'memoryMb'),
-        ('LOCAL SSD(GB)', 'localSsdGb'),
-    ],
-    transformations=[],
-    editables=None)
 
 _SPECS_ALPHA['instanceGroups'] = _InternalSpec(
     message_class_name='InstanceGroup',
@@ -1030,25 +992,6 @@ _SPECS_ALPHA['instanceGroupManagers'] = _InternalSpec(
     ],
     editables=None,
     )
-_SPECS_ALPHA['urlMaps'] = _InternalSpec(
-    message_class_name='UrlMap',
-    table_cols=[
-        ('NAME', 'name'),
-        ('DEFAULT_SERVICE', 'defaultService'),
-    ],
-    transformations=[
-        ('defaultService', path_simplifier.TypeSuffix),
-        ('pathMatchers[].defaultService', path_simplifier.TypeSuffix),
-        ('pathMatchers[].pathRules[].service', path_simplifier.TypeSuffix),
-        ('tests[].service', path_simplifier.TypeSuffix),
-    ],
-    editables=[
-        'defaultService',
-        'description',
-        'hostRules',
-        'pathMatchers',
-        'tests',
-    ])
 
 
 def _GetSpecsForVersion(api_version):
@@ -1087,7 +1030,7 @@ def GetSpec(resource_type, message_classes, api_version):
 
   table_cols = []
   for name, action in spec.table_cols:
-    if isinstance(action, basestring):
+    if isinstance(action, six.string_types):
       table_cols.append((name, property_selector.PropertyGetter(action)))
     elif callable(action):
       table_cols.append((name, action))

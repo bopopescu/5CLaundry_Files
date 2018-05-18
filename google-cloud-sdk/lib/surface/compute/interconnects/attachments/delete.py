@@ -14,10 +14,14 @@
 
 """Command for deleting interconnects attachments."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.api_lib.compute.interconnects.attachments import client
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute import flags as compute_flags
+from googlecloudsdk.command_lib.compute.interconnects import flags as interconnects_flags
 from googlecloudsdk.command_lib.compute.interconnects.attachments import flags
 
 
@@ -34,11 +38,15 @@ class Delete(base.DeleteCommand):
     cls.INTERCONNECT_ATTACHMENT_ARG = flags.InterconnectAttachmentArgument(
         plural=True)
     cls.INTERCONNECT_ATTACHMENT_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(
+        interconnects_flags.InterconnectsCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     refs = self.INTERCONNECT_ATTACHMENT_ARG.ResolveAsResource(
-        args, holder.resources)
+        args,
+        holder.resources,
+        scope_lister=compute_flags.GetDefaultScopeLister(holder.client))
     utils.PromptForDeletion(refs)
 
     requests = []

@@ -13,12 +13,18 @@
 # limitations under the License.
 """Utilities for reading instances for prediction."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import codecs
 import json
+
 
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 from googlecloudsdk.core.util import files
+
+import six
 
 
 class InvalidInstancesFileError(core_exceptions.Error):
@@ -44,6 +50,9 @@ def ReadInstances(input_file, data_format, limit=None):
   instances = []
 
   for line_num, line in enumerate(input_file):
+    if isinstance(line, six.binary_type):
+      # TODO(b/79095656): Use encoding library instead of codecs.
+      line = codecs.decode(line, 'utf-8-sig')  # Handle UTF8-BOM
     line_content = line.rstrip('\r\n')
     if not line_content:
       raise InvalidInstancesFileError('Empty line is not allowed in the '
@@ -63,7 +72,8 @@ def ReadInstances(input_file, data_format, limit=None):
       instances.append(line_content)
 
   if not instances:
-    raise InvalidInstancesFileError('No valid instance was found.')
+    raise InvalidInstancesFileError(
+        'No valid instance was found in input file.')
 
   return instances
 
@@ -101,7 +111,7 @@ def ReadInstancesFromArgs(json_instances, text_instances, limit=None):
     data_format = 'text'
     input_file = text_instances
 
-  with files.Open(input_file) as f:
+  with files.Open(input_file, 'rb') as f:
     return ReadInstances(f, data_format, limit=limit)
 
 
@@ -119,3 +129,25 @@ def ParseModelOrVersionRef(model_id, version_id):
         model_id,
         params={'projectsId': properties.VALUES.core.project.GetOrFail},
         collection='ml.projects.models')
+
+
+def GetDefaultFormat(predictions):
+  if not isinstance(predictions, list):
+    # This usually indicates some kind of error case, so surface the full API
+    # response
+    return 'json'
+  elif not predictions:
+    return None
+  # predictions is guaranteed by API contract to be a list of similarly shaped
+  # objects, but we don't know ahead of time what those objects look like.
+  elif isinstance(predictions[0], dict):
+    keys = ', '.join(sorted(predictions[0].keys()))
+    return """
+          table(
+              predictions:format="table(
+                  {}
+              )"
+          )""".format(keys)
+
+  else:
+    return 'table[no-heading](predictions)'

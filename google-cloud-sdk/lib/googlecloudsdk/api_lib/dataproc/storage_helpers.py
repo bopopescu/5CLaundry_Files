@@ -52,7 +52,7 @@ def Upload(files, destination):
   """
   args = files
   args += [destination]
-  exit_code = storage_util.RunGsutilCommand('cp', ' '.join(args))
+  exit_code = storage_util.RunGsutilCommand('cp', args)
   if exit_code != 0:
     raise exceptions.ToolException(
         "Failed to upload files {0} to '{1}' using gsutil.".format(
@@ -79,11 +79,9 @@ class StorageClient(object):
         bucket=object_ref.bucket, object=object_ref.name)
     try:
       return self.client.objects.Get(request=request, download=download)
-    except apitools_exceptions.HttpError as error:
+    except apitools_exceptions.HttpNotFoundError:
       # TODO(b/36052479): Clean up error handling. Handle 403s.
-      if error.status_code == 404:
-        return None
-      raise error
+      return None
 
   def GetObject(self, object_ref):
     """Get the object metadata of a GCS object.
@@ -197,7 +195,7 @@ class StorageObjectSeriesStream(object):
         try:
           object_info = self._GetObject(self._current_object_index)
         except apitools_exceptions.HttpError as error:
-          log.warn('Failed to fetch GCS output:\n%s', error)
+          log.warning('Failed to fetch GCS output:\n%s', error)
           break
         if not object_info:
           # Nothing to read yet.

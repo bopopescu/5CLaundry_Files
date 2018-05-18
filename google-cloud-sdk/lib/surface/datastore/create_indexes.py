@@ -14,6 +14,8 @@
 
 """The gcloud datstore create-indexes command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.app import appengine_client
 from googlecloudsdk.api_lib.app import yaml_parsing
 from googlecloudsdk.calliope import base
@@ -49,8 +51,13 @@ configuration. Any indexes in your index file that do not exist will be created.
     Args:
       parser: argparse.ArgumentParser, the parser for this command.
     """
-    parser.add_argument('index_file',
-                        help='The path to your index.yaml file.')
+    parser.add_argument(
+        'index_file',
+        help="""
+        The path to your `index.yaml` file. For a detailed look into defining
+        your `index.yaml` file, refer to this configuration guide:
+        https://cloud.google.com/datastore/docs/tools/indexconfig#Datastore_About_index_yaml
+        """)
 
   def Run(self, args):
     project = properties.VALUES.core.project.Get(required=True)

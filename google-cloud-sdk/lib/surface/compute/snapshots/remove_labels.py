@@ -20,7 +20,7 @@ from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import labels_doc_helper
 from googlecloudsdk.command_lib.compute import labels_flags
 from googlecloudsdk.command_lib.compute.snapshots import flags as snapshots_flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
@@ -53,11 +53,10 @@ class SnapshotsRemoveLabels(base.UpdateCommand):
         for label in snapshot.labels.additionalProperties:
           remove_labels[label.key] = label.value
 
-    replacement = labels_util.UpdateLabels(
-        snapshot.labels,
+    labels_update = labels_util.Diff(subtractions=remove_labels).Apply(
         messages.GlobalSetLabelsRequest.LabelsValue,
-        remove_labels=remove_labels)
-    if not replacement:
+        snapshot.labels)
+    if not labels_update.needs_update:
       return snapshot
 
     request = messages.ComputeSnapshotsSetLabelsRequest(
@@ -66,7 +65,7 @@ class SnapshotsRemoveLabels(base.UpdateCommand):
         globalSetLabelsRequest=
         messages.GlobalSetLabelsRequest(
             labelFingerprint=snapshot.labelFingerprint,
-            labels=replacement))
+            labels=labels_update.labels))
 
     operation = client.snapshots.SetLabels(request)
     operation_ref = holder.resources.Parse(

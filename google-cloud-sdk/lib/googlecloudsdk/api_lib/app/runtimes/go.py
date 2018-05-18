@@ -14,6 +14,7 @@
 
 """Fingerprinting code for the Go runtime."""
 
+from __future__ import absolute_import
 import fnmatch
 import os
 import re
@@ -85,8 +86,7 @@ class GoConfigurator(ext_runtime.Configurator):
                                                DOCKERFILE)
         all_config_files.append(dockerfile)
 
-      # Generate .dockerignore TODO(b/36051035): eventually this file will just
-      # be copied verbatim.
+      # Generate .dockerignore
       dockerignore_path = os.path.join(self.root, '.dockerignore')
       if not os.path.exists(dockerignore_path):
         dockerignore = ext_runtime.GeneratedFile('.dockerignore', DOCKERIGNORE)

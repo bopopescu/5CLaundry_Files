@@ -12,20 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Convenience functions for dealing with instances and instance templates."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import collections
 import re
 
 from googlecloudsdk.api_lib.compute import alias_ip_range_utils
 from googlecloudsdk.api_lib.compute import constants
+from googlecloudsdk.api_lib.compute import containers_utils
 from googlecloudsdk.api_lib.compute import csek_utils
 from googlecloudsdk.api_lib.compute import image_utils
+from googlecloudsdk.api_lib.compute import kms_utils
+from googlecloudsdk.api_lib.compute import metadata_utils
 from googlecloudsdk.api_lib.compute import utils
+from googlecloudsdk.api_lib.compute import zone_utils
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute import scope as compute_scopes
 from googlecloudsdk.command_lib.compute.instances import flags
+from googlecloudsdk.command_lib.compute.sole_tenancy import util as sole_tenancy_util
 from googlecloudsdk.command_lib.util.ssh import ssh
-from googlecloudsdk.core import log
-import ipaddr
+import ipaddress
+import six
 
 
 EMAIL_REGEX = re.compile(r'(^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$)')
@@ -159,12 +167,8 @@ def CheckCustomCpuRamRatio(compute_client, project, zone, machine_type_name):
 
 def CreateServiceAccountMessages(messages, scopes, service_account):
   """Returns a list of ServiceAccount messages corresponding to scopes."""
-  silence_deprecation_warning = False
   if scopes is None:
     scopes = constants.DEFAULT_SCOPES
-  # if user provided --no-service-account, it is already verified that
-  # scopes == [] and thus service_account value will not be used
-  service_account_specified = service_account is not None
   if service_account is None:
     service_account = 'default'
 
@@ -175,25 +179,16 @@ def CreateServiceAccountMessages(messages, scopes, service_account):
       account = service_account
       scope_uri = scope
     elif len(parts) == 2:
-      account, scope_uri = parts
-      if service_account_specified:
-        raise exceptions.InvalidArgumentException(
-            '--scopes',
-            'It is illegal to mix old --scopes flag format '
-            '[--scopes {0}={1}] with [--service-account ACCOUNT] flag. Use '
-            '[--scopes {1} --service-account {2}] instead.'
-            .format(account, scope_uri, service_account))
-      # TODO(b/33688878) Remove support for this deprecated format
-      if not silence_deprecation_warning:
-        log.warning(
-            'Flag format --scopes [ACCOUNT=]SCOPE, [[ACCOUNT=]SCOPE, ...] is '
-            'deprecated and will be removed 24th Jan 2018. Use --scopes SCOPE'
-            '[, SCOPE...] --service-account ACCOUNT instead.')
-        silence_deprecation_warning = True  # Do not warn again for each scope
+      # TODO(b/33688878) Remove exception for this deprecated format
+      raise exceptions.InvalidArgumentException(
+          '--scopes',
+          'Flag format --scopes [ACCOUNT=]SCOPE,[[ACCOUNT=]SCOPE, ...] is '
+          'removed. Use --scopes [SCOPE,...] --service-account ACCOUNT '
+          'instead.')
     else:
       raise exceptions.ToolException(
           '[{0}] is an illegal value for [--scopes]. Values must be of the '
-          'form [SCOPE] or [ACCOUNT=SCOPE].'.format(scope))
+          'form [SCOPE].'.format(scope))
 
     if service_account != 'default' and not ssh.Remote.FromArg(service_account):
       raise exceptions.InvalidArgumentException(
@@ -207,7 +202,7 @@ def CreateServiceAccountMessages(messages, scopes, service_account):
     accounts_to_scopes[account].extend(scope_uri)
 
   res = []
-  for account, scopes in sorted(accounts_to_scopes.iteritems()):
+  for account, scopes in sorted(six.iteritems(accounts_to_scopes)):
     res.append(messages.ServiceAccount(email=account,
                                        scopes=sorted(scopes)))
   return res
@@ -224,7 +219,8 @@ def CreateOnHostMaintenanceMessage(messages, maintenance_policy):
 
 
 def CreateSchedulingMessage(
-    messages, maintenance_policy, preemptible, restart_on_failure):
+    messages, maintenance_policy, preemptible, restart_on_failure,
+    node_affinities=None):
   """Create scheduling message for VM."""
   # Note: We always specify automaticRestart=False for preemptible VMs. This
   # makes sense, since no-restart-on-failure is defined as "store-true", and
@@ -241,7 +237,32 @@ def CreateSchedulingMessage(
   else:
     scheduling = messages.Scheduling(automaticRestart=restart_on_failure,
                                      onHostMaintenance=on_host_maintenance)
+  if node_affinities:
+    scheduling.nodeAffinities = node_affinities
+
   return scheduling
+
+
+def CreateShieldedVmConfigMessage(
+    messages, enable_secure_boot, enable_vtpm, enable_integrity_monitoring):
+  """Create shieldedVMConfig message for VM."""
+
+  shielded_vm_config = messages.ShieldedVmConfig(
+      enableSecureBoot=enable_secure_boot,
+      enableVtpm=enable_vtpm,
+      enableIntegrityMonitoring=enable_integrity_monitoring)
+
+  return shielded_vm_config
+
+
+def CreateShieldedVmIntegrityPolicyMessage(messages,
+                                           update_auto_learn_policy=True):
+  """Creates shieldedVmIntegrityPolicy message for VM."""
+
+  shielded_vm_integrity_policy = messages.ShieldedVmIntegrityPolicy(
+      updateAutoLearnPolicy=update_auto_learn_policy)
+
+  return shielded_vm_integrity_policy
 
 
 def CreateMachineTypeUris(
@@ -328,10 +349,11 @@ def CreateNetworkInterfaceMessage(resources,
   if private_network_ip is not None:
     # Try interpreting the address as IPv4 or IPv6.
     try:
-      ipaddr.IPAddress(private_network_ip)
+      # ipaddress only allows unicode input
+      ipaddress.ip_address(six.text_type(private_network_ip))
       network_interface.networkIP = private_network_ip
     except ValueError:
-      # ipaddr could not resolve as an IPv4 or IPv6 address.
+      # ipaddress could not resolve as an IPv4 or IPv6 address.
       network_interface.networkIP = flags.GetAddressRef(
           resources, private_network_ip, region).SelfLink()
 
@@ -396,8 +418,7 @@ def CreateNetworkInterfaceMessages(resources, compute_client,
       address = interface.get('address', None)
       no_address = 'no-address' in interface
       if support_network_tier:
-        network_tier = interface.get('network-tier',
-                                     constants.DEFAULT_NETWORK_TIER)
+        network_tier = interface.get('network-tier', None)
       else:
         network_tier = None
 
@@ -466,6 +487,10 @@ def CreatePersistentAttachedDiskMessages(
       kwargs = {'diskEncryptionKey': disk_key_or_none}
     else:
       kwargs = {}
+
+    kwargs['diskEncryptionKey'] = kms_utils.MaybeGetKmsKey(
+        disk, disk_ref.project, compute,
+        kwargs.get('diskEncryptionKey', None))
 
     attached_disk = messages.AttachedDisk(
         autoDelete=auto_delete,
@@ -540,14 +565,19 @@ def CreatePersistentCreateDiskMessages(compute_client,
       disk_type_ref = None
       disk_type_uri = None
 
-    image_expander = image_utils.ImageExpander(compute_client,
-                                               resources)
-    image_uri, _ = image_expander.ExpandImageFlag(
-        user_project=instance_ref.project,
-        image=disk.get('image'),
-        image_family=disk.get('image-family'),
-        image_project=disk.get('image-project'),
-        return_image_resource=False)
+    img = disk.get('image')
+    img_family = disk.get('image-family')
+    img_project = disk.get('image-project')
+
+    image_uri = None
+    if img or img_family:
+      image_expander = image_utils.ImageExpander(compute_client, resources)
+      image_uri, _ = image_expander.ExpandImageFlag(
+          user_project=instance_ref.project,
+          image=img,
+          image_family=img_family,
+          image_project=img_project,
+          return_image_resource=False)
 
     image_key = None
     disk_key = None
@@ -562,6 +592,10 @@ def CreatePersistentCreateDiskMessages(compute_client,
                                    params={'zone': instance_ref.zone})
         disk_key = csek_utils.MaybeLookupKeyMessage(csek_keys, disk_ref,
                                                     compute)
+
+    disk_key = kms_utils.MaybeGetKmsKeyFromDict(
+        disk, instance_ref.project, compute,
+        disk_key)
 
     create_disk = messages.AttachedDisk(
         autoDelete=auto_delete,
@@ -605,7 +639,7 @@ def CreateAcceleratorConfigMessages(msgs, accelerator_type_ref,
 def CreateDefaultBootAttachedDiskMessage(
     compute_client, resources, disk_type, disk_device_name, disk_auto_delete,
     disk_size_gb, require_csek_key_create, image_uri, instance_ref,
-    csek_keys=None):
+    csek_keys=None, kms_args=None):
   """Returns an AttachedDisk message for creating a new boot disk."""
   messages = compute_client.messages
   compute = compute_client.apitools_client
@@ -664,6 +698,12 @@ def CreateDefaultBootAttachedDiskMessage(
     kwargs_init_parms = {}
     effective_boot_disk_name = disk_device_name
 
+  kms_key = kms_utils.MaybeGetKmsKey(
+      kms_args, instance_ref.project, compute,
+      kwargs_disk.get('diskEncryptionKey', None))
+  if kms_key:
+    kwargs_disk = {'diskEncryptionKey': kms_key}
+
   return messages.AttachedDisk(
       autoDelete=disk_auto_delete,
       boot=True,
@@ -718,3 +758,280 @@ def CreateLocalSsdMessage(resources, messages, device_name, interface,
     local_ssd.diskSizeGb = utils.BytesToGb(size_bytes)
 
   return local_ssd
+
+
+def IsAnySpecified(args, *dests):
+  return any([args.IsSpecified(dest) for dest in dests])
+
+
+def GetSourceInstanceTemplate(args, resources, source_instance_template_arg):
+  if not args.IsSpecified('source_instance_template'):
+    return None
+  ref = source_instance_template_arg.ResolveAsResource(args, resources)
+  return ref.SelfLink()
+
+
+def GetSkipDefaults(source_instance_template):
+  # gcloud creates default values for some fields in Instance resource
+  # when no value was specified on command line.
+  # When --source-instance-template was specified, defaults are taken from
+  # Instance Template and gcloud flags are used to override them - by default
+  # fields should not be initialized.
+  return source_instance_template is not None
+
+
+def GetScheduling(args, client, skip_defaults, support_node_affinity=False):
+  """Generate a Scheduling Message or None based on specified args."""
+  node_affinities = None
+  if support_node_affinity:
+    node_affinities = sole_tenancy_util.GetSchedulingNodeAffinityListFromArgs(
+        args, client.messages)
+  if (skip_defaults and
+      not IsAnySpecified(
+          args, 'maintenance_policy', 'preemptible', 'restart_on_failure') and
+      not node_affinities):
+    return None
+  return CreateSchedulingMessage(
+      messages=client.messages,
+      maintenance_policy=args.maintenance_policy,
+      preemptible=args.preemptible,
+      restart_on_failure=args.restart_on_failure,
+      node_affinities=node_affinities)
+
+
+def GetServiceAccounts(args, client, skip_defaults):
+  if args.no_service_account:
+    service_account = None
+  else:
+    service_account = args.service_account
+  if (skip_defaults and not IsAnySpecified(
+      args, 'scopes', 'no_scopes', 'service_account', 'no_service_account')):
+    return []
+  return CreateServiceAccountMessages(
+      messages=client.messages,
+      scopes=[] if args.no_scopes else args.scopes,
+      service_account=service_account)
+
+
+def GetValidatedMetadata(args, client):
+  user_metadata = metadata_utils.ConstructMetadataMessage(
+      client.messages,
+      metadata=args.metadata,
+      metadata_from_file=args.metadata_from_file)
+  containers_utils.ValidateUserMetadata(user_metadata)
+  return user_metadata
+
+
+def GetMetadata(args, client, skip_defaults):
+  if (skip_defaults and
+      not IsAnySpecified(args, 'metadata', 'metadata_from_file')):
+    return None
+  else:
+    return metadata_utils.ConstructMetadataMessage(
+        client.messages,
+        metadata=args.metadata,
+        metadata_from_file=args.metadata_from_file)
+
+
+def GetBootDiskSizeGb(args):
+  boot_disk_size_gb = utils.BytesToGb(args.boot_disk_size)
+  utils.WarnIfDiskSizeIsTooSmall(boot_disk_size_gb, args.boot_disk_type)
+  return boot_disk_size_gb
+
+
+def GetInstanceRefs(args, client, holder):
+  instance_refs = flags.INSTANCES_ARG.ResolveAsResource(
+      args,
+      holder.resources,
+      scope_lister=compute_flags.GetDefaultScopeLister(client))
+  # Check if the zone is deprecated or has maintenance coming.
+  zone_resource_fetcher = zone_utils.ZoneResourceFetcher(client)
+  zone_resource_fetcher.WarnForZonalCreation(instance_refs)
+  return instance_refs
+
+
+def GetNetworkInterfaces(
+    args, client, holder, instance_refs, skip_defaults):
+  if (skip_defaults and not args.IsSpecified('network') and not
+      IsAnySpecified(
+          args, 'address', 'no_address', 'no_public_ptr',
+          'no_public_ptr_domain', 'private_network_ip', 'public_ptr',
+          'public_ptr_domain', 'subnet',)):
+    return []
+  return [
+      CreateNetworkInterfaceMessage(
+          resources=holder.resources,
+          compute_client=client,
+          network=args.network,
+          subnet=args.subnet,
+          private_network_ip=args.private_network_ip,
+          no_address=args.no_address,
+          address=args.address,
+          instance_refs=instance_refs,
+          no_public_ptr=args.no_public_ptr,
+          public_ptr=args.public_ptr,
+          no_public_ptr_domain=args.no_public_ptr_domain,
+          public_ptr_domain=args.public_ptr_domain,
+      )
+  ]
+
+
+def GetNetworkInterfacesBeta(args, client, holder, instance_refs,
+                             skip_defaults):
+  """Returns a list of network interface messages."""
+
+  if (skip_defaults and not args.IsSpecified('network') and not IsAnySpecified(
+      args,
+      'address',
+      'network_tier',
+      'no_address',
+      'no_public_ptr',
+      'no_public_ptr_domain',
+      'private_network_ip',
+      'public_ptr',
+      'public_ptr_domain',
+      'subnet',
+  )):
+    return []
+  return [
+      CreateNetworkInterfaceMessage(
+          resources=holder.resources,
+          compute_client=client,
+          network=args.network,
+          subnet=args.subnet,
+          private_network_ip=args.private_network_ip,
+          no_address=args.no_address,
+          address=args.address,
+          instance_refs=instance_refs,
+          no_public_ptr=args.no_public_ptr,
+          public_ptr=args.public_ptr,
+          no_public_ptr_domain=args.no_public_ptr_domain,
+          public_ptr_domain=args.public_ptr_domain,
+          network_tier=getattr(args, 'network_tier', None),
+      )
+  ]
+
+
+def GetNetworkInterfacesAlpha(
+    args, client, holder, instance_refs, skip_defaults):
+  if (skip_defaults and
+      not IsAnySpecified(
+          args, 'network', 'subnet', 'private_network_ip', 'no_address',
+          'address', 'network_tier', 'no_public_dns', 'public_dns',
+          'no_public_ptr', 'public_ptr', 'no_public_ptr_domain',
+          'public_ptr_domain')):
+    return []
+  return [
+      CreateNetworkInterfaceMessage(
+          resources=holder.resources,
+          compute_client=client,
+          network=args.network,
+          subnet=args.subnet,
+          private_network_ip=args.private_network_ip,
+          no_address=args.no_address,
+          address=args.address,
+          instance_refs=instance_refs,
+          network_tier=getattr(args, 'network_tier', None),
+          no_public_dns=getattr(args, 'no_public_dns', None),
+          public_dns=getattr(args, 'public_dns', None),
+          no_public_ptr=getattr(args, 'no_public_ptr', None),
+          public_ptr=getattr(args, 'public_ptr', None),
+          no_public_ptr_domain=getattr(args, 'no_public_ptr_domain', None),
+          public_ptr_domain=getattr(args, 'public_ptr_domain', None)
+      )
+  ]
+
+
+def GetMachineTypeUris(
+    args, client, holder, instance_refs, skip_defaults):
+  if (skip_defaults and
+      not IsAnySpecified(args, 'machine_type', 'custom_cpu', 'custom_memory')):
+    return [None for _ in instance_refs]
+  return CreateMachineTypeUris(
+      resources=holder.resources,
+      compute_client=client,
+      machine_type=args.machine_type,
+      custom_cpu=args.custom_cpu,
+      custom_memory=args.custom_memory,
+      ext=getattr(args, 'custom_extensions', None),
+      instance_refs=instance_refs)
+
+
+def GetCanIpForward(args, skip_defaults):
+  if skip_defaults and not args.IsSpecified('can_ip_forward'):
+    return None
+  return args.can_ip_forward
+
+
+def CreateDiskMessages(
+    holder, args, boot_disk_size_gb, image_uri, instance_ref, skip_defaults):
+  """Creates API messages with disks attached to VM instance."""
+  if (skip_defaults and not args.IsSpecified('disk') and not
+      IsAnySpecified(
+          args, 'create_disk', 'local_ssd', 'boot_disk_type',
+          'boot_disk_device_name', 'boot_disk_auto_delete')):
+    return []
+  else:
+    persistent_disks, _ = (
+        CreatePersistentAttachedDiskMessages(
+            holder.resources, holder.client, None, args.disk or [],
+            instance_ref))
+    persistent_create_disks = (
+        CreatePersistentCreateDiskMessages(
+            holder.client, holder.resources, None,
+            getattr(args, 'create_disk', []), instance_ref))
+    local_ssds = []
+    for x in args.local_ssd or []:
+      local_ssd = CreateLocalSsdMessage(
+          holder.resources,
+          holder.client.messages,
+          x.get('device-name'),
+          x.get('interface'),
+          x.get('size'),
+          instance_ref.zone,
+          instance_ref.project)
+      local_ssds.append(local_ssd)
+    boot_disk = CreateDefaultBootAttachedDiskMessage(
+        holder.client, holder.resources,
+        disk_type=args.boot_disk_type,
+        disk_device_name=args.boot_disk_device_name,
+        disk_auto_delete=args.boot_disk_auto_delete,
+        disk_size_gb=boot_disk_size_gb,
+        require_csek_key_create=None,
+        image_uri=image_uri,
+        instance_ref=instance_ref,
+        csek_keys=None)
+    return (
+        [boot_disk] + persistent_disks + persistent_create_disks + local_ssds)
+
+
+def GetTags(args, client):
+  if args.tags:
+    return client.messages.Tags(items=args.tags)
+  return None
+
+
+def GetLabels(args, client):
+  if args.labels:
+    return client.messages.Instance.LabelsValue(additionalProperties=[
+        client.messages.Instance.LabelsValue.AdditionalProperty(
+            key=key, value=value)
+        for key, value in sorted(six.iteritems(args.labels))
+    ])
+  return None
+
+
+def GetAccelerators(args, client, resource_parser, instance_ref):
+  """Returns list of messages with accelerators for the instance."""
+  if args.accelerator:
+    accelerator_type_name = args.accelerator['type']
+    accelerator_type_ref = resource_parser.Parse(
+        accelerator_type_name,
+        collection='compute.acceleratorTypes',
+        params={'project': instance_ref.project,
+                'zone': instance_ref.zone})
+    # Accelerator count is default to 1.
+    accelerator_count = int(args.accelerator.get('count', 1))
+    return CreateAcceleratorConfigMessages(
+        client.messages, accelerator_type_ref, accelerator_count)
+  return []

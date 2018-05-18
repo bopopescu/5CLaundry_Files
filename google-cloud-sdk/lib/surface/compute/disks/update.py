@@ -19,10 +19,10 @@ from googlecloudsdk.api_lib.util import waiter
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute.disks import flags as disks_flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class Update(base.UpdateCommand):
   r"""Update a Google Compute Engine persistent disk.
 
@@ -61,28 +61,26 @@ class Update(base.UpdateCommand):
         args, holder.resources,
         scope_lister=flags.GetDefaultScopeLister(holder.client))
 
-    update_labels, remove_labels = labels_util.GetAndValidateOpsFromArgs(args)
+    labels_diff = labels_util.GetAndValidateOpsFromArgs(args)
 
     service = client.disks
     request_type = messages.ComputeDisksGetRequest
 
     disk = service.Get(request_type(**disk_ref.AsDict()))
 
-    replacement = labels_util.UpdateLabels(
-        disk.labels,
-        messages.ZoneSetLabelsRequest.LabelsValue,
-        update_labels=update_labels,
-        remove_labels=remove_labels)
+    labels_update = labels_diff.Apply(messages.ZoneSetLabelsRequest.LabelsValue,
+                                      disk.labels)
+
+    if not labels_update.needs_update:
+      return disk
+
     request = messages.ComputeDisksSetLabelsRequest(
         project=disk_ref.project,
         resource=disk_ref.disk,
         zone=disk_ref.zone,
         zoneSetLabelsRequest=messages.ZoneSetLabelsRequest(
             labelFingerprint=disk.labelFingerprint,
-            labels=replacement))
-
-    if not replacement:
-      return disk
+            labels=labels_update.labels))
 
     operation = service.SetLabels(request)
     operation_ref = holder.resources.Parse(
@@ -95,8 +93,8 @@ class Update(base.UpdateCommand):
             disk_ref.Name()))
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class UpdateAlpha(base.UpdateCommand):
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
+class UpdateAlphaBeta(base.UpdateCommand):
   r"""Update a Google Compute Engine persistent disk.
 
   *{command}* updates a Google Compute Engine persistent disk.
@@ -119,35 +117,29 @@ class UpdateAlpha(base.UpdateCommand):
   DISK_ARG = None
 
   def GetLabelsReplacementRequest(
-      self, disk_ref, disk, messages, update_labels, remove_labels):
+      self, disk_ref, disk, messages, labels_diff):
     if disk_ref.Collection() == 'compute.disks':
-      replacement = labels_util.UpdateLabels(
-          disk.labels,
-          messages.ZoneSetLabelsRequest.LabelsValue,
-          update_labels=update_labels,
-          remove_labels=remove_labels)
-      if replacement:
+      labels_update = labels_diff.Apply(
+          messages.ZoneSetLabelsRequest.LabelsValue, disk.labels)
+      if labels_update.needs_update:
         return messages.ComputeDisksSetLabelsRequest(
             project=disk_ref.project,
             resource=disk_ref.disk,
             zone=disk_ref.zone,
             zoneSetLabelsRequest=messages.ZoneSetLabelsRequest(
                 labelFingerprint=disk.labelFingerprint,
-                labels=replacement))
+                labels=labels_update.labels))
     else:
-      replacement = labels_util.UpdateLabels(
-          disk.labels,
-          messages.RegionSetLabelsRequest.LabelsValue,
-          update_labels=update_labels,
-          remove_labels=remove_labels)
-      if replacement:
+      labels_update = labels_diff.Apply(
+          messages.RegionSetLabelsRequest.LabelsValue, disk.labels)
+      if labels_update.needs_update:
         return messages.ComputeRegionDisksSetLabelsRequest(
             project=disk_ref.project,
             resource=disk_ref.disk,
             region=disk_ref.region,
             regionSetLabelsRequest=messages.RegionSetLabelsRequest(
                 labelFingerprint=disk.labelFingerprint,
-                labels=replacement))
+                labels=labels_update.labels))
     return None
 
   def GetOperationCollection(self, disk_ref):
@@ -179,13 +171,13 @@ class UpdateAlpha(base.UpdateCommand):
     disk_ref = self.DISK_ARG.ResolveAsResource(
         args, holder.resources,
         scope_lister=flags.GetDefaultScopeLister(holder.client))
-    update_labels, remove_labels = labels_util.GetAndValidateOpsFromArgs(args)
+    labels_diff = labels_util.GetAndValidateOpsFromArgs(args)
 
     service = self.GetDisksService(disk_ref, client)
     disk = service.Get(self.GetDiskGetRequest(disk_ref, messages))
 
     set_labels_request = self.GetLabelsReplacementRequest(
-        disk_ref, disk, messages, update_labels, remove_labels)
+        disk_ref, disk, messages, labels_diff)
 
     if not set_labels_request:
       return disk

@@ -14,6 +14,8 @@
 
 """The configs waiters create command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.runtime_config import util
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
@@ -69,9 +71,7 @@ class Create(base.CreateCommand):
         required=True,
         help="""\
         The amount of time to wait before failing with DEADLINE_EXCEEDED.
-        Timeout values can be specified as seconds, minutes, or hours, using the
-        's', 'm', and 'h' suffixes respectively. If no suffix is specified, the
-        unit is assumed to be seconds.
+        See $ gcloud topic datetimes for information on duration formats.
         """)
 
     parser.add_argument(

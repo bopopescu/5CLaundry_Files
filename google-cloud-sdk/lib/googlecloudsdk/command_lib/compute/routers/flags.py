@@ -13,6 +13,8 @@
 # limitations under the License.
 """Flags and helpers for the compute routers commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.command_lib.compute import completers as compute_completers
@@ -66,7 +68,9 @@ def RouterArgumentForVpnTunnel(required=True):
       region_explanation=compute_flags.REGION_PROPERTY_EXPLANATION)
 
 
-def RouterArgumentForOtherResources(required=True):
+def RouterArgumentForOtherResources(required=True, suppress_region=True):
+  region_explanation = ('Should be the same as --region, if not specified, '
+                        'it will be inherited from --region.')
   return compute_flags.ResourceArgument(
       resource_name='router',
       name='--router',
@@ -74,9 +78,9 @@ def RouterArgumentForOtherResources(required=True):
       plural=False,
       required=required,
       regional_collection='compute.routers',
-      short_help='The Router to use for dynamic routing.',
-      region_explanation='Should be the same as --region, if not specified, '
-      'it will be inherited from --region.')
+      short_help='The Google Cloud Router to use for dynamic routing.',
+      region_explanation=region_explanation,
+      region_hidden=suppress_region)
 
 
 def AddCreateRouterArgs(parser):
@@ -166,7 +170,7 @@ def AddBgpPeerArgs(parser, for_add_bgp_peer=False):
       '65535. If not specified, will use Google-managed priorities.')
 
 
-def AddCustomAdvertisementArgs(parser, resource_str):
+def AddUpdateCustomAdvertisementArgs(parser, resource_str):
   """Adds common arguments for setting/updating custom advertisements."""
 
   AddReplaceCustomAdvertisementArgs(parser, resource_str)
@@ -184,7 +188,7 @@ def AddReplaceCustomAdvertisementArgs(parser, resource_str):
       help="""The new advertisement mode for this {0}.""".format(resource_str))
 
   parser.add_argument(
-      '--advertisement-groups',
+      '--set-advertisement-groups',
       type=arg_parsers.ArgList(
           choices=_GROUP_CHOICES, element_type=lambda group: group.upper()),
       metavar='GROUP',
@@ -193,16 +197,16 @@ def AddReplaceCustomAdvertisementArgs(parser, resource_str):
               custom advertisement mode.""".format(resource_str))
 
   parser.add_argument(
-      '--advertisement-ranges',
+      '--set-advertisement-ranges',
       type=arg_parsers.ArgDict(allow_key_only=True),
       metavar='CIDR_RANGE=DESC',
       help="""The list of individual IP ranges, in CIDR format, to dynamically
               advertise on this {0}. Each IP range can (optionally) be given a
               text description DESC. For example, to advertise a specific range,
-              use `--advertisement-ranges=192.168.10.0/24`.  To store a
+              use `--set-advertisement-ranges=192.168.10.0/24`.  To store a
               description with the range, use
-              `--advertisement-ranges=192.168.10.0/24=my-networks`. This list
-              can only be specified in custom advertisement mode."""
+              `--set-advertisement-ranges=192.168.10.0/24=my-networks`. This
+              list can only be specified in custom advertisement mode."""
       .format(resource_str))
 
 

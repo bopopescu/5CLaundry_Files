@@ -15,7 +15,7 @@
 """A command that lists the gcloud group and command tree with details."""
 
 from googlecloudsdk.calliope import base
-from googlecloudsdk.calliope import walker_util
+from googlecloudsdk.calliope import cli_tree
 
 
 class ListGCloud(base.Command):
@@ -24,21 +24,12 @@ class ListGCloud(base.Command):
   @staticmethod
   def Args(parser):
     parser.add_argument(
-        '--hidden',
-        action='store_true',
-        default=None,
-        help=('Include hidden commands and groups.'))
-    parser.add_argument(
-        'restrict',
-        metavar='COMMAND/GROUP',
-        nargs='*',
-        default=None,
-        help=('Restrict the tree to these dotted command paths. '
-              'For example: gcloud.alpha gcloud.beta.test'))
-
-  def DeprecatedFormat(self, unused_args):
-    return 'json'
+        '--branch',
+        metavar='COMMAND_PATH',
+        help=('The branch of the CLI subtree to generate as a dotted command '
+              'path. Mainly used to generate test data. For example, for the '
+              '`gcloud compute instances` branch use "compute.instances".'))
 
   def Run(self, args):
-    return walker_util.GCloudTreeGenerator(self._cli_power_users_only).Walk(
-        args.hidden, args.restrict)
+    branch = args.branch.split('.') if args.branch else None
+    cli_tree.Dump(cli=self._cli_power_users_only, path='-', branch=branch)

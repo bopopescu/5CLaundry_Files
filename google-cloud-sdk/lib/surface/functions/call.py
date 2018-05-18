@@ -12,7 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""'functions call' command."""
+"""Triggers execution of a Google Cloud Function."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import json
 
 from googlecloudsdk.api_lib.functions import util
@@ -22,20 +24,26 @@ from googlecloudsdk.command_lib.functions import flags
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 
+import six
+
 
 class Call(base.Command):
-  """Call function synchronously for testing."""
+  """Trigger execution of a Google Cloud Function."""
 
   @staticmethod
   def Args(parser):
     """Register flags for this command."""
-    flags.AddRegionFlag(parser)
+    flags.AddRegionFlag(
+        parser,
+        help_text='The region of the function to execute.',
+    )
     parser.add_argument(
-        'name', help='Name of the function to be called.',
+        'name',
+        help='Name of the function to execute.',
         type=util.ValidateFunctionNameOrRaise)
     parser.add_argument(
-        '--data', default='',
-        help='Data passed to the function (JSON string)')
+        '--data',
+        help='JSON string with data that will be passed to the function.')
 
   @util.CatchHTTPErrorRaiseHTTPException
   def Run(self, args):
@@ -53,7 +61,7 @@ class Call(base.Command):
         json.loads(args.data)
       except ValueError as e:
         raise exceptions.InvalidArgumentException(
-            '--data', 'Is not a valid JSON: ' + e.message)
+            '--data', 'Is not a valid JSON: ' + six.text_type(e))
     client = util.GetApiClientInstance()
     function_ref = resources.REGISTRY.Parse(
         args.name,
@@ -72,7 +80,7 @@ class Call(base.Command):
             callFunctionRequest=messages.CallFunctionRequest(data=args.data)))
 
 Call.detailed_help = {
-    'brief': 'Call function synchronously for testing.',
+    'brief': 'Trigger execution of a Google Cloud Function.',
     'EXAMPLES': """\
         To call a function giving it hello world in message field of its event
         argument (depending on your environment you might need to escape

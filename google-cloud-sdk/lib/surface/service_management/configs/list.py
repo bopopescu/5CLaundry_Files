@@ -14,13 +14,14 @@
 
 """service-management configs list command."""
 
-from apitools.base.py import list_pager
-
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
 
 
+_ERROR = ('The `service-management configs list` command has been '
+          'replaced by `endpoints configs list`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class List(base.ListCommand):
   """Lists the configurations for a given service.
 
@@ -63,22 +64,5 @@ class List(base.ListCommand):
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the List API call.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = messages.ServicemanagementServicesConfigsListRequest(
-        serviceName=service)
-
-    return list_pager.YieldFromList(
-        client.services_configs,
-        request,
-        limit=args.limit,
-        batch_size_attribute='pageSize',
-        batch_size=args.page_size,
-        field='serviceConfigs')
+    pass

@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Defines tool-wide constants."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import collections
 
+import six
 
 BYTES_IN_ONE_MB = 2 ** 20
 BYTES_IN_ONE_GB = 2 ** 30
@@ -33,7 +36,6 @@ DEFAULT_ACCESS_CONFIG_NAME = 'external-nat'
 DEFAULT_MACHINE_TYPE = 'n1-standard-1'
 DEFAULT_NETWORK = 'default'
 DEFAULT_NETWORK_INTERFACE = 'nic0'
-DEFAULT_NETWORK_TIER = 'PREMIUM'
 NETWORK_TIER_CHOICES_FOR_INSTANCE = ['PREMIUM', 'SELECT', 'STANDARD']
 
 DEFAULT_IMAGE_FAMILY = 'debian-9'
@@ -122,6 +124,7 @@ PUBLIC_IMAGE_PROJECTS = [
     'debian-cloud',
     'cos-cloud',
     'rhel-cloud',
+    'rhel-sap-cloud',
     'suse-cloud',
     'suse-sap-cloud',
     'ubuntu-os-cloud',
@@ -129,16 +132,16 @@ PUBLIC_IMAGE_PROJECTS = [
 PREVIEW_IMAGE_PROJECTS = []
 
 # SSH-related constants.
-SSH_KEYS_METADATA_KEY = 'sshKeys'
-SSH_KEYS_INSTANCE_RESTRICTED_METADATA_KEY = 'ssh-keys'
+SSH_KEYS_METADATA_KEY = 'ssh-keys'
+SSH_KEYS_LEGACY_METADATA_KEY = 'sshKeys'
 SSH_KEYS_BLOCK_METADATA_KEY = 'block-project-ssh-keys'
 OSLOGIN_ENABLE_METADATA_KEY = 'enable-oslogin'
-MAX_METADATA_VALUE_SIZE_IN_BYTES = 32768
+MAX_METADATA_VALUE_SIZE_IN_BYTES = 262144
 
 _STORAGE_RO = 'https://www.googleapis.com/auth/devstorage.read_only'
-_USERACCOUNTS_RO = 'https://www.googleapis.com/auth/cloud.useraccounts.readonly'
 _LOGGING_WRITE = 'https://www.googleapis.com/auth/logging.write'
 _MONITORING_WRITE = 'https://www.googleapis.com/auth/monitoring.write'
+_MONITORING = 'https://www.googleapis.com/auth/monitoring'
 _SERVICE_CONTROL_SCOPE = 'https://www.googleapis.com/auth/servicecontrol'
 _SERVICE_MANAGEMENT_SCOPE = 'https://www.googleapis.com/auth/service.management.readonly'
 _SOURCE_REPOS = 'https://www.googleapis.com/auth/source.full_control'
@@ -147,15 +150,23 @@ _PUBSUB = 'https://www.googleapis.com/auth/pubsub'
 _STACKDRIVER_TRACE = 'https://www.googleapis.com/auth/trace.append'
 
 DEFAULT_SCOPES = sorted([
-    _STORAGE_RO, _USERACCOUNTS_RO, _LOGGING_WRITE, _MONITORING_WRITE,
-    _SERVICE_CONTROL_SCOPE, _SERVICE_MANAGEMENT_SCOPE, _PUBSUB,
+    _STORAGE_RO, _LOGGING_WRITE, _MONITORING_WRITE, _SERVICE_CONTROL_SCOPE,
+    _SERVICE_MANAGEMENT_SCOPE, _PUBSUB, _STACKDRIVER_TRACE,
+])
+
+GKE_DEFAULT_SCOPES = sorted([
+    _STORAGE_RO,
+    _LOGGING_WRITE,
+    _MONITORING,
+    _SERVICE_CONTROL_SCOPE,
+    _SERVICE_MANAGEMENT_SCOPE,
     _STACKDRIVER_TRACE,
 ])
 
 DEPRECATED_SQL_SCOPE_MSG = ("""
       DEPRECATION WARNING: 'https://www.googleapis.com/auth/sqlservice' account scope and
       `sql` alias do not provide SQL instance management capabilities and have been deprecated.
-      Please, use 'https://www.googleapis.com/auth/sqlservice.admin' or `sql.admin` to manage
+      Please, use 'https://www.googleapis.com/auth/sqlservice.admin' or `sql-admin` to manage
       your Google SQL Service instances.
     """)
 
@@ -168,22 +179,25 @@ SCOPES = {
     'cloud-source-repos-ro': [_SOURCE_REPOS_RO],
     'compute-ro': ['https://www.googleapis.com/auth/compute.readonly'],
     'compute-rw': ['https://www.googleapis.com/auth/compute'],
-    'default': DEFAULT_SCOPES,
-    'useraccounts-ro': [_USERACCOUNTS_RO],
-    'useraccounts-rw': ['https://www.googleapis.com/auth/cloud.useraccounts'],
+    'default':
+        DEFAULT_SCOPES,
+    'gke-default':
+        GKE_DEFAULT_SCOPES,
     'datastore': ['https://www.googleapis.com/auth/datastore'],
     'logging-write': [_LOGGING_WRITE],
-    'monitoring': ['https://www.googleapis.com/auth/monitoring'],
+    'monitoring': [_MONITORING],
     'monitoring-write': [_MONITORING_WRITE],
     'service-control': [_SERVICE_CONTROL_SCOPE],
     'service-management': [_SERVICE_MANAGEMENT_SCOPE],
     'sql': ['https://www.googleapis.com/auth/sqlservice'],
     'sql-admin': ['https://www.googleapis.com/auth/sqlservice.admin'],
+    'trace': [_STACKDRIVER_TRACE],
     'storage-full': ['https://www.googleapis.com/auth/devstorage.full_control'],
     'storage-ro': [_STORAGE_RO],
     'storage-rw': ['https://www.googleapis.com/auth/devstorage.read_write'],
     'taskqueue': ['https://www.googleapis.com/auth/taskqueue'],
     'userinfo-email': ['https://www.googleapis.com/auth/userinfo.email'],
+    'pubsub': ['https://www.googleapis.com/auth/pubsub'],
 }
 
 
@@ -196,7 +210,7 @@ def ScopesForHelp():
   than one scope) more lines containing comma and one scope url each.
   """
   aliases = []
-  for alias, value in sorted(SCOPES.iteritems()):
+  for alias, value in sorted(six.iteritems(SCOPES)):
     aliases.append('{0},{1}'.format(alias, value[0]))
     for item in value[1:]:
       aliases.append(',' + item)

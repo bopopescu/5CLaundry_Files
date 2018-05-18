@@ -13,6 +13,8 @@
 # limitations under the License.
 
 """Command for deleting security policies."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.api_lib.compute.security_policies import client
@@ -34,6 +36,7 @@ class Delete(base.DeleteCommand):
   def Args(cls, parser):
     cls.SECURITY_POLICY_ARG = flags.SecurityPolicyArgument(plural=True)
     cls.SECURITY_POLICY_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(flags.SecurityPoliciesCompleter)
 
   def Collection(self):
     return 'compute.securityPolicies'

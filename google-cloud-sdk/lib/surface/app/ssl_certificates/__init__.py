@@ -13,11 +13,13 @@
 # limitations under the License.
 """The gcloud app ssl-certificates group."""
 
+from __future__ import absolute_import
 from googlecloudsdk.calliope import base
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA,
-                    base.ReleaseTrack.BETA)
+                    base.ReleaseTrack.BETA,
+                    base.ReleaseTrack.GA)
 class SslCertificates(base.Group):
   """View and manage your App Engine SSL certificates.
 

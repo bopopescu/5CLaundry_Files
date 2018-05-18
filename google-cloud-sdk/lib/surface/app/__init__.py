@@ -14,8 +14,8 @@
 
 """The gcloud app group."""
 
-import sys
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
@@ -68,6 +68,9 @@ DETAILED_HELP = {
                     base.ReleaseTrack.BETA,
                     base.ReleaseTrack.GA)
 class AppengineGA(base.Group):
-  pass
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()
 
 AppengineGA.detailed_help = DETAILED_HELP

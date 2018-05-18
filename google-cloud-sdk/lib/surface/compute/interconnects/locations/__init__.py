@@ -13,11 +13,11 @@
 # limitations under the License.
 """Commands for reading and manipulating interconnect locations."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
-@base.Hidden
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class InterconnectLocations(base.Group):
-  """Read and manipulate  Google Compute Engine interconnect locations."""
+  """Read and manipulate Google Compute Engine interconnect locations."""
   pass

@@ -13,11 +13,11 @@ package = 'genomics'
 
 
 class CancelOperationRequest(_messages.Message):
-  """The request message for Operations.CancelOperation."""
+  r"""The request message for Operations.CancelOperation."""
 
 
 class ComputeEngine(_messages.Message):
-  """Describes a Compute Engine resource that is being managed by a running
+  r"""Describes a Compute Engine resource that is being managed by a running
   pipeline.
 
   Fields:
@@ -33,8 +33,81 @@ class ComputeEngine(_messages.Message):
   zone = _messages.StringField(4)
 
 
+class ContainerStartedEvent(_messages.Message):
+  r"""This event is generated when a container starts.
+
+  Messages:
+    PortMappingsValue: The container to host port mappings installed for this
+      container.  This set will contain any ports exposed using the
+      PUBLISH_EXPOSED_PORTS flag as well as any specified in the Action
+      definition.
+
+  Fields:
+    actionId: The numeric ID of the action that started this container.
+    ipAddress: The public IP address that can be used to connect to the
+      container.  This field is only populated when at least one port mapping
+      is present.  If the instance was created with a private address this
+      field will be empty even if port mappings exist.
+    portMappings: The container to host port mappings installed for this
+      container.  This set will contain any ports exposed using the
+      PUBLISH_EXPOSED_PORTS flag as well as any specified in the Action
+      definition.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class PortMappingsValue(_messages.Message):
+    r"""The container to host port mappings installed for this container.
+    This set will contain any ports exposed using the PUBLISH_EXPOSED_PORTS
+    flag as well as any specified in the Action definition.
+
+    Messages:
+      AdditionalProperty: An additional property for a PortMappingsValue
+        object.
+
+    Fields:
+      additionalProperties: Additional properties of type PortMappingsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a PortMappingsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A integer attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  ipAddress = _messages.StringField(2)
+  portMappings = _messages.MessageField('PortMappingsValue', 3)
+
+
+class ContainerStoppedEvent(_messages.Message):
+  r"""This event is generated when a container exits.
+
+  Fields:
+    actionId: The numeric ID of the action that started this container.
+    exitStatus: The exit status of the container.
+    stderr: The tail end of any content written to standard error by the
+      container. To prevent this from being recorded if the action is known to
+      emit large amounts of debugging noise or sensitive information, set the
+      DISABLE_STANDARD_ERROR_CAPTURE flag.  Note that only a small amount of
+      the end of the stream is captured here. The entire stream is stored in
+      the /google/logs directory mounted into each action, and may be copied
+      off the machine as described elsewhere.
+  """
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  exitStatus = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  stderr = _messages.StringField(3)
+
+
 class ControllerConfig(_messages.Message):
-  """Stores the information that the controller will fetch from the server in
+  r"""Stores the information that the controller will fetch from the server in
   order to run. Should only be used by VMs created by the Pipelines Service
   and not by end users.
 
@@ -57,7 +130,7 @@ class ControllerConfig(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DisksValue(_messages.Message):
-    """A DisksValue object.
+    r"""A DisksValue object.
 
     Messages:
       AdditionalProperty: An additional property for a DisksValue object.
@@ -67,7 +140,7 @@ class ControllerConfig(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DisksValue object.
+      r"""An additional property for a DisksValue object.
 
       Fields:
         key: Name of the additional property.
@@ -81,7 +154,7 @@ class ControllerConfig(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class GcsSinksValue(_messages.Message):
-    """A GcsSinksValue object.
+    r"""A GcsSinksValue object.
 
     Messages:
       AdditionalProperty: An additional property for a GcsSinksValue object.
@@ -91,7 +164,7 @@ class ControllerConfig(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a GcsSinksValue object.
+      r"""An additional property for a GcsSinksValue object.
 
       Fields:
         key: Name of the additional property.
@@ -105,7 +178,7 @@ class ControllerConfig(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class GcsSourcesValue(_messages.Message):
-    """A GcsSourcesValue object.
+    r"""A GcsSourcesValue object.
 
     Messages:
       AdditionalProperty: An additional property for a GcsSourcesValue object.
@@ -115,7 +188,7 @@ class ControllerConfig(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a GcsSourcesValue object.
+      r"""An additional property for a GcsSourcesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -129,7 +202,7 @@ class ControllerConfig(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class VarsValue(_messages.Message):
-    """A VarsValue object.
+    r"""A VarsValue object.
 
     Messages:
       AdditionalProperty: An additional property for a VarsValue object.
@@ -139,7 +212,7 @@ class ControllerConfig(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a VarsValue object.
+      r"""An additional property for a VarsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -161,8 +234,26 @@ class ControllerConfig(_messages.Message):
   vars = _messages.MessageField('VarsValue', 8)
 
 
+class DelayedEvent(_messages.Message):
+  r"""This event is generated whenever a resource limitation or transient
+  error delays execution of a pipeline that was otherwise ready to run.
+
+  Fields:
+    cause: A textual description of the cause of the delay.  The string may
+      change without notice since it is often generated by another service
+      (such as Compute Engine).
+    metrics: If the delay was caused by a resource shortage, this field lists
+      the Compute Engine metrics that are preventing this operation from
+      running (for example, CPUS or INSTANCES).  If the particular metric is
+      not known, a single UNKNOWN metric will be present.
+  """
+
+  cause = _messages.StringField(1)
+  metrics = _messages.StringField(2, repeated=True)
+
+
 class Disk(_messages.Message):
-  """A Google Compute Engine disk resource specification.
+  r"""A Google Compute Engine disk resource specification.
 
   Enums:
     TypeValueValuesEnum: Required. The type of the disk to create.
@@ -192,7 +283,7 @@ class Disk(_messages.Message):
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """Required. The type of the disk to create.
+    r"""Required. The type of the disk to create.
 
     Values:
       TYPE_UNSPECIFIED: Default disk type. Use one of the other options below.
@@ -219,7 +310,7 @@ class Disk(_messages.Message):
 
 
 class DockerExecutor(_messages.Message):
-  """The Docker execuctor specification.
+  r"""The Docker execuctor specification.
 
   Fields:
     cmd: Required. The command or newline delimited script to run. The command
@@ -236,7 +327,7 @@ class DockerExecutor(_messages.Message):
 
 
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -245,8 +336,175 @@ class Empty(_messages.Message):
 
 
 
+class Event(_messages.Message):
+  r"""Event carries information about events that occur during pipeline
+  execution.
+
+  Messages:
+    DetailsValue: Machine readable details about the event.
+
+  Fields:
+    description: A human readable description of the event.  Note that these
+      strings may change at any time without notice.  Any application logic
+      must use the information in the details field.
+    details: Machine readable details about the event.
+    timestamp: The time that the event occurred.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class DetailsValue(_messages.Message):
+    r"""Machine readable details about the event.
+
+    Messages:
+      AdditionalProperty: An additional property for a DetailsValue object.
+
+    Fields:
+      additionalProperties: Properties of the object. Contains field @type
+        with type URL.
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a DetailsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A extra_types.JsonValue attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.MessageField('extra_types.JsonValue', 2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  description = _messages.StringField(1)
+  details = _messages.MessageField('DetailsValue', 2)
+  timestamp = _messages.StringField(3)
+
+
+class FailedEvent(_messages.Message):
+  r"""This event is generated when the execution of a pipeline has failed.
+  Note that other events may continue to occur after this event.
+
+  Enums:
+    CodeValueValuesEnum: The Google standard error code that best describes
+      this failure.
+
+  Fields:
+    cause: The human readable description of the cause of the failure.
+    code: The Google standard error code that best describes this failure.
+  """
+
+  class CodeValueValuesEnum(_messages.Enum):
+    r"""The Google standard error code that best describes this failure.
+
+    Values:
+      OK: Not an error; returned on success  HTTP Mapping: 200 OK
+      CANCELLED: The operation was cancelled, typically by the caller.  HTTP
+        Mapping: 499 Client Closed Request
+      UNKNOWN: Unknown error.  For example, this error may be returned when a
+        `Status` value received from another address space belongs to an error
+        space that is not known in this address space.  Also errors raised by
+        APIs that do not return enough error information may be converted to
+        this error.  HTTP Mapping: 500 Internal Server Error
+      INVALID_ARGUMENT: The client specified an invalid argument.  Note that
+        this differs from `FAILED_PRECONDITION`.  `INVALID_ARGUMENT` indicates
+        arguments that are problematic regardless of the state of the system
+        (e.g., a malformed file name).  HTTP Mapping: 400 Bad Request
+      DEADLINE_EXCEEDED: The deadline expired before the operation could
+        complete. For operations that change the state of the system, this
+        error may be returned even if the operation has completed
+        successfully.  For example, a successful response from a server could
+        have been delayed long enough for the deadline to expire.  HTTP
+        Mapping: 504 Gateway Timeout
+      NOT_FOUND: Some requested entity (e.g., file or directory) was not
+        found.  Note to server developers: if a request is denied for an
+        entire class of users, such as gradual feature rollout or undocumented
+        whitelist, `NOT_FOUND` may be used. If a request is denied for some
+        users within a class of users, such as user-based access control,
+        `PERMISSION_DENIED` must be used.  HTTP Mapping: 404 Not Found
+      ALREADY_EXISTS: The entity that a client attempted to create (e.g., file
+        or directory) already exists.  HTTP Mapping: 409 Conflict
+      PERMISSION_DENIED: The caller does not have permission to execute the
+        specified operation. `PERMISSION_DENIED` must not be used for
+        rejections caused by exhausting some resource (use
+        `RESOURCE_EXHAUSTED` instead for those errors). `PERMISSION_DENIED`
+        must not be used if the caller can not be identified (use
+        `UNAUTHENTICATED` instead for those errors). This error code does not
+        imply the request is valid or the requested entity exists or satisfies
+        other pre-conditions.  HTTP Mapping: 403 Forbidden
+      UNAUTHENTICATED: The request does not have valid authentication
+        credentials for the operation.  HTTP Mapping: 401 Unauthorized
+      RESOURCE_EXHAUSTED: Some resource has been exhausted, perhaps a per-user
+        quota, or perhaps the entire file system is out of space.  HTTP
+        Mapping: 429 Too Many Requests
+      FAILED_PRECONDITION: The operation was rejected because the system is
+        not in a state required for the operation's execution.  For example,
+        the directory to be deleted is non-empty, an rmdir operation is
+        applied to a non-directory, etc.  Service implementors can use the
+        following guidelines to decide between `FAILED_PRECONDITION`,
+        `ABORTED`, and `UNAVAILABLE`:  (a) Use `UNAVAILABLE` if the client can
+        retry just the failing call.  (b) Use `ABORTED` if the client should
+        retry at a higher level      (e.g., when a client-specified test-and-
+        set fails, indicating the      client should restart a read-modify-
+        write sequence).  (c) Use `FAILED_PRECONDITION` if the client should
+        not retry until      the system state has been explicitly fixed.
+        E.g., if an "rmdir"      fails because the directory is non-empty,
+        `FAILED_PRECONDITION`      should be returned since the client should
+        not retry unless      the files are deleted from the directory.  HTTP
+        Mapping: 400 Bad Request
+      ABORTED: The operation was aborted, typically due to a concurrency issue
+        such as a sequencer check failure or transaction abort.  See the
+        guidelines above for deciding between `FAILED_PRECONDITION`,
+        `ABORTED`, and `UNAVAILABLE`.  HTTP Mapping: 409 Conflict
+      OUT_OF_RANGE: The operation was attempted past the valid range.  E.g.,
+        seeking or reading past end-of-file.  Unlike `INVALID_ARGUMENT`, this
+        error indicates a problem that may be fixed if the system state
+        changes. For example, a 32-bit file system will generate
+        `INVALID_ARGUMENT` if asked to read at an offset that is not in the
+        range [0,2^32-1], but it will generate `OUT_OF_RANGE` if asked to read
+        from an offset past the current file size.  There is a fair bit of
+        overlap between `FAILED_PRECONDITION` and `OUT_OF_RANGE`.  We
+        recommend using `OUT_OF_RANGE` (the more specific error) when it
+        applies so that callers who are iterating through a space can easily
+        look for an `OUT_OF_RANGE` error to detect when they are done.  HTTP
+        Mapping: 400 Bad Request
+      UNIMPLEMENTED: The operation is not implemented or is not
+        supported/enabled in this service.  HTTP Mapping: 501 Not Implemented
+      INTERNAL: Internal errors.  This means that some invariants expected by
+        the underlying system have been broken.  This error code is reserved
+        for serious errors.  HTTP Mapping: 500 Internal Server Error
+      UNAVAILABLE: The service is currently unavailable.  This is most likely
+        a transient condition, which can be corrected by retrying with a
+        backoff.  See the guidelines above for deciding between
+        `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`.  HTTP Mapping:
+        503 Service Unavailable
+      DATA_LOSS: Unrecoverable data loss or corruption.  HTTP Mapping: 500
+        Internal Server Error
+    """
+    OK = 0
+    CANCELLED = 1
+    UNKNOWN = 2
+    INVALID_ARGUMENT = 3
+    DEADLINE_EXCEEDED = 4
+    NOT_FOUND = 5
+    ALREADY_EXISTS = 6
+    PERMISSION_DENIED = 7
+    UNAUTHENTICATED = 8
+    RESOURCE_EXHAUSTED = 9
+    FAILED_PRECONDITION = 10
+    ABORTED = 11
+    OUT_OF_RANGE = 12
+    UNIMPLEMENTED = 13
+    INTERNAL = 14
+    UNAVAILABLE = 15
+    DATA_LOSS = 16
+
+  cause = _messages.StringField(1)
+  code = _messages.EnumField('CodeValueValuesEnum', 2)
+
+
 class GenomicsOperationsCancelRequest(_messages.Message):
-  """A GenomicsOperationsCancelRequest object.
+  r"""A GenomicsOperationsCancelRequest object.
 
   Fields:
     cancelOperationRequest: A CancelOperationRequest resource to be passed as
@@ -259,7 +517,7 @@ class GenomicsOperationsCancelRequest(_messages.Message):
 
 
 class GenomicsOperationsGetRequest(_messages.Message):
-  """A GenomicsOperationsGetRequest object.
+  r"""A GenomicsOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -269,13 +527,20 @@ class GenomicsOperationsGetRequest(_messages.Message):
 
 
 class GenomicsOperationsListRequest(_messages.Message):
-  """A GenomicsOperationsListRequest object.
+  r"""A GenomicsOperationsListRequest object.
 
   Fields:
-    filter: A string for filtering Operations. The following filter fields are
-      supported&#58;  * projectId&#58; Required. Corresponds to
-      OperationMetadata.projectId. * createTime&#58; The time this job was
-      created, in seconds from the
+    filter: A string for filtering Operations. In v2alpha1, the following
+      filter fields are supported&#58;  * createTime&#58; The time this job
+      was created * events&#58; The set of event (names) that have occurred
+      while running   the pipeline.  The &#58; operator can be used to
+      determine if a   particular event has occurred. * error&#58; If the
+      pipeline is running, this value is NULL.  Once the   pipeline finishes,
+      the value is the standard Google error code. * labels.key or labels."key
+      with space" where key is a label key.  In v1 and v1alpha2, the following
+      filter fields are supported&#58;  * projectId&#58; Required. Corresponds
+      to   OperationMetadata.projectId. * createTime&#58; The time this job
+      was created, in seconds from the
       [epoch](http://en.wikipedia.org/wiki/Unix_time). Can use `>=` and/or
       `<=`   operators. * status&#58; Can be `RUNNING`, `SUCCESS`, `FAILURE`,
       or `CANCELED`. Only   one status may be specified. * labels.key where
@@ -297,7 +562,7 @@ class GenomicsOperationsListRequest(_messages.Message):
 
 
 class GenomicsPipelinesDeleteRequest(_messages.Message):
-  """A GenomicsPipelinesDeleteRequest object.
+  r"""A GenomicsPipelinesDeleteRequest object.
 
   Fields:
     pipelineId: Caller must have WRITE access to the project in which this
@@ -308,7 +573,7 @@ class GenomicsPipelinesDeleteRequest(_messages.Message):
 
 
 class GenomicsPipelinesGetControllerConfigRequest(_messages.Message):
-  """A GenomicsPipelinesGetControllerConfigRequest object.
+  r"""A GenomicsPipelinesGetControllerConfigRequest object.
 
   Fields:
     operationId: The operation to retrieve controller configuration for.
@@ -320,7 +585,7 @@ class GenomicsPipelinesGetControllerConfigRequest(_messages.Message):
 
 
 class GenomicsPipelinesGetRequest(_messages.Message):
-  """A GenomicsPipelinesGetRequest object.
+  r"""A GenomicsPipelinesGetRequest object.
 
   Fields:
     pipelineId: Caller must have READ access to the project in which this
@@ -331,7 +596,7 @@ class GenomicsPipelinesGetRequest(_messages.Message):
 
 
 class GenomicsPipelinesListRequest(_messages.Message):
-  """A GenomicsPipelinesListRequest object.
+  r"""A GenomicsPipelinesListRequest object.
 
   Fields:
     namePrefix: Pipelines with names that match this prefix should be
@@ -352,7 +617,7 @@ class GenomicsPipelinesListRequest(_messages.Message):
 
 
 class ImportReadGroupSetsResponse(_messages.Message):
-  """The read group set import response.
+  r"""The read group set import response.
 
   Fields:
     readGroupSetIds: IDs of the read group sets that were created.
@@ -362,7 +627,7 @@ class ImportReadGroupSetsResponse(_messages.Message):
 
 
 class ImportVariantsResponse(_messages.Message):
-  """The variant data import response.
+  r"""The variant data import response.
 
   Fields:
     callSetIds: IDs of the call sets created during the import.
@@ -372,7 +637,7 @@ class ImportVariantsResponse(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -385,7 +650,7 @@ class ListOperationsResponse(_messages.Message):
 
 
 class ListPipelinesResponse(_messages.Message):
-  """The response of ListPipelines. Contains at most `pageSize` pipelines. If
+  r"""The response of ListPipelines. Contains at most `pageSize` pipelines. If
   it contains `pageSize` pipelines, and more pipelines exist, then
   `nextPageToken` will be populated and should be used as the `pageToken`
   argument to a subsequent ListPipelines request.
@@ -400,7 +665,7 @@ class ListPipelinesResponse(_messages.Message):
 
 
 class LocalCopy(_messages.Message):
-  """LocalCopy defines how a remote file should be copied to and from the VM.
+  r"""LocalCopy defines how a remote file should be copied to and from the VM.
 
   Fields:
     disk: Required. The name of the disk where this parameter is located. Can
@@ -417,7 +682,7 @@ class LocalCopy(_messages.Message):
 
 
 class LoggingOptions(_messages.Message):
-  """The logging options for the pipeline run.
+  r"""The logging options for the pipeline run.
 
   Fields:
     gcsPath: The location in Google Cloud Storage to which the pipeline logs
@@ -433,36 +698,36 @@ class LoggingOptions(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
-    MetadataValue: An OperationMetadata object. This will always be returned
-      with the Operation.
+    MetadataValue: An OperationMetadata or Metadata object. This will always
+      be returned with the Operation.
     ResponseValue: If importing ReadGroupSets, an ImportReadGroupSetsResponse
       is returned. If importing Variants, an ImportVariantsResponse is
-      returned. For pipelines and exports, an empty response is returned.
+      returned. For pipelines and exports, an Empty response is returned.
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
-    metadata: An OperationMetadata object. This will always be returned with
-      the Operation.
+    metadata: An OperationMetadata or Metadata object. This will always be
+      returned with the Operation.
     name: The server-assigned name, which is only unique within the same
       service that originally returns it. For example&#58; `operations
       /CJHU7Oi_ChDrveSpBRjfuL-qzoWAgEw`
     response: If importing ReadGroupSets, an ImportReadGroupSetsResponse is
       returned. If importing Variants, an ImportVariantsResponse is returned.
-      For pipelines and exports, an empty response is returned.
+      For pipelines and exports, an Empty response is returned.
   """
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """An OperationMetadata object. This will always be returned with the
-    Operation.
+    r"""An OperationMetadata or Metadata object. This will always be returned
+    with the Operation.
 
     Messages:
       AdditionalProperty: An additional property for a MetadataValue object.
@@ -473,7 +738,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -487,9 +752,9 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """If importing ReadGroupSets, an ImportReadGroupSetsResponse is returned.
-    If importing Variants, an ImportVariantsResponse is returned. For
-    pipelines and exports, an empty response is returned.
+    r"""If importing ReadGroupSets, an ImportReadGroupSetsResponse is
+    returned. If importing Variants, an ImportVariantsResponse is returned.
+    For pipelines and exports, an Empty response is returned.
 
     Messages:
       AdditionalProperty: An additional property for a ResponseValue object.
@@ -500,7 +765,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -520,7 +785,7 @@ class Operation(_messages.Message):
 
 
 class OperationEvent(_messages.Message):
-  """An event that occurred during an Operation.
+  r"""An event that occurred during an Operation.
 
   Fields:
     description: Required description of event.
@@ -536,7 +801,7 @@ class OperationEvent(_messages.Message):
 
 
 class OperationMetadata(_messages.Message):
-  """Metadata describing an Operation.
+  r"""Metadata describing an Operation.
 
   Messages:
     LabelsValue: Optionally provided by the caller when submitting the request
@@ -570,7 +835,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Optionally provided by the caller when submitting the request that
+    r"""Optionally provided by the caller when submitting the request that
     creates the operation.
 
     Messages:
@@ -581,7 +846,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -595,10 +860,10 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RequestValue(_messages.Message):
-    """The original request that started the operation. Note that this will be
-    in current version of the API. If the operation was started with v1beta2
-    API and a GetOperation is performed on v1 API, a v1 request will be
-    returned.
+    r"""The original request that started the operation. Note that this will
+    be in current version of the API. If the operation was started with
+    v1beta2 API and a GetOperation is performed on v1 API, a v1 request will
+    be returned.
 
     Messages:
       AdditionalProperty: An additional property for a RequestValue object.
@@ -609,7 +874,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RequestValue object.
+      r"""An additional property for a RequestValue object.
 
       Fields:
         key: Name of the additional property.
@@ -623,7 +888,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RuntimeMetadataValue(_messages.Message):
-    """Runtime metadata on this Operation.
+    r"""Runtime metadata on this Operation.
 
     Messages:
       AdditionalProperty: An additional property for a RuntimeMetadataValue
@@ -635,7 +900,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RuntimeMetadataValue object.
+      r"""An additional property for a RuntimeMetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -659,7 +924,7 @@ class OperationMetadata(_messages.Message):
 
 
 class Pipeline(_messages.Message):
-  """The pipeline object. Represents a transformation from a set of input
+  r"""The pipeline object. Represents a transformation from a set of input
   parameters to a set of output parameters. The transformation is defined as a
   docker image and command to run within that image. Each pipeline is run on a
   Google Compute Engine VM. A pipeline can be created with the `create` method
@@ -695,7 +960,7 @@ class Pipeline(_messages.Message):
 
 
 class PipelineParameter(_messages.Message):
-  """Parameters facilitate setting and delivering data into the pipeline's
+  r"""Parameters facilitate setting and delivering data into the pipeline's
   execution environment. They are defined at create time, with optional
   defaults, and can be overridden at run time.  If `localCopy` is unset, then
   the parameter specifies a string that is passed as-is into the pipeline, as
@@ -756,9 +1021,19 @@ class PipelineParameter(_messages.Message):
 
 
 class PipelineResources(_messages.Message):
-  """The system resources for the pipeline run.
+  r"""The system resources for the pipeline run.
 
   Fields:
+    acceleratorCount: Optional. The number of accelerators of the specified
+      type to attach. By specifying this parameter, you will download and
+      install the following third-party software onto your managed Compute
+      Engine instances: NVIDIA\xae Tesla\xae drivers and NVIDIA\xae CUDA toolkit.
+    acceleratorType: Optional. The Compute Engine defined accelerator type. By
+      specifying this parameter, you will download and install the following
+      third-party software onto your managed Compute Engine instances: NVIDIA\xae
+      Tesla\xae drivers and NVIDIA\xae CUDA toolkit. Please see
+      https://cloud.google.com/compute/docs/gpus/ for a list of available
+      accelerator types.
     bootDiskSizeGb: The size of the boot disk. Defaults to 10 (GB).
     disks: Disks to attach.
     minimumCpuCores: The minimum number of cores to use. Defaults to 1.
@@ -783,17 +1058,39 @@ class PipelineResources(_messages.Message):
       creation will restricted. If empty, any zone may be chosen.
   """
 
-  bootDiskSizeGb = _messages.IntegerField(1, variant=_messages.Variant.INT32)
-  disks = _messages.MessageField('Disk', 2, repeated=True)
-  minimumCpuCores = _messages.IntegerField(3, variant=_messages.Variant.INT32)
-  minimumRamGb = _messages.FloatField(4)
-  noAddress = _messages.BooleanField(5)
-  preemptible = _messages.BooleanField(6)
-  zones = _messages.StringField(7, repeated=True)
+  acceleratorCount = _messages.IntegerField(1)
+  acceleratorType = _messages.StringField(2)
+  bootDiskSizeGb = _messages.IntegerField(3, variant=_messages.Variant.INT32)
+  disks = _messages.MessageField('Disk', 4, repeated=True)
+  minimumCpuCores = _messages.IntegerField(5, variant=_messages.Variant.INT32)
+  minimumRamGb = _messages.FloatField(6)
+  noAddress = _messages.BooleanField(7)
+  preemptible = _messages.BooleanField(8)
+  zones = _messages.StringField(9, repeated=True)
+
+
+class PullStartedEvent(_messages.Message):
+  r"""This event is generated when the worker starts pulling an image.
+
+  Fields:
+    imageUri: The URI of the image that was pulled.
+  """
+
+  imageUri = _messages.StringField(1)
+
+
+class PullStoppedEvent(_messages.Message):
+  r"""This event is generated when the worker stops pulling an image.
+
+  Fields:
+    imageUri: The URI of the image that was pulled.
+  """
+
+  imageUri = _messages.StringField(1)
 
 
 class RepeatedString(_messages.Message):
-  """A RepeatedString object.
+  r"""A RepeatedString object.
 
   Fields:
     values: A string attribute.
@@ -803,7 +1100,7 @@ class RepeatedString(_messages.Message):
 
 
 class RunPipelineArgs(_messages.Message):
-  """The pipeline run arguments.
+  r"""The pipeline run arguments.
 
   Messages:
     InputsValue: Pipeline input arguments; keys are defined in the pipeline
@@ -863,7 +1160,7 @@ class RunPipelineArgs(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InputsValue(_messages.Message):
-    """Pipeline input arguments; keys are defined in the pipeline
+    r"""Pipeline input arguments; keys are defined in the pipeline
     documentation. All input parameters that do not have default values  must
     be specified. If parameters with defaults are specified here, the defaults
     will be overridden.
@@ -876,7 +1173,7 @@ class RunPipelineArgs(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InputsValue object.
+      r"""An additional property for a InputsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -890,7 +1187,7 @@ class RunPipelineArgs(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Labels to apply to this pipeline run. Labels will also be applied to
+    r"""Labels to apply to this pipeline run. Labels will also be applied to
     compute resources (VM, disks) created by this pipeline run. When listing
     operations, operations can filtered by labels. Label keys may not be
     empty; label values may be empty. Non-empty labels must be 1-63 characters
@@ -909,7 +1206,7 @@ class RunPipelineArgs(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -923,7 +1220,7 @@ class RunPipelineArgs(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class OutputsValue(_messages.Message):
-    """Pipeline output arguments; keys are defined in the pipeline
+    r"""Pipeline output arguments; keys are defined in the pipeline
     documentation.  All output parameters of without default values must be
     specified.  If parameters with defaults are specified here, the defaults
     will be overridden.
@@ -936,7 +1233,7 @@ class RunPipelineArgs(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a OutputsValue object.
+      r"""An additional property for a OutputsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -960,9 +1257,9 @@ class RunPipelineArgs(_messages.Message):
 
 
 class RunPipelineRequest(_messages.Message):
-  """The request to run a pipeline. If `pipelineId` is specified, it refers to
-  a saved pipeline created with CreatePipeline and set as the `pipelineId` of
-  the returned Pipeline object. If `ephemeralPipeline` is specified, that
+  r"""The request to run a pipeline. If `pipelineId` is specified, it refers
+  to a saved pipeline created with CreatePipeline and set as the `pipelineId`
+  of the returned Pipeline object. If `ephemeralPipeline` is specified, that
   pipeline is run once with the given args and not saved. It is an error to
   specify both `pipelineId` and `ephemeralPipeline`. `pipelineArgs` must be
   specified.
@@ -979,7 +1276,7 @@ class RunPipelineRequest(_messages.Message):
 
 
 class RuntimeMetadata(_messages.Message):
-  """Runtime metadata that will be populated in the runtimeMetadata field of
+  r"""Runtime metadata that will be populated in the runtimeMetadata field of
   the Operation associated with a RunPipeline execution.
 
   Fields:
@@ -990,7 +1287,7 @@ class RuntimeMetadata(_messages.Message):
 
 
 class ServiceAccount(_messages.Message):
-  """A Google Cloud Service Account.
+  r"""A Google Cloud Service Account.
 
   Fields:
     email: Email address of the service account. Defaults to `default`, which
@@ -1009,7 +1306,7 @@ class ServiceAccount(_messages.Message):
 
 
 class SetOperationStatusRequest(_messages.Message):
-  """Request to set operation status. Should only be used by VMs created by
+  r"""Request to set operation status. Should only be used by VMs created by
   the Pipelines Service and not by end users.
 
   Enums:
@@ -1024,7 +1321,7 @@ class SetOperationStatusRequest(_messages.Message):
   """
 
   class ErrorCodeValueValuesEnum(_messages.Enum):
-    """ErrorCodeValueValuesEnum enum type.
+    r"""ErrorCodeValueValuesEnum enum type.
 
     Values:
       OK: Not an error; returned on success  HTTP Mapping: 200 OK
@@ -1136,7 +1433,7 @@ class SetOperationStatusRequest(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -1165,7 +1462,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1177,7 +1474,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -1203,7 +1500,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -1251,7 +1548,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -1263,7 +1560,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -1281,7 +1578,7 @@ class Status(_messages.Message):
 
 
 class TimestampEvent(_messages.Message):
-  """Stores the list of events and times they occured for major events in job
+  r"""Stores the list of events and times they occured for major events in job
   execution.
 
   Fields:
@@ -1293,12 +1590,50 @@ class TimestampEvent(_messages.Message):
   timestamp = _messages.StringField(2)
 
 
+class UnexpectedExitStatusEvent(_messages.Message):
+  r"""This event is generated when the execution of a container results in a
+  non-zero exit status that was not otherwise ignored.  Execution will
+  continue, but only actions that are flagged as ALWAYS_RUN will be executed:
+  other actions will be skipped.
+
+  Fields:
+    actionId: The numeric ID of the action that started the container.
+    exitStatus: The exit status of the container.
+  """
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  exitStatus = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+
+
+class WorkerAssignedEvent(_messages.Message):
+  r"""This event is generated once a worker VM has been assigned to run the
+  pipeline.
+
+  Fields:
+    instance: The worker's instance name.
+    zone: The zone the worker is running in.
+  """
+
+  instance = _messages.StringField(1)
+  zone = _messages.StringField(2)
+
+
+class WorkerReleasedEvent(_messages.Message):
+  r"""This event is generated when the worker VM that was assigned to the
+  pipeline has been released (i.e., deleted).
+
+  Fields:
+    instance: The worker's instance name.
+    zone: The zone the worker was running in.
+  """
+
+  instance = _messages.StringField(1)
+  zone = _messages.StringField(2)
+
+
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'genomics')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'genomics')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'genomics')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

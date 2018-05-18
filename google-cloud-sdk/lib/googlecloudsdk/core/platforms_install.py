@@ -14,19 +14,26 @@
 
 """Utilities for configuring platform specific installation."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import re
 import shutil
 
 from googlecloudsdk.core.console import console_io
+from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import files
 from googlecloudsdk.core.util import platforms
+
+import six
 
 
 # TODO(b/34807345): print to stderr
 def _TraceAction(action):
   """Prints action to the standard output -- not really standard practice."""
-  print action
+  print(action)
 
 
 # pylint:disable=unused-argument
@@ -41,14 +48,11 @@ def _UpdatePathForWindows(bin_path):
   # pylint:disable=g-import-not-at-top, we want to only attempt these imports
   # on windows.
   try:
+    # pytype: disable=import-error
     import win32con
     import win32gui
-    try:
-      # Python 3
-      import winreg
-    except ImportError:
-      # Python 2
-      import _winreg as winreg
+    from six.moves import winreg
+    # pytype: enable=import-error
   except ImportError:
     _TraceAction("""\
 The installer is unable to automatically update your system PATH. Please add
@@ -102,12 +106,12 @@ Create a new command shell for the changes to take effect.
 # The trick where we squash multiple spaces into one optimizes for readability.
 # It shows the control flow, while keeping the actual shell code to one line
 # (important for ease-of-RC-file-management).
-_SOURCE_LINE_SH = ' '.join(filter(None, """\
+_SOURCE_LINE_SH = ' '.join([f for f in """\
 if [ -f '{rc_path}' ]; then \
     source '{rc_path}'; \
 fi
-""".split(' ')))
-_SOURCE_LINE_FISH = ' '.join(filter(None, """\
+""".split(' ') if f])
+_SOURCE_LINE_FISH = ' '.join([f for f in """\
 if [ -f '{rc_path}' ]; \
     if type source > /dev/null; \
        source '{rc_path}'; \
@@ -115,7 +119,7 @@ if [ -f '{rc_path}' ]; \
        . '{rc_path}'; \
     end; \
 end
-""".split(' ')))
+""".split(' ') if f])
 
 
 def _GetRcContents(comment, rc_path, rc_contents, pattern=None,
@@ -232,14 +236,20 @@ class _RcUpdater(object):
       rc_dir = os.path.dirname(self.rc_path)
       try:
         files.MakeDir(rc_dir)
-      except (files.Error, OSError):
+      except (files.Error, IOError, OSError):
         _TraceAction(
             'Could not create directories for [{rc_path}], so it '
             'cannot be updated.'.format(rc_path=self.rc_path))
         return
 
-      with open(self.rc_path, 'w') as rc_file:
-        rc_file.write(rc_contents)
+      try:
+        with open(self.rc_path, 'w') as rc_file:
+          rc_file.write(rc_contents)
+      except (files.Error, IOError, OSError):
+        _TraceAction(
+            'Could not update [{rc_path}]. Ensure you have write access to '
+            'this location.'.format(rc_path=self.rc_path))
+        return
 
       _TraceAction('[{rc_path}] has been updated.'.format(rc_path=self.rc_path))
       _TraceAction(console_io.FormatRequiredUserAction(
@@ -271,7 +281,7 @@ def _GetPreferredShell(path, default='bash'):
     return default
   name = os.path.basename(path)
   for shell in ('bash', 'zsh', 'ksh', 'fish'):
-    if shell in name:
+    if shell in six.text_type(name):
       return shell
   return default
 
@@ -287,7 +297,7 @@ def _GetShellRcFileName(shell, host_os):
     The shell RC file name, '.bashrc' by default.
   """
   if shell == 'ksh':
-    return os.environ.get('ENV', None) or '.kshrc'
+    return encoding.GetEncodedValue(os.environ, 'ENV', None) or '.kshrc'
   elif shell == 'fish':
     return os.path.join('.config', 'fish', 'config.fish')
   elif shell != 'bash':
@@ -324,9 +334,10 @@ def _GetAndUpdateRcPath(completion_update, path_update, rc_path, host_os):
   if rc_path:
     return rc_path
   # A first guess at user preferred shell.
-  preferred_shell = _GetPreferredShell(os.environ.get('SHELL', '/bin/sh'))
-  default_rc_path = os.path.join(platforms.GetHomePath(),
-                                 _GetShellRcFileName(preferred_shell, host_os))
+  preferred_shell = _GetPreferredShell(
+      encoding.GetEncodedValue(os.environ, 'SHELL', '/bin/sh'))
+  default_rc_path = os.path.join(
+      platforms.GetHomePath(), _GetShellRcFileName(preferred_shell, host_os))
   # If in quiet mode, we'll use default path.
   if not console_io.CanPrompt():
     _TraceAction('You specified that you wanted to update your rc file. The '
@@ -358,11 +369,12 @@ def _GetRcUpdater(completion_update, path_update, rc_path, sdk_root, host_os):
   rc_path = _GetAndUpdateRcPath(completion_update, path_update, rc_path,
                                 host_os)
   # Check the rc_path for a better hint at the user preferred shell.
-  preferred_shell = _GetPreferredShell(rc_path,
-                                       default=_GetPreferredShell(
-                                           os.environ.get('SHELL', '/bin/sh')))
-  return _RcUpdater(completion_update, path_update, preferred_shell, rc_path,
-                    sdk_root)
+  preferred_shell = _GetPreferredShell(
+      rc_path,
+      default=_GetPreferredShell(
+          encoding.GetEncodedValue(os.environ, 'SHELL', '/bin/sh')))
+  return _RcUpdater(
+      completion_update, path_update, preferred_shell, rc_path, sdk_root)
 
 
 _PATH_PROMPT = 'update your $PATH'

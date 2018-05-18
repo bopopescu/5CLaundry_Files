@@ -13,6 +13,8 @@
 # limitations under the License.
 """Code that's shared between multiple routers subcommands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import routers_utils
 from googlecloudsdk.calliope import parser_errors
 from googlecloudsdk.core import exceptions as core_exceptions
@@ -23,8 +25,8 @@ _MODE_SWITCH_MESSAGE = (
     'out any existing advertised groups/ranges from this {resource}.')
 
 _INCOMPATIBLE_INCREMENTAL_FLAGS_ERROR_MESSAGE = (
-    '--add/remove-advertisement flags are not compatible with other '
-    '--advertisement flags.')
+    '--add/remove-advertisement flags are not compatible with '
+    '--set-advertisement flags.')
 
 _CUSTOM_WITH_DEFAULT_ERROR_MESSAGE = (
     'Cannot specify custom advertisements for a {resource} with default mode.')
@@ -34,6 +36,9 @@ _GROUP_NOT_FOUND_ERROR_MESSAGE = (
 
 _IP_RANGE_NOT_FOUND_ERROR_MESSAGE = (
     'Advertised IP range {ip_range} not found on this {resource}.')
+
+_REQUIRE_IP_ADDRESS_AND_MASK_LENGTH_ERROR_MESSAGE = (
+    '--ip-address and --mask-length must be set together.')
 
 
 class RouterError(core_exceptions.Error):
@@ -47,6 +52,23 @@ class PeerNotFoundError(RouterError):
     self.name = name
     msg = 'peer `{0}` not found'.format(name)
     super(PeerNotFoundError, self).__init__(msg)
+
+
+class InterfaceNotFoundError(RouterError):
+  """Raised when an interface is specified but not found in the router."""
+
+  def __init__(self, name):
+    self.name = name
+    msg = 'interface `{0}` not found'.format(name)
+    super(InterfaceNotFoundError, self).__init__(msg)
+
+
+class RequireIpAddressAndMaskLengthError(RouterError):
+  """Raised when ip-address or mask-length is specified without the other."""
+
+  def __init__(self):
+    msg = _REQUIRE_IP_ADDRESS_AND_MASK_LENGTH_ERROR_MESSAGE
+    super(RequireIpAddressAndMaskLengthError, self).__init__(msg)
 
 
 class CustomWithDefaultError(RouterError):
@@ -97,8 +119,9 @@ def CheckIncompatibleFlagsOrRaise(args):
 
 def HasReplaceAdvertisementFlags(args):
   """Returns whether replace-style flags are specified in arguments."""
-  return (args.advertisement_mode or args.advertisement_groups is not None or
-          args.advertisement_ranges is not None)
+  return (args.advertisement_mode or
+          args.set_advertisement_groups is not None or
+          args.set_advertisement_ranges is not None)
 
 
 def HasIncrementalAdvertisementFlags(args):
@@ -129,12 +152,13 @@ def ParseAdvertisements(messages, resource_class, args):
   if args.advertisement_mode is not None:
     mode = routers_utils.ParseMode(resource_class, args.advertisement_mode)
   groups = None
-  if args.advertisement_groups is not None:
+  if args.set_advertisement_groups is not None:
     groups = routers_utils.ParseGroups(resource_class,
-                                       args.advertisement_groups)
+                                       args.set_advertisement_groups)
   prefixes = None
-  if args.advertisement_ranges is not None:
-    prefixes = routers_utils.ParseIpRanges(messages, args.advertisement_ranges)
+  if args.set_advertisement_ranges is not None:
+    prefixes = routers_utils.ParseIpRanges(messages,
+                                           args.set_advertisement_ranges)
 
   if (mode is not None and
       mode is resource_class.AdvertiseModeValueValuesEnum.DEFAULT):
@@ -230,8 +254,8 @@ def RemoveIpRangesFromAdvertisements(messages, resource_class, resource,
     IpRangeNotFoundError: if any IP range was not found in the resource.
   """
   for ip_range in ip_ranges:
-    if ip_range not in [p.prefix for p in resource.advertisedPrefixs]:
+    if ip_range not in [r.range for r in resource.advertisedIpRanges]:
       raise IpRangeNotFoundError(messages, resource_class, ip_range)
-  resource.advertisedPrefixs = [
-      p for p in resource.advertisedPrefixs if p.prefix not in ip_ranges
+  resource.advertisedIpRanges = [
+      r for r in resource.advertisedIpRanges if r.range not in ip_ranges
   ]

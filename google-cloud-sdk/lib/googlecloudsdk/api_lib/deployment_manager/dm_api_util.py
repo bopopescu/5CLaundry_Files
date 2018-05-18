@@ -14,15 +14,17 @@
 
 """Common helper methods for DeploymentManager V2 Deployments."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.util import exceptions as api_exceptions
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.core import log
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.resource import resource_printer
-
-import yaml
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 MAX_RESOURCE_TO_DISPLAY = 50
@@ -208,7 +210,11 @@ def YieldWithHttpExceptions(generator):
     raise api_exceptions.HttpException(error, HTTP_ERROR_FORMAT)
 
 
-def FetchResourcesAndOutputs(client, messages, project, deployment_name):
+def FetchResourcesAndOutputs(client,
+                             messages,
+                             project,
+                             deployment_name,
+                             update_action_intent=False):
   """Returns a ResourcesAndOutputs object for a deployment."""
   try:
     # Fetch a list of the previewed or updated resources.
@@ -222,6 +228,9 @@ def FetchResourcesAndOutputs(client, messages, project, deployment_name):
       resources = LimitResourcesToDisplay(response.resources)
     else:
       resources = []
+
+    if update_action_intent:
+      UpdateActionResourceIntent(resources)
 
     deployment_response = client.deployments.Get(
         messages.DeploymentmanagerDeploymentsGetRequest(
@@ -244,7 +253,6 @@ def FetchResourcesAndOutputs(client, messages, project, deployment_name):
       if manifest_response.layout:
         outputs = FlattenLayoutOutputs(manifest_response.layout)
 
-    # TODO(b/36049939): Pagination b/28298504
     return_val = ResourcesAndOutputs(resources, outputs)
     return return_val
   except apitools_exceptions.HttpError as error:
@@ -270,6 +278,33 @@ def FetchDeployment(client, messages, project, deployment_name):
     raise api_exceptions.HttpException(error, HTTP_ERROR_FORMAT)
 
 
+def UpdateActionResourceIntent(resources):
+  """Update the intent of the resource that is in preview."""
+  for resource in resources:
+    if resource.update:
+      resource.update.intent = GetActionResourceIntent(
+          resource.update.intent, resource.update.runtimePolicies)
+
+
+def GetActionResourceIntent(update_intent, runtime_policies):
+  """Returns action intent indicating TO_RUN or NOT_RUN."""
+  # The runtime_policies will never by an empty list
+  if runtime_policies:
+    if update_intent in ['PATCH', 'UPDATE'
+                        ] and ('UPDATE_ALWAYS' in runtime_policies or
+                               'UPDATE_ON_CHANGE' in runtime_policies):
+      return update_intent + '/TO_RUN'
+    elif update_intent == 'DELETE' and 'DELETE' in runtime_policies:
+      return update_intent + '/TO_RUN'
+    elif update_intent == 'CREATE_OR_ACQUIRE' and (
+        'CREATE' in runtime_policies or 'UPDATE_ON_CHANGE' in runtime_policies
+        or 'UPDATE_ALWAYS' in runtime_policies):
+      return update_intent + '/TO_RUN'
+    else:
+      return update_intent + '/NOT_RUN'
+  return update_intent
+
+
 class StringPropertyParser(object):
   """No-op string value parser, prints a deprecation warning on first call."""
 
@@ -280,7 +315,7 @@ class StringPropertyParser(object):
     # print a warning and then return the value as-is
     if not self.warned:
       self.warned = True
-      log.warn(
+      log.warning(
           "Delimiter '=' is deprecated for properties flag. Use ':' instead.")
     return value
 

@@ -22,7 +22,6 @@ from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.sql import flags
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
-from googlecloudsdk.core import remote_completion
 from googlecloudsdk.core.console import console_io
 
 
@@ -55,11 +54,6 @@ class Delete(base.Command):
     Returns:
       A dict object representing the operations resource describing the delete
       operation if the delete was successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client
@@ -93,8 +87,6 @@ class Delete(base.Command):
           sql_client, operation_ref, 'Deleting Cloud SQL instance')
 
       log.DeletedResource(instance_ref)
-      cache = remote_completion.RemoteCompletion()
-      cache.DeleteFromCache(instance_ref.SelfLink())
 
     except exceptions.HttpError:
       log.debug('operation : %s', str(operation_ref))

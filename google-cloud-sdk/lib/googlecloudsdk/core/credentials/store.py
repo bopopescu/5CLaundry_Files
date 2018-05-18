@@ -17,6 +17,10 @@
 A detailed description of auth.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import datetime
 import json
 import os
@@ -31,10 +35,12 @@ from googlecloudsdk.core.credentials import creds
 from googlecloudsdk.core.credentials import devshell as c_devshell
 from googlecloudsdk.core.credentials import gce as c_gce
 from googlecloudsdk.core.util import files
+
 import httplib2
 from oauth2client import client
 from oauth2client.contrib import gce as oauth2client_gce
 from oauth2client.contrib import reauth_errors
+import six
 
 
 GOOGLE_OAUTH2_PROVIDER_AUTHORIZATION_URI = (
@@ -329,7 +335,9 @@ def Load(account=None, scopes=None, prevent_refresh=False):
       if cred_type in (creds.CredentialType.SERVICE_ACCOUNT,
                        creds.CredentialType.P12_SERVICE_ACCOUNT):
         cred.token_uri = token_uri_override
-    return cred
+    # The credential override is not stored in credential store, but we still
+    # want to cache access tokens between invocations.
+    return creds.MaybeAttachAccessTokenCacheStore(cred)
 
   if not account:
     account = properties.VALUES.core.account.Get()
@@ -368,10 +376,12 @@ def Refresh(credentials, http_client=None):
     TokenRefreshError: If the credentials fail to refresh.
     TokenRefreshReauthError: If the credentials fail to refresh due to reauth.
   """
+  response_encoding = None if six.PY2 else 'utf-8'
   try:
-    credentials.refresh(http_client or http.Http())
+    credentials.refresh(http_client or
+                        http.Http(response_encoding=response_encoding))
   except (client.AccessTokenRefreshError, httplib2.ServerNotFoundError) as e:
-    raise TokenRefreshError(e.message)
+    raise TokenRefreshError(six.text_type(e))
   except reauth_errors.ReauthError as e:
     raise TokenRefreshReauthError(e.message)
 

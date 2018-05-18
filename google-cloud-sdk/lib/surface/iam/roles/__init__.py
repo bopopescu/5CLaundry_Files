@@ -16,6 +16,5 @@
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
 class Roles(base.Group):
   """Create and manipulate roles."""

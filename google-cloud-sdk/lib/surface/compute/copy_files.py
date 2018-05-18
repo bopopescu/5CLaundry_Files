@@ -39,10 +39,10 @@ class CopyFiles(base.Command):
   def Run(self, args):
     """See scp_utils.BaseScpCommand.Run."""
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    cua_holder = base_classes.ComputeUserAccountsApiHolder(self.ReleaseTrack())
 
     scp_helper = scp_utils.BaseScpHelper()
-    return scp_helper.RunScp(holder, cua_holder, args, recursive=True)
+    return scp_helper.RunScp(holder, args, recursive=True,
+                             release_track=self.ReleaseTrack())
 
 
 # pylint:disable=line-too-long
@@ -50,7 +50,8 @@ CopyFiles.detailed_help = {
     'DESCRIPTION':
         """\
         *{command}* copies files between a virtual machine instance and your
-        local machine using the scp command.
+        local machine using the scp command. This command does not work for
+        Windows VMs.
 
         To denote a remote file, prefix the file name with the virtual machine
         instance name (e.g., _example-instance_:~/_FILE_). To denote a local

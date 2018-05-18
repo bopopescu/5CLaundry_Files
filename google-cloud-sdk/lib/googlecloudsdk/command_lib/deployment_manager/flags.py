@@ -14,15 +14,18 @@
 
 """Helper methods for configuring deployment manager command flags."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.deployment_manager import dm_api_util
 from googlecloudsdk.calliope import arg_parsers
+from googlecloudsdk.command_lib.util.apis import arg_utils
 
 
 RESOURCES_AND_OUTPUTS_FORMAT = """
     table(
       resources:format='table(
         name,
-        type,
+        type:wrap,
         update.state.yesno(no="COMPLETED"),
         update.error.errors.group(code),
         update.intent)',
@@ -38,7 +41,8 @@ OPERATION_FORMAT = """
       operationType:label=TYPE,
       status,
       targetLink.basename():label=TARGET,
-      error.errors.group(code)
+      error.errors.group(code),
+      warnings.group(code)
     )
 """
 
@@ -47,13 +51,46 @@ DEPLOYMENT_FORMAT = """
       name, id, description, fingerprint,insertTime, manifest.basename(),
       labels, operation.operationType, operation.progress,
       operation.status, operation.user, operation.endTime, operation.startTime,
-      operation.error, update)
+      operation.error, operation.warnings, update)
 """
+
+_DELETE_FLAG_KWARGS = {
+    'help_str': ('Delete policy for resources that will change as part of '
+                 'an update or delete. `delete` deletes the resource while '
+                 '`abandon` just removes the resource reference from the '
+                 'deployment.'),
+    'default': 'delete',
+    'name': '--delete-policy'
+}
+
+
+def GetDeleteFlagEnumMap(policy_enum):
+  return arg_utils.ChoiceEnumMapper(
+      _DELETE_FLAG_KWARGS['name'],
+      policy_enum,
+      help_str=_DELETE_FLAG_KWARGS['help_str'],
+      default=_DELETE_FLAG_KWARGS['default'])
 
 
 def AddDeploymentNameFlag(parser):
   """Add properties flag."""
   parser.add_argument('deployment_name', help='Deployment name.')
+
+
+def AddConfigFlags(parser):
+  """Add flags for different types of configs."""
+  parser.add_argument(
+      '--config',
+      help='Filename of a top-level yaml config that specifies '
+      'resources to deploy.')
+
+  parser.add_argument(
+      '--template',
+      help='Filename of a top-level jinja or python config template.')
+
+  parser.add_argument(
+      '--composite-type',
+      help='Name of a composite type to deploy.')
 
 
 def AddPropertiesFlag(parser):
@@ -62,7 +99,7 @@ def AddPropertiesFlag(parser):
   parser.add_argument(
       '--properties',
       help='A comma separated, key:value, map '
-      'to be used when deploying a template file directly.',
+      'to be used when deploying a template file or composite type directly.',
       type=arg_parsers.ArgDict(operators=dm_api_util.NewParserDict()),
       dest='properties')
 
@@ -77,18 +114,6 @@ def AddAsyncFlag(parser):
       dest='async',
       default=False,
       action='store_true')
-
-
-def AddDeletePolicyFlag(parser, request_class):
-  """Add the delete_policy argument."""
-  parser.add_argument(
-      '--delete-policy',
-      help=('Delete policy for resources that will change as part of an update '
-            'or delete. DELETE deletes the resource while ABANDON just removes '
-            'the resource reference from the deployment.'),
-      default='DELETE',
-      choices=(sorted(request_class.DeletePolicyValueValuesEnum
-                      .to_dict().keys())))
 
 
 def AddFingerprintFlag(parser):

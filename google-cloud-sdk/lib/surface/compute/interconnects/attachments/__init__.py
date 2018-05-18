@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Commands for reading and manipulating interconnects."""
+"""Commands for reading and manipulating interconnect attachments."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
-@base.Hidden
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class InterconnectAttachments(base.Group):
-  """Read and manipulate  Google Compute Engine interconnect attachments."""
+  """Read and manipulate Google Compute Engine interconnect attachments."""
   pass

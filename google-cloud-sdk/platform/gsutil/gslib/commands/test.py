@@ -32,25 +32,12 @@ from gslib.command import ResetFailureCount
 from gslib.exception import CommandException
 from gslib.project_id import PopulateProjectId
 import gslib.tests as tests
-from gslib.util import IS_WINDOWS
-from gslib.util import NO_MAX
+from gslib.tests.util import GetTestNames
+from gslib.tests.util import unittest
+from gslib.utils.constants import NO_MAX
+from gslib.utils.system_util import IS_WINDOWS
 
-
-# For Python 2.6, unittest2 is required to run the tests. If it's not available,
-# display an error if the test command is run instead of breaking the whole
-# program.
 # pylint: disable=g-import-not-at-top
-try:
-  from gslib.tests.util import GetTestNames
-  from gslib.tests.util import unittest
-except ImportError as e:
-  if 'unittest2' in str(e):
-    unittest = None
-    GetTestNames = None  # pylint: disable=invalid-name
-  else:
-    raise
-
-
 try:
   import coverage
 except ImportError:
@@ -464,10 +451,6 @@ class TestCommand(Command):
 
   def RunCommand(self):
     """Command entry point for the test command."""
-    if not unittest:
-      raise CommandException('On Python 2.6, the unittest2 module is required '
-                             'to run the gsutil tests.')
-
     failfast = False
     list_tests = False
     max_parallel_tests = _DEFAULT_TEST_PARALLEL_PROCESSES
@@ -536,7 +519,7 @@ class TestCommand(Command):
       try:
         suite = loader.loadTestsFromNames(commands_to_test)
       except (ImportError, AttributeError) as e:
-        raise CommandException('Invalid test argument name: %s' % e)
+        raise CommandException('Invalid test argument name: %s' % str(e))
 
     if list_tests:
       test_names = GetTestNamesFromSuites(suite)

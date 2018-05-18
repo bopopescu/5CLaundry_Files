@@ -11,13 +11,18 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command group for ml speech."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.ml.speech import speech_command_util
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.GA,
+                    base.ReleaseTrack.BETA,
+                    base.ReleaseTrack.ALPHA)
 class Speech(base.Group):
   """Use Google Cloud Speech to get transcripts of audio.
 
@@ -31,7 +36,6 @@ class Speech(base.Group):
 
     $ {command} recognize-long-running
 
-  {auth_hints}
+  For more information about the Google Cloud Speech API, refer to this
+  guide: https://cloud.google.com/speech/docs/
   """
-
-  detailed_help = {'auth_hints': speech_command_util.SPEECH_AUTH_HELP}

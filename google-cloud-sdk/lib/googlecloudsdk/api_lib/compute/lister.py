@@ -13,19 +13,22 @@
 # limitations under the License.
 """Facilities for getting a list of Cloud resources."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import itertools
 
 from googlecloudsdk.api_lib.compute import constants
-from googlecloudsdk.api_lib.compute import filter_rewrite
 from googlecloudsdk.api_lib.compute import request_helper
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import actions
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.compute import completers
+from googlecloudsdk.command_lib.compute import completers as compute_completers
+from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.resource import resource_expr_rewrite
 from googlecloudsdk.core.resource import resource_projector
+import six
 
 
 def _ConvertProtobufsToDicts(resources):
@@ -53,7 +56,7 @@ def ProcessResults(resources, field_selector, sort_key_fn=None,
   if sort_key_fn:
     resources = sorted(resources, key=sort_key_fn, reverse=reverse_sort)
 
-  if limit > 0:
+  if limit:
     resources = itertools.islice(resources, limit)
   for resource in resources:
     if field_selector:
@@ -299,7 +302,9 @@ def _GroupByProject(locations):
   return result
 
 
+# This is designed as separate global function to simplify mocking in test lib.
 def Invoke(frontend, implementation):
+  """Applies implementation on frontend."""
   return implementation(frontend)
 
 
@@ -353,21 +358,31 @@ class ListException(exceptions.ToolException):
 
 
 # TODO(b/38256601) - Drop these flags
-def AddBaseListerArgs(parser):
+def AddBaseListerArgs(parser, hidden=False):
   """Add arguments defined by base_classes.BaseLister."""
   parser.add_argument(
       'names',
-      action=actions.DeprecationAction('names', show_message=bool),
+      action=actions.DeprecationAction(
+          'names',
+          show_message=bool,
+          warn='Argument NAME is deprecated. '
+          'Use --filter="name=( \'NAME\' ... )" instead.'),
       metavar='NAME',
       nargs='*',
       default=[],
-      completer=completers.DeprecatedInstancesCompleter,
+      completer=compute_completers.InstancesCompleter,
+      hidden=hidden,
       help=('If provided, show details for the specified names and/or URIs of '
             'resources.'))
 
   parser.add_argument(
-      '--regexp', '-r',
-      action=actions.DeprecationAction('regexp'),
+      '--regexp',
+      '-r',
+      hidden=hidden,
+      action=actions.DeprecationAction(
+          'regexp',
+          warn='Flag --regexp is deprecated. '
+          'Use --filter="name~\'REGEXP\'" instead.'),
       help="""\
         A regular expression to filter the names of the results  on. Any names
         that do not match the entire regular expression will be filtered out.\
@@ -380,15 +395,20 @@ def AddZonalListerArgs(parser):
   AddBaseListerArgs(parser)
   parser.add_argument(
       '--zones',
-      action=actions.DeprecationAction('zones'),
+      action=actions.DeprecationAction(
+          'zones',
+          warn='Flag --zones is deprecated. '
+          'Use --filter="zone:( ZONE ... )" instead.\n'
+          'For example '
+          '--filter="zone:( europe-west1-b europe-west1-c )".'),
       metavar='ZONE',
       help='If provided, only resources from the given zones are queried.',
       type=arg_parsers.ArgList(min_length=1),
-      completer=completers.ZonesCompleter,
+      completer=compute_completers.ZonesCompleter,
       default=[])
 
 
-def AddRegionsArg(parser):
+def AddRegionsArg(parser, hidden=False):
   """Add arguments used by regional list command.
 
   These arguments are added by this function:
@@ -398,18 +418,65 @@ def AddRegionsArg(parser):
 
   Args:
     parser: argparse.Parser, The parser that this function will add arguments to
+    hidden: bool, If the flags should be hidden.
   """
-  AddBaseListerArgs(parser)
+  AddBaseListerArgs(parser, hidden=hidden)
   parser.add_argument(
       '--regions',
       action=actions.DeprecationAction(
           'regions',
-          warn='This flag is deprecated. '
-          'Use ```--filter="region :( *REGION ... )"``` instead.'),
+          warn='Flag --regions is deprecated. '
+               'Use --filter="region:( REGION ... )" instead.\n'
+               'For example '
+               '--filter="region:( europe-west1 europe-west2 )".'),
       metavar='REGION',
+      hidden=hidden,
       help='If provided, only resources from the given regions are queried.',
       type=arg_parsers.ArgList(min_length=1),
       default=[])
+
+
+def AddMultiScopeListerFlags(parser, zonal=False, regional=False,
+                             global_=False):
+  """Adds name, --regexp and scope flags as necessary."""
+  AddBaseListerArgs(parser)
+
+  scope = parser.add_mutually_exclusive_group()
+
+  if zonal:
+    scope.add_argument(
+        '--zones',
+        action=actions.DeprecationAction(
+            'zones',
+            warn='Flag --zones is deprecated. '
+            'Use --filter="zone:( ZONE ... )" instead.\n'
+            'For example '
+            '--filter="zone:( europe-west1-b europe-west1-c )".'),
+        metavar='ZONE',
+        help=('If provided, only zonal resources are shown. '
+              'If arguments are provided, only resources from the given '
+              'zones are shown.'),
+        type=arg_parsers.ArgList())
+  if regional:
+    scope.add_argument(
+        '--regions',
+        action=actions.DeprecationAction(
+            'regions',
+            warn='Flag --regions is deprecated. '
+            'Use --filter="region:( REGION ... )" instead.\n'
+            'For example '
+            '--filter="region:( europe-west1 europe-west2 )".'),
+        metavar='REGION',
+        help=('If provided, only regional resources are shown. '
+              'If arguments are provided, only resources from the given '
+              'regions are shown.'),
+        type=arg_parsers.ArgList())
+  if global_:
+    scope.add_argument(
+        '--global',
+        action='store_true',
+        help='If provided, only global resources are shown.',
+        default=False)
 
 
 class _Frontend(object):
@@ -433,48 +500,52 @@ class _Frontend(object):
     return self._scope_set
 
 
-def _GetListCommandFrontendPrototype(args):
+def _GetListCommandFrontendPrototype(args, message=None):
   """Make Frontend suitable for ListCommand argument namespace.
 
   Generated filter is a pair (client-side filter, server-side filter).
 
   Args:
     args: The argument namespace of ListCommand.
+    message: The response resource proto message for the request.
 
   Returns:
     Frontend initialized with information from ListCommand argument namespace.
     Both client-side and server-side filter is returned.
   """
-  filter_expr = filter_rewrite.Rewriter().Rewrite(args.filter)
+  filter_expr = flags.RewriteFilter(args, message=message)
   max_results = int(args.page_size) if args.page_size else None
   if args.limit and (max_results is None or max_results > args.limit):
     max_results = args.limit
   return _Frontend(filter_expr=filter_expr, maxResults=max_results)
 
 
-def _GetBaseListerFrontendPrototype(args):
+def _GetBaseListerFrontendPrototype(args, message=None):
   """Make Frontend suitable for BaseLister argument namespace.
 
   Generated client-side filter is stored to args.filter. Generated server-side
   filter is None. Client-side filter should be processed using
-  filter_rewrite.Rewriter before use to take advantage of possible server-side
+  flags.RewriteFilter before use to take advantage of possible server-side
   filtering.
 
   Args:
     args: The argument namespace of BaseLister.
+    message: The resource proto message.
 
   Returns:
     Frontend initialized with information from BaseLister argument namespace.
     Server-side filter is None.
   """
-  frontend = _GetListCommandFrontendPrototype(args)
+  frontend = _GetListCommandFrontendPrototype(args, message=message)
   filter_args = []
+  default = args.filter  # must preserve '' and None for default processing
   if args.filter:
     filter_args.append('('+args.filter+')')
-  if args.regexp:
-    filter_args.append('(name ~ {})'.format(resource_expr_rewrite.BackendBase()
-                                            .Quote(args.regexp)))
-  if args.names:
+  if getattr(args, 'regexp', None):
+    filter_args.append(
+        '(name ~ "^{}$")'.format(resource_expr_rewrite.BackendBase()
+                                 .Quote(args.regexp)))
+  if getattr(args, 'names', None):
     name_regexp = ' '.join([
         resource_expr_rewrite.BackendBase().Quote(name) for name in args.names
         if not name.startswith('https://')
@@ -492,12 +563,33 @@ def _GetBaseListerFrontendPrototype(args):
           name_regexp, selflink_regexp))
   # Refine args.filter specification to reuse gcloud filtering logic
   # for filtering based on instance names
-  args.filter = ' AND '.join(filter_args)
+  args.filter = ' AND '.join(filter_args) or default
 
   return _Frontend(None, frontend.max_results, frontend.scope_set)
 
 
-def ParseZonalFlags(args, resources):
+def _TranslateZonesFlag(args, resources, message=None):
+  """Translates --zones flag into filter expression and scope set."""
+  default = args.filter  # must preserve '' and None for default processing
+  scope_set = ZoneSet([
+      resources.Parse(
+          z,
+          params={'project': properties.VALUES.core.project.GetOrFail},
+          collection='compute.zones') for z in args.zones
+  ])
+  # Refine args.filter specification to reuse gcloud filtering logic
+  # for filtering based on zones
+  filter_arg = '({}) AND '.format(args.filter) if args.filter else ''
+  # How to escape '*' in zone and what are special characters for
+  # simple pattern?
+  zone_regexp = ' '.join([zone for zone in args.zones])
+  zone_arg = '(zone :({}))'.format(zone_regexp)
+  args.filter = (filter_arg + zone_arg) or default
+  args.filter, filter_expr = flags.RewriteFilter(args, message=message)
+  return filter_expr, scope_set
+
+
+def ParseZonalFlags(args, resources, message=None):
   """Make Frontend suitable for ZonalLister argument namespace.
 
   Generated client-side filter is stored to args.filter.
@@ -505,29 +597,17 @@ def ParseZonalFlags(args, resources):
   Args:
     args: The argument namespace of BaseLister.
     resources: resources.Registry, The resource registry
+    message: The response resource proto message for the request.
 
   Returns:
     Frontend initialized with information from BaseLister argument namespace.
     Server-side filter is None.
   """
-  frontend = _GetBaseListerFrontendPrototype(args)
+  frontend = _GetBaseListerFrontendPrototype(args, message=message)
   filter_expr = frontend.filter
   if args.zones:
-    scope_set = ZoneSet([
-        resources.Parse(
-            z,
-            params={'project': properties.VALUES.core.project.GetOrFail},
-            collection='compute.zones') for z in args.zones
-    ])
-    # Refine args.filter specification to reuse gcloud filtering logic
-    # for filtering based on zones
-    filter_arg = '({}) AND '.format(args.filter) if args.filter else ''
-    # How to escape '*' in zone and what are special characters for
-    # simple pattern?
-    zone_regexp = ' '.join(['*'+ zone for zone in args.zones])
-    zone_arg = '(zone :({}))'.format(zone_regexp)
-    args.filter = filter_arg + zone_arg
-    args.filter, filter_expr = filter_rewrite.Rewriter().Rewrite(args.filter)
+    filter_expr, scope_set = _TranslateZonesFlag(
+        args, resources, message=message)
   else:
     scope_set = AllScopes(
         [
@@ -540,7 +620,28 @@ def ParseZonalFlags(args, resources):
   return _Frontend(filter_expr, frontend.max_results, scope_set)
 
 
-def ParseRegionalFlags(args, resources):
+def _TranslateRegionsFlag(args, resources, message=None):
+  """Translates --regions flag into filter expression and scope set."""
+  default = args.filter  # must preserve '' and None for default processing
+  scope_set = RegionSet([
+      resources.Parse(
+          region,
+          params={'project': properties.VALUES.core.project.GetOrFail},
+          collection='compute.regions') for region in args.regions
+  ])
+  # Refine args.filter specification to reuse gcloud filtering logic
+  # for filtering based on regions
+  filter_arg = '({}) AND '.format(args.filter) if args.filter else ''
+  # How to escape '*' in region and what are special characters for
+  # simple pattern?
+  region_regexp = ' '.join([region for region in args.regions])
+  region_arg = '(region :({}))'.format(region_regexp)
+  args.filter = (filter_arg + region_arg) or default
+  args.filter, filter_expr = flags.RewriteFilter(args, message=message)
+  return filter_expr, scope_set
+
+
+def ParseRegionalFlags(args, resources, message=None):
   """Make Frontend suitable for RegionalLister argument namespace.
 
   Generated client-side filter is stored to args.filter.
@@ -548,29 +649,16 @@ def ParseRegionalFlags(args, resources):
   Args:
     args: The argument namespace of RegionalLister.
     resources: resources.Registry, The resource registry
+    message: The response resource proto message for the request.
 
   Returns:
     Frontend initialized with information from RegionalLister argument
     namespace.
   """
-  frontend = _GetBaseListerFrontendPrototype(args)
+  frontend = _GetBaseListerFrontendPrototype(args, message=message)
   filter_expr = frontend.filter
   if args.regions:
-    scope_set = RegionSet([
-        resources.Parse(
-            region,
-            params={'project': properties.VALUES.core.project.GetOrFail},
-            collection='compute.regions') for region in args.regions
-    ])
-    # Refine args.filter specification to reuse gcloud filtering logic
-    # for filtering based on regions
-    filter_arg = '({}) AND '.format(args.filter) if args.filter else ''
-    # How to escape '*' in region and what are special characters for
-    # simple pattern?
-    region_regexp = ' '.join(['*'+ region for region in args.regions])
-    region_arg = '(region :({}))'.format(region_regexp)
-    args.filter, filter_expr = filter_rewrite.Rewriter().Rewrite(
-        filter_arg + region_arg)
+    filter_expr, scope_set = _TranslateRegionsFlag(args, resources)
   else:
     scope_set = AllScopes(
         [
@@ -580,8 +668,71 @@ def ParseRegionalFlags(args, resources):
         ],
         zonal=False,
         regional=True)
-  frontend = _Frontend(filter_expr, frontend.max_results, scope_set)
-  return frontend
+  return _Frontend(filter_expr, frontend.max_results, scope_set)
+
+
+def ParseMultiScopeFlags(args, resources, message=None):
+  """Make Frontend suitable for MultiScopeLister argument namespace.
+
+  Generated client-side filter is stored to args.filter.
+
+  Args:
+    args: The argument namespace of MultiScopeLister.
+    resources: resources.Registry, The resource registry
+    message: The response resource proto message for the request.
+
+  Returns:
+    Frontend initialized with information from MultiScopeLister argument
+    namespace.
+  """
+  frontend = _GetBaseListerFrontendPrototype(args, message=message)
+  filter_expr = frontend.filter
+  if getattr(args, 'zones', None):
+    filter_expr, scope_set = _TranslateZonesFlag(
+        args, resources, message=message)
+  elif getattr(args, 'regions', None):
+    filter_expr, scope_set = _TranslateRegionsFlag(
+        args, resources, message=message)
+  elif getattr(args, 'global', None):
+    scope_set = GlobalScope([
+        resources.Parse(
+            properties.VALUES.core.project.GetOrFail(),
+            collection='compute.projects')
+    ])
+    args.filter, filter_expr = flags.RewriteFilter(args, message=message)
+  else:
+    scope_set = AllScopes(
+        [
+            resources.Parse(
+                properties.VALUES.core.project.GetOrFail(),
+                collection='compute.projects')
+        ],
+        zonal='zones' in args,
+        regional='regions' in args)
+  return _Frontend(filter_expr, frontend.max_results, scope_set)
+
+
+def ParseNamesAndRegexpFlags(args, resources, message=None):
+  """Makes Frontend suitable for GlobalLister argument namespace.
+
+  Stores generated client-side filter in args.filter.
+
+  Args:
+    args: The argument namespace of BaseLister.
+    resources: resources.Registry, The resource registry
+    message: The resource proto message.
+
+  Returns:
+    Frontend initialized with information from BaseLister argument namespace.
+  """
+  frontend = _GetBaseListerFrontendPrototype(args, message=message)
+  scope_set = GlobalScope([
+      resources.Parse(
+          properties.VALUES.core.project.GetOrFail(),
+          collection='compute.projects')
+  ])
+  args.filter, filter_expr = flags.RewriteFilter(args, message=message)
+  return _Frontend(filter_expr, frontend.max_results, scope_set)
 
 
 class ZonalLister(object):
@@ -614,7 +765,7 @@ class ZonalLister(object):
     return not self == other
 
   def __hash__(self):
-    return hash(self.client) ^ hash(self.service)
+    return hash((self.client, self.service))
 
   def __repr__(self):
     return 'ZonalLister({}, {})'.format(repr(self.client), repr(self.service))
@@ -624,8 +775,8 @@ class ZonalLister(object):
     scope_set = frontend.scope_set
     filter_expr = frontend.filter
     if isinstance(scope_set, ZoneSet):
-      for project, zones in _GroupByProject(
-          sorted(list(scope_set))).iteritems():
+      for project, zones in six.iteritems(
+          _GroupByProject(sorted(list(scope_set)))):
         for item in GetZonalResourcesDicts(
             service=self.service,
             project=project,
@@ -692,8 +843,8 @@ class RegionalLister(object):
     scope_set = frontend.scope_set
     filter_expr = frontend.filter
     if isinstance(scope_set, RegionSet):
-      for project, regions in _GroupByProject(
-          sorted(list(scope_set))).iteritems():
+      for project, regions in six.iteritems(
+          _GroupByProject(sorted(list(scope_set)))):
         for item in GetRegionalResourcesDicts(
             service=self.service,
             project=project,
@@ -718,3 +869,248 @@ class RegionalLister(object):
           yield item
     if errors:
       utils.RaiseException(errors, ListException)
+
+
+class GlobalLister(object):
+  """Implementation for former base_classes.GlobalLister subclasses.
+
+  This implementation should be used only for porting from base_classes.
+
+  Attributes:
+    client: The compute client.
+    service: Global service whose resources will be listed.
+  """
+  # This implementation is designed to mimic precisely behavior (side-effects)
+  # of base_classes.GlobalLister
+
+  def __init__(self, client, service):
+    self.client = client
+    self.service = service
+
+  def __deepcopy__(self, memodict=None):
+    return self  # GlobalLister is immutable
+
+  def __eq__(self, other):
+    if not isinstance(other, GlobalLister):
+      return False  # GlobalLister is not suited for inheritance
+    return self.client == other.client and self.service == other.service
+
+  def __ne__(self, other):
+    return not self == other
+
+  def __hash__(self):
+    return hash((self.client, self.service))
+
+  def __repr__(self):
+    return 'GlobalLister({}, {})'.format(repr(self.client), repr(self.service))
+
+  def __call__(self, frontend):
+    errors = []
+    scope_set = frontend.scope_set
+    filter_expr = frontend.filter
+    for project_ref in sorted(list(scope_set)):
+      for item in GetGlobalResourcesDicts(
+          service=self.service,
+          project=project_ref.project,
+          filter_expr=filter_expr,
+          http=self.client.apitools_client.http,
+          batch_url=self.client.batch_url,
+          errors=errors):
+        yield item
+    if errors:
+      utils.RaiseException(errors, ListException)
+
+
+class MultiScopeLister(object):
+  """General purpose lister implementation.
+
+  This class can be used as a default to get lister implementation for
+  `lister.Invoke()` function.
+
+  Uses AggregatedList (if present) to dispatch AllScopes scope set.
+
+  Example implementation of list command for zonal/regional resources:
+  class List(base.ListCommand):
+
+    def Run(self, args):
+      holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+      client = holder.client
+
+      request_data = lister.ParseListCommandFlags(args, holder.resources)
+
+      list_implementation = lister.MultiScopeLister(
+          client,
+          zonal_service=client.apitools_client.instanceGroups,
+          regional_service=client.apitools_client.regionInstanceGroups,
+          aggregation_service=client.apitools_client.instanceGroups)
+
+      return lister.Invoke(request_data, list_implementation)
+
+  Attributes:
+    client: base_api.BaseApiClient, The compute client.
+    zonal_service: base_api.BaseApiService, Zonal service whose resources will
+    be listed using List call.
+    regional_service: base_api.BaseApiService, Regional service whose resources
+    will be listed using List call.
+    global_service: base_api.BaseApiService, Global service whose resources will
+    be listed using List call.
+    aggregation_service: base_api.BaseApiService, Aggregation service whose
+    resources will be listed using AggregatedList call.
+  """
+
+  def __init__(self,
+               client,
+               zonal_service=None,
+               regional_service=None,
+               global_service=None,
+               aggregation_service=None):
+    self.client = client
+    self.zonal_service = zonal_service
+    self.regional_service = regional_service
+    self.global_service = global_service
+    self.aggregation_service = aggregation_service
+
+  def __deepcopy__(self, memodict=None):
+    return self  # MultiScopeLister is immutable
+
+  def __eq__(self, other):
+    # MultiScopeLister is not suited for inheritance
+    return (isinstance(other, MultiScopeLister) and
+            self.client == other.client and
+            self.zonal_service == other.zonal_service and
+            self.regional_service == other.regional_service and
+            self.global_service == other.global_service and
+            self.aggregation_service == other.aggregation_service)
+
+  def __ne__(self, other):
+    return not self == other
+
+  def __hash__(self):
+    return hash((self.client, self.zonal_service, self.regional_service,
+                 self.global_service, self.aggregation_service))
+
+  def __repr__(self):
+    return 'MultiScopeLister({}, {}, {}, {}, {})'.format(
+        repr(self.client),
+        repr(self.zonal_service),
+        repr(self.regional_service),
+        repr(self.global_service), repr(self.aggregation_service))
+
+  def __call__(self, frontend):
+    scope_set = frontend.scope_set
+    requests = []
+    if isinstance(scope_set, ZoneSet):
+      for project, zones in six.iteritems(
+          _GroupByProject(sorted(list(scope_set)))):
+        for zone_ref in zones:
+          requests.append((self.zonal_service, 'List',
+                           self.zonal_service.GetRequestType('List')(
+                               filter=frontend.filter,
+                               maxResults=frontend.max_results,
+                               project=project,
+                               zone=zone_ref.zone)))
+    elif isinstance(scope_set, RegionSet):
+      for project, regions in six.iteritems(
+          _GroupByProject(sorted(list(scope_set)))):
+        for region_ref in regions:
+          requests.append((self.regional_service, 'List',
+                           self.regional_service.GetRequestType('List')(
+                               filter=frontend.filter,
+                               maxResults=frontend.max_results,
+                               project=project,
+                               region=region_ref.region)))
+    elif isinstance(scope_set, GlobalScope):
+      for project_ref in sorted(list(scope_set)):
+        requests.append((self.global_service, 'List',
+                         self.global_service.GetRequestType('List')(
+                             filter=frontend.filter,
+                             maxResults=frontend.max_results,
+                             project=project_ref.project)))
+    else:
+      # scopeSet is AllScopes
+      # generate AggregatedList
+      for project_ref in sorted(list(scope_set.projects)):
+        requests.append(
+            (self.aggregation_service, 'AggregatedList',
+             self.aggregation_service.GetRequestType('AggregatedList')(
+                 filter=frontend.filter,
+                 maxResults=frontend.max_results,
+                 project=project_ref.project)))
+
+    errors = []
+    for item in request_helper.ListJson(
+        requests=requests,
+        http=self.client.apitools_client.http,
+        batch_url=self.client.batch_url,
+        errors=errors):
+      yield item
+
+    if errors:
+      utils.RaiseException(errors, ListException)
+
+
+class ZonalParallelLister(object):
+  """List zonal resources from all zones in parallel (in one batch).
+
+  This class can be used to list only zonal resources.
+
+  This class should not be inherited.
+
+  Attributes:
+    client: The compute client.
+    service: Zonal service whose resources will be listed.
+    resources: The compute resource registry.
+  """
+
+  def __init__(self, client, service, resources):
+    self.client = client
+    self.service = service
+    self.resources = resources
+
+  def __deepcopy__(self, memodict=None):
+    return self  # ZonalParallelLister is immutable
+
+  def __eq__(self, other):
+    if not isinstance(other, ZonalParallelLister):
+      return False  # ZonalParallelLister is not suited for inheritance
+    # Registry type should either be value type or mocked by ComputeApiMock
+    # for self.resources to participate in __eq__ check here.
+    return self.client == other.client and self.service == other.service
+
+  def __ne__(self, other):
+    return not self == other
+
+  def __hash__(self):
+    return hash((self.client, self.service))
+
+  def __repr__(self):
+    return 'ZonalParallelLister({}, {}, {})'.format(
+        repr(self.client), repr(self.service), repr(self.resources))
+
+  def __call__(self, frontend):
+    scope_set = frontend.scope_set
+    filter_expr = frontend.filter
+    if isinstance(scope_set, ZoneSet):
+      # Set of zones was specified explicitly by frontend - use that setting
+      zones = scope_set
+    else:
+      # Set of zones was not specified explicitly - fetch all of them
+      # TODO(b/65008598) Use cached zone set instead of fetching it always
+
+      zones_list_data = _Frontend(scopeSet=GlobalScope(scope_set.projects))
+      zones_list_implementation = MultiScopeLister(
+          self.client, global_service=self.client.apitools_client.zones)
+
+      zones = ZoneSet([
+          self.resources.Parse(z['selfLink'])
+          for z in Invoke(zones_list_data, zones_list_implementation)
+      ])
+
+    service_list_data = _Frontend(
+        filter_expr=filter_expr,
+        maxResults=frontend.max_results,
+        scopeSet=zones)
+    service_list_implementation = MultiScopeLister(
+        self.client, zonal_service=self.service)
+
+    return Invoke(service_list_data, service_list_implementation)

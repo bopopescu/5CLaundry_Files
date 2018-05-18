@@ -33,6 +33,10 @@ Example:
       --format='table[box](name, networkInterfaces[0].networkIP)'
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core.resource import config_printer
 from googlecloudsdk.core.resource import csv_printer
@@ -49,6 +53,8 @@ from googlecloudsdk.core.resource import resource_property
 from googlecloudsdk.core.resource import resource_transform
 from googlecloudsdk.core.resource import table_printer
 from googlecloudsdk.core.resource import yaml_printer
+
+from typing import List, Tuple
 
 
 class Error(core_exceptions.Error):
@@ -108,7 +114,9 @@ class MultiPrinter(resource_printer_base.ResourcePrinter):
 
   def __init__(self, *args, **kwargs):
     super(MultiPrinter, self).__init__(*args, **kwargs)
-    self.columns = []
+    # pylint: disable=line-too-long
+    self.columns = []  # type: List[Tuple[resource_projection_spec.ProjectionSpec._Column, resource_printer_base.ResourcePrinter]]
+    # pylint: disable=line-too-long
     for col in self.column_attributes.Columns():
       if not col.attribute.subformat:
         raise ProjectionFormatRequiredError(
@@ -129,9 +137,13 @@ class PrinterAttributes(resource_printer_base.ResourcePrinter):
 
   Printer attributes:
     disable: Disables formatted output and does not consume the resources.
+    json-decode: Decodes string values that are JSON compact encodings of list
+      and dictionary objects. This may become the default.
     private: Disables log file output. Use this for sensitive resource data
       that should not be displayed in log files. Explicit command line IO
       redirection overrides this attribute.
+    transforms: Apply projection transforms to the resource values. The default
+      is format specific. Use *no-transforms* to disable.
   """
 
 

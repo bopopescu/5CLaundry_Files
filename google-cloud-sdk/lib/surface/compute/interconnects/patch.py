@@ -14,46 +14,40 @@
 """Command for creating interconnects."""
 
 
-from googlecloudsdk.api_lib.compute import base_classes
-from googlecloudsdk.api_lib.compute.interconnects import client
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.compute.interconnects import flags
+from surface.compute.interconnects import update
 
 
-class Patch(base.UpdateCommand):
+DEPRECATED_WARNING_MESSAGE = """\
+This command is deprecated. Please use `gcloud{}compute interconnects update`
+instead."""
+
+
+@base.Deprecate(is_removed=False)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
+class Patch(update.Update):
   """Patch a Google Compute Engine interconnect.
 
   *{command}* is used to patch interconnects. An interconnect represents a
-  single specific connection between Google and the customer
+  single specific connection between Google and the customer.
   """
-  INTERCONNECT_ARG = None
 
-  @classmethod
-  def Args(cls, parser):
 
-    cls.INTERCONNECT_ARG = flags.InterconnectArgument()
-    cls.INTERCONNECT_ARG.AddArgument(parser, operation_type='patch')
+@base.Deprecate(warning=DEPRECATED_WARNING_MESSAGE.format(' beta '),
+                is_removed=False)
+@base.ReleaseTracks(base.ReleaseTrack.BETA)
+class PatchBeta(update.UpdateLabels):
+  """Update a Google Compute Engine interconnect.
 
-    parser.add_argument(
-        '--description',
-        help='An optional, textual description for the interconnect.')
-    flags.AddAdminEnabled(parser)
-    flags.AddNocContactEmail(parser)
-    flags.AddRequestedLinkCountForPatch(parser)
+  *{command}* is used to update interconnects. An interconnect represents a
+  single specific connection between Google and the customer.
+  """
 
-  def Collection(self):
-    return 'compute.interconnects'
 
-  def Run(self, args):
-    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    ref = self.INTERCONNECT_ARG.ResolveAsResource(args, holder.resources)
-    interconnect = client.Interconnect(ref, compute_client=holder.client)
-
-    return interconnect.Patch(
-        description=args.description,
-        interconnect_type=None,
-        requested_link_count=args.requested_link_count,
-        link_type=None,
-        admin_enabled=args.admin_enabled,
-        noc_contact_email=args.noc_contact_email,
-        location=None)
+@base.Deprecate(warning=DEPRECATED_WARNING_MESSAGE.format(' alpha '),
+                is_removed=True)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class PatchAlpha(update.UpdateLabels):
+  """Update a Google Compute Engine interconnect."""

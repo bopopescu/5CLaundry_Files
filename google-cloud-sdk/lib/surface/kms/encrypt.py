@@ -13,10 +13,14 @@
 # limitations under the License.
 """Encrypt a plaintext file using a key."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.kms import flags
+from googlecloudsdk.core import log
+from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.util import files
 
 
@@ -42,7 +46,8 @@ class Encrypt(base.Command):
   the CryptoKey `frodo` with the KeyRing `fellowship` and Location `global`, and
   write the ciphertext to 'path/to/ciphertext'.
 
-    $ {command} frodo \
+    $ {command} \
+        --key frodo \
         --keyring fellowship \
         --location global \
         --plaintext-file path/to/input/plaintext \
@@ -60,7 +65,7 @@ class Encrypt(base.Command):
     flags.AddAadFileFlag(parser)
 
   def _ReadFileOrStdin(self, path, max_bytes):
-    data = files.GetFileOrStdinContents(path, binary=True)
+    data = console_io.ReadFromFileOrStdin(path, binary=True)
     if len(data) > max_bytes:
       raise exceptions.BadFileException(
           'The file [{0}] is larger than the maximum size of {1} bytes.'.format(
@@ -110,7 +115,7 @@ class Encrypt(base.Command):
     resp = client.projects_locations_keyRings_cryptoKeys.Encrypt(req)
 
     try:
-      files.WriteFileOrStdoutContents(
+      log.WriteToFileOrStdout(
           args.ciphertext_file, resp.ciphertext, binary=True, overwrite=True)
     except files.Error as e:
       raise exceptions.BadFileException(e)

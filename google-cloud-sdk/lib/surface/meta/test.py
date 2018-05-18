@@ -13,16 +13,20 @@
 # limitations under the License.
 """The `gcloud meta test` command."""
 
+from __future__ import absolute_import
+from __future__ import print_function
 import os
 import signal
 import sys
 import time
 
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope import parser_completer
 from googlecloudsdk.calliope import parser_errors
 from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import execution_utils
+from googlecloudsdk.core import module_util
 from googlecloudsdk.core.console import console_io
 
 
@@ -69,13 +73,17 @@ class Test(base.Command):
         default=0.0,
         help='Sleep for SECONDS seconds and exit.')
     scenarios.add_argument(
+        '--prompt-completer',
+        metavar='MODULE_PATH',
+        help=('Call console_io.PromptResponse() with a MODULE_PATH completer '
+              'and print the response on the standard output.'))
+    scenarios.add_argument(
         '--uncaught-exception',
         action='store_true',
         help='Trigger an exception that is not caught.')
 
   def _RunArgumenterrorOutsideArgparse(self, args):
-    raise parser_errors.RequiredArgumentError(
-        'Argument required exception.', argument='--some-flag')
+    raise parser_errors.RequiredError(argument='--some-flag')
 
   def _RunCoreException(self, args):
     raise exceptions.Error('Some core exception.')
@@ -85,7 +93,7 @@ class Test(base.Command):
     execution_utils.Exec(['bash', args.exec_file])
 
   def _RunIsInteractive(self, args):
-    sys.exit(int(console_io.IsInteractive(heuristic=True)))
+    sys.exit(int(not console_io.IsInteractive(heuristic=True)))
 
   def _RunInterrupt(self, args):
     try:
@@ -97,6 +105,12 @@ class Test(base.Command):
       # Back to normal where ^C is SIGINT and it works immediately.
       os.kill(os.getpid(), signal.SIGINT)
     raise exceptions.Error('SIGINT delivery failed.')
+
+  def _RunPromptCompleter(self, args):
+    completer_class = module_util.ImportModule(args.prompt_completer)
+    choices = parser_completer.ArgumentCompleter(completer_class, args)
+    response = console_io.PromptResponse('Complete this: ', choices=choices)
+    print(response)
 
   def _RunSleep(self, args):
     time.sleep(args.sleep)
@@ -115,6 +129,8 @@ class Test(base.Command):
       self._RunInterrupt(args)
     elif args.is_interactive:
       self._RunIsInteractive(args)
+    elif args.prompt_completer:
+      self._RunPromptCompleter(args)
     elif args.sleep:
       self._RunSleep(args)
     elif args.uncaught_exception:

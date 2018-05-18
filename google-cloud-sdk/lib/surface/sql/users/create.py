@@ -39,6 +39,7 @@ class Create(base.CreateCommand):
     flags.AddHost(parser)
     flags.AddPassword(parser)
     base.ASYNC_FLAG.AddToParser(parser)
+    parser.display_info.AddCacheUpdater(flags.UserCompleter)
 
   def Run(self, args):
     """Creates a user in a given instance.
@@ -49,11 +50,6 @@ class Create(base.CreateCommand):
 
     Returns:
       SQL user resource iterator.
-    Raises:
-      HttpException: An http error response was received while executing api
-          request.
-      ToolException: An error other than an http error occured while executing
-          the command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client
@@ -84,6 +80,6 @@ class Create(base.CreateCommand):
                                                     'Creating Cloud SQL user')
       result = new_user
 
-    log.CreatedResource(args.username, kind='user', async=args.async)
+    log.CreatedResource(args.username, kind='user', is_async=args.async)
 
     return result

@@ -11,13 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """General utilties for Cloud IoT commands."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import devices
 from googlecloudsdk.api_lib.cloudiot import registries
+from googlecloudsdk.command_lib.iot import flags
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
+from googlecloudsdk.core.util import http_encoding
 from googlecloudsdk.core.util import times
+
+import six
 
 
 LOCATIONS_COLLECTION = 'cloudiot.projects.locations'
@@ -27,8 +36,20 @@ DEVICE_CONFIGS_COLLECTION = 'cloudiot.projects.locations.registries.devices.conf
 _PROJECT = lambda: properties.VALUES.core.project.Get(required=True)
 
 
-# Maximum number of public key credentials for a device
+# Maximum number of public key credentials for a device.
 MAX_PUBLIC_KEY_NUM = 3
+
+
+# Maximum number of metadata pairs for a device.
+MAX_METADATA_PAIRS = 500
+
+
+# Maximum size of a metadata values (32 KB).
+MAX_METADATA_VALUE_SIZE = 1024 * 32
+
+
+# Maximum size of metadata keys and values (256 KB).
+MAX_METADATA_SIZE = 1024 * 256
 
 
 class InvalidPublicKeySpecificationError(exceptions.Error):
@@ -40,17 +61,22 @@ class InvalidKeyFileError(exceptions.Error):
 
 
 class BadCredentialIndexError(exceptions.Error):
-  """Indicates that a user supplied a bad index into a device's credentials."""
+  """Indicates that a user supplied a bad index for resource's credentials."""
 
-  def __init__(self, device_id, credentials, index):
+  def __init__(self, name, credentials, index, resource='device'):
     super(BadCredentialIndexError, self).__init__(
-        'Invalid credential index [{index}]; device [{device}] has '
+        'Invalid credential index [{index}]; {resource} [{name}] has '
         '{num_credentials} credentials. (Indexes are zero-based.))'.format(
-            index=index, device=device_id, num_credentials=len(credentials)))
+            index=index, name=name, num_credentials=len(credentials),
+            resource=resource))
 
 
 class BadDeviceError(exceptions.Error):
   """Indicates that a given device is malformed."""
+
+
+class InvalidMetadataError(exceptions.Error):
+  """Indicates an error with the supplied device metadata."""
 
 
 def RegistriesUriFunc(resource):
@@ -72,17 +98,22 @@ def ParseEnableMqttConfig(enable_mqtt_config, client=None):
     return mqtt_config_enum.MQTT_DISABLED
 
 
-def ParseEnableDevice(enable_device, client=None):
-  if enable_device is None:
+def ParseEnableHttpConfig(enable_http_config, client=None):
+  if enable_http_config is None:
     return None
-  client = client or devices.DevicesClient()
-  enabled_state_enum = client.enabled_state_enum
-  if enable_device is True:
-    return enabled_state_enum.DEVICE_ENABLED
-  elif enable_device is False:
-    return enabled_state_enum.DEVICE_DISABLED
+  client = client or registries.RegistriesClient()
+  http_config_enum = client.http_config_enum
+  if enable_http_config:
+    return http_config_enum.HTTP_ENABLED
   else:
-    raise ValueError('Invalid value for [enable_device].')
+    return http_config_enum.HTTP_DISABLED
+
+
+def AddBlockedToRequest(ref, args, req):
+  """Python hook for yaml commands to process the blocked flag."""
+  del ref
+  req.device.blocked = args.blocked
+  return req
 
 
 _ALLOWED_KEYS = ['type', 'path', 'expiration-time']
@@ -103,10 +134,19 @@ def _ValidatePublicKeyDict(public_key):
 
 
 def _ConvertStringToFormatEnum(type_, messages):
-  if type_ == 'rs256':
+  # TODO(b/71388306): Enums aren't handled well by pytype.
+  # pytype: disable=attribute-error
+  if (type_ == flags.KeyTypes.RS256.choice_name or
+      type_ == flags.KeyTypes.RSA_X509_PEM.choice_name):
     return messages.PublicKeyCredential.FormatValueValuesEnum.RSA_X509_PEM
-  elif type_ == 'es256':
+  elif type_ == flags.KeyTypes.RSA_PEM.choice_name:
+    return messages.PublicKeyCredential.FormatValueValuesEnum.RSA_PEM
+  elif type_ == flags.KeyTypes.ES256_X509_PEM.choice_name:
+    return messages.PublicKeyCredential.FormatValueValuesEnum.ES256_X509_PEM
+  elif (type_ == flags.KeyTypes.ES256.choice_name or
+        type_ == flags.KeyTypes.ES256_PEM.choice_name):
     return messages.PublicKeyCredential.FormatValueValuesEnum.ES256_PEM
+  # pytype: enable=attribute-error
   else:
     # Should have been caught by argument parsing
     raise ValueError('Invalid key type [{}]'.format(type_))
@@ -188,9 +228,27 @@ def ParseCredentials(public_keys, messages=None):
   return credentials
 
 
+def AddCredentialsToRequest(ref, args, req):
+  """Python hook for yaml commands to process the credential flag."""
+  del ref
+  req.device.credentials = ParseCredentials(args.public_keys)
+  return req
+
+
+def ParseRegistryCredential(path, messages=None):
+  messages = messages or devices.GetMessagesModule()
+
+  contents = _ReadKeyFileFromPath(path)
+  format_enum = messages.PublicKeyCertificate.FormatValueValuesEnum
+  return messages.RegistryCredential(
+      publicKeyCertificate=messages.PublicKeyCertificate(
+          certificate=contents,
+          format=format_enum.X509_CERTIFICATE_PEM))
+
+
 def GetRegistry():
   registry = resources.REGISTRY.Clone()
-  registry.RegisterApiByName('cloudiot', 'v1beta1')
+  registry.RegisterApiByName('cloudiot', 'v1')
   return registry
 
 
@@ -255,10 +313,118 @@ def ReadConfigData(args):
   if args.IsSpecified('config_data') and args.IsSpecified('config_file'):
     raise ValueError('Both --config-data and --config-file given.')
   if args.IsSpecified('config_data'):
-    return args.config_data
+    return http_encoding.Encode(args.config_data)
   elif args.IsSpecified('config_file'):
     # Note: use 'rb' for Windows
     with open(args.config_file, 'rb') as f:
       return f.read()
   else:
     raise ValueError('Neither --config-data nor --config-file given.')
+
+
+def _CheckMetadataValueSize(value):
+  if not value:
+    raise InvalidMetadataError('Metadata value cannot be empty.')
+  if len(value) > MAX_METADATA_VALUE_SIZE:
+    raise InvalidMetadataError('Maximum size of metadata values are 32KB.')
+
+
+def _ValidateAndCreateAdditionalProperty(messages, key, value):
+  _CheckMetadataValueSize(value)
+  return messages.Device.MetadataValue.AdditionalProperty(key=key, value=value)
+
+
+def _ReadMetadataValueFromFile(path):
+  if not path:
+    raise ValueError('path is required')
+  try:
+    with open(path, 'r') as f:
+      return f.read()
+  except (IOError, OSError) as err:
+    raise InvalidMetadataError('Could not read value file [{}]:\n\n{}'.format(
+        path, err))
+
+
+def ParseMetadata(metadata, metadata_from_file, messages=None):
+  """Parse and create metadata object from the parsed arguments.
+
+  Args:
+    metadata: dict, key-value pairs passed in from the --metadata flag.
+    metadata_from_file: dict, key-path pairs passed in from  the
+      --metadata-from-file flag.
+    messages: module or None, the apitools messages module for Cloud IoT (uses a
+      default module if not provided).
+
+  Returns:
+    MetadataValue or None, the populated metadata message for a Device.
+
+  Raises:
+    InvalidMetadataError: if there was any issue parsing the metadata.
+  """
+  if not metadata and not metadata_from_file:
+    return None
+  metadata = metadata or dict()
+  metadata_from_file = metadata_from_file or dict()
+  if len(metadata) + len(metadata_from_file) > MAX_METADATA_PAIRS:
+    raise InvalidMetadataError('Maximum number of metadata key-value pairs '
+                               'is {}.'.format(MAX_METADATA_PAIRS))
+  if set(metadata.keys()) & set(metadata_from_file.keys()):
+    raise InvalidMetadataError('Cannot specify the same key in both '
+                               '--metadata and --metadata-from-file.')
+  total_size = 0
+  messages = messages or devices.GetMessagesModule()
+  additional_properties = []
+  for key, value in six.iteritems(metadata):
+    total_size += len(key) + len(value)
+    additional_properties.append(
+        _ValidateAndCreateAdditionalProperty(messages, key, value))
+  for key, path in metadata_from_file.items():
+    value = _ReadMetadataValueFromFile(path)
+    total_size += len(key) + len(value)
+    additional_properties.append(
+        _ValidateAndCreateAdditionalProperty(messages, key, value))
+  if total_size > MAX_METADATA_SIZE:
+    raise InvalidMetadataError('Maximum size of metadata key-value pairs '
+                               'is 256KB.')
+
+  return messages.Device.MetadataValue(
+      additionalProperties=additional_properties)
+
+
+def AddMetadataToRequest(ref, args, req):
+  """Python hook for yaml commands to process the metadata flags."""
+  del ref
+  metadata = ParseMetadata(args.metadata, args.metadata_from_file)
+  req.device.metadata = metadata
+  return req
+
+
+def ParseEventNotificationConfig(event_notification_configs, event_pubsub_topic,
+                                 messages=None):
+  """Creates a list of EventNotificationConfigs from args."""
+  messages = messages or registries.GetMessagesModule()
+
+  # These flags are in a mutex group.
+  if event_pubsub_topic:
+    topic_ref = ParsePubsubTopic(event_pubsub_topic)
+    return [messages.EventNotificationConfig(
+        pubsubTopicName=topic_ref.RelativeName())]
+
+  if event_notification_configs:
+    configs = []
+    for config in event_notification_configs:
+      topic_ref = ParsePubsubTopic(config['topic'])
+      configs.append(messages.EventNotificationConfig(
+          pubsubTopicName=topic_ref.RelativeName(),
+          subfolderMatches=config.get('subfolder', None)))
+    return configs
+  return None
+
+
+def AddEventNotificationConfigsToRequest(ref, args, req):
+  """Python hook for yaml commands to process event config flags."""
+  del ref
+  configs = ParseEventNotificationConfig(args.event_notification_configs,
+                                         args.event_pubsub_topic)
+  req.deviceRegistry.eventNotificationConfigs = configs or []
+  return req

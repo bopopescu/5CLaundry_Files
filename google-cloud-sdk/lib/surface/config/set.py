@@ -14,6 +14,9 @@
 
 """Command to set properties."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
 from googlecloudsdk.command_lib.config import completers
@@ -25,9 +28,20 @@ from googlecloudsdk.core import properties
 class Set(base.Command):
   """Set a Cloud SDK property.
 
-  By default, sets the property in your active configuration only. Use the
-  `--installation` flag to set the property across all configurations. See
-  `gcloud topic configurations` for more information.
+  {command} sets the specified property in your active configuration only. A
+  property governs the behavior of a specific aspect of Cloud SDK such as
+  the service account to use or the verbosity level of logs. To
+  set the property across all configurations, use the `--installation` flag. For
+  more information regarding creating and using configurations, see
+  `gcloud topic configurations`.
+
+  To view a list of properties currently in use, run `gcloud config list`.
+
+  To unset properties, use `gcloud config unset`.
+
+  Note, Cloud SDK comes with a `default` configuration. To create multiple
+  configurations, use `gcloud config configurations create`, and
+  `gcloud config configurations activate` to switch between them.
 
   ## AVAILABLE PROPERTIES
 
@@ -35,13 +49,27 @@ class Set(base.Command):
 
   ## EXAMPLES
 
-  To set the project property in the core section, run:
+  To set the project `property` in the core section, run:
 
     $ {command} project myProject
 
-  To set the zone property in the compute section, run:
+  To set the `zone` property in the `compute` section, run:
 
-    $ {command} compute/zone zone3
+    $ {command} compute/zone asia-east1-b
+
+  To disable prompting for scripting, run:
+
+    $ {command} disable_prompts true
+
+  To set a proxy with the appropriate type, and specify the address and port on
+  which to reach it, run:
+
+    $ {command} proxy/type http
+    $ {command} proxy/address 1.234.56.78
+    $ {command} proxy/port 8080
+
+  For a full list of accepted values, see the Cloud SDK properties
+  page: https://cloud.google.com/sdk/docs/properties
   """
 
   detailed_help = {'properties': properties.VALUES.GetHelpString()}
@@ -53,12 +81,17 @@ class Set(base.Command):
         'property',
         metavar='SECTION/PROPERTY',
         completer=completers.PropertiesCompleter,
-        help='The property to be set. Note that SECTION/ is optional while '
-        'referring to properties in the core section.')
+        help='Property to be set. Note that SECTION/ is optional while '
+        'referring to properties in the core section, i.e., using either '
+        '`core/project` or `project` is a valid way of setting a project, '
+        'while using section names is essential for setting specific properties'
+        ' like `compute/region`. Consult the Cloud SDK properties page for'
+        ' a comprehensive list of properties: '
+        'https://cloud.google.com/sdk/docs/properties')
     parser.add_argument(
         'value',
         completer=completers.PropertyValueCompleter,
-        help='The value to be set.')
+        help='Value to be set.')
 
     flags.INSTALLATION_FLAG.AddToParser(parser)
 

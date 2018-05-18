@@ -14,6 +14,9 @@
 
 """The super-group for the cloud CLI."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import argparse
 import os
 import textwrap
@@ -24,6 +27,7 @@ from googlecloudsdk.command_lib.resource_manager import completers as resource_m
 from googlecloudsdk.core import properties
 
 
+@base.CommandSuggestion('update', 'components update')
 class Gcloud(base.Group):
   """Manage Google Cloud Platform resources and developer workflow.
 
@@ -50,7 +54,9 @@ class Gcloud(base.Group):
         action=actions.StoreProperty(properties.VALUES.core.project),
         help="""\
         The Google Cloud Platform project name to use for this invocation. If
-        omitted then the current project is assumed.
+        omitted, then the current project is assumed; the current project can be
+        listed using `gcloud config list --format='text(core.project)'` and
+        can be set using `gcloud config set project PROJECTID`.
         """)
     # Must have a None default so properties are not always overridden when the
     # arg is not provided.
@@ -82,15 +88,18 @@ class Gcloud(base.Group):
         metavar='USERNAME',
         default=None,
         action=actions.StoreProperty(properties.VALUES.core.trace_email),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
     trace_group.add_argument(
         '--trace-log',
         default=None,
         action=actions.StoreBooleanProperty(properties.VALUES.core.trace_log),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
     trace_group.add_argument(
         '--capture-session-file',
         default=None,
         action=actions.StoreProperty(
             properties.VALUES.core.capture_session_file),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')

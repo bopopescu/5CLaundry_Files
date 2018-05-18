@@ -14,6 +14,9 @@
 
 """Higher level functions to support updater operations at the CLI level."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import hashlib
 import os
 import shutil
@@ -27,6 +30,7 @@ from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core import log
 from googlecloudsdk.core import metrics
 from googlecloudsdk.core import properties
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.console import progress_tracker
@@ -40,6 +44,8 @@ from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import files as file_utils
 from googlecloudsdk.core.util import platforms
 
+import six
+from six.moves import map  # pylint: disable=redefined-builtin
 
 # These are components that used to exist, but we removed.  In order to prevent
 # scripts and installers that use them from getting errors, we will just warn
@@ -102,7 +108,7 @@ class InvalidCWDError(Error):
   pass
 
 
-class UpdaterDisableError(Error):
+class UpdaterDisabledError(Error):
   """Error for when an update is attempted but it is disallowed."""
   pass
 
@@ -147,6 +153,10 @@ class PostProcessingError(Error):
   """Error for when post processing failed.
   """
   pass
+
+
+class NoRegisteredRepositoriesError(Error):
+  """Error for when there are no repositories to remove."""
 
 
 class UpdateManager(object):
@@ -323,7 +333,7 @@ class UpdateManager(object):
     except OSError:
       log.debug('Could not determine CWD, assuming detached directory not '
                 'under SDK root.')
-    if not (cwd and cwd.startswith(self.__sdk_root)):
+    if not (cwd and file_utils.IsDirAncestorOf(self.__sdk_root, cwd)):
       # Outside of the root entirely, this is always fine.
       return force_fast
 
@@ -343,7 +353,7 @@ class UpdateManager(object):
     """Get the message to print before udpates.
 
     Args:
-      disable_backup: bool, True if we are doing an in place udpate.
+      disable_backup: bool, True if we are doing an in place update.
 
     Returns:
       str, The message to print, or None.
@@ -354,27 +364,156 @@ class UpdateManager(object):
     else:
       return None
 
-  def _EnsureNotDisabled(self):
-    """Prints an error and raises an Exception if the updater is disabled.
+  def _GetMappingFile(self, filename):
+    """Checks if mapping files are present and loads them for further use.
+
+    Args:
+      filename: str, The full filename (with .yaml extension) to be loaded.
+
+    Returns:
+      Loaded YAML if mapping files are present, None otherwise.
+    """
+    paths = config.Paths()
+    mapping_path = os.path.join(paths.sdk_root, paths.CLOUDSDK_STATE_DIR,
+                                filename)
+    # Check if file exists.
+    if os.path.isfile(mapping_path):
+      return yaml.load_path(mapping_path)
+
+  def _ComputeMappingMessage(self, command, commands_map, components_map,
+                             components=None):
+    """Returns error message containing correct command mapping.
+
+    Checks the user-provided command to see if it maps to one we support for
+    their package manager. If it does, compute error message to let the user
+    know why their command did not work and provide them with an alternate,
+    accurate command to run. If we do not support the given command/component
+    combination for their package manager, provide user with instructions to
+    change their package manager.
+
+    Args:
+      command: str, Command from user input, to be mapped against
+        commands_mapping.yaml
+      commands_map: dict, Contains mappings from commands_mapping.yaml
+      components_map: dict, Contains mappings from components_mapping.yaml
+      components: str list, Component from user input, to be mapped against
+        component_commands.yaml
+
+    Returns:
+      str, The compiled error message.
+    """
+    final_message = ''
+    unavailable = 'unavailable'
+    update_all = 'update-all'
+    unavailable_components = None
+    mapped_components = None
+    not_components = None
+    mapped_packages = None
+    correct_command = commands_map[command]
+
+    # Provide correct error message based on whether a component was given.
+    if components:
+      not_components = [
+          component for component in components
+          if component not in components_map
+      ]
+      unavailable_components = [
+          component for component in components
+          if components_map.get(component) == unavailable
+      ]
+
+    if command == update_all:
+      mapped_packages = [
+          component for component in set(components_map.values())
+          if component != unavailable
+      ]
+    else:
+      mapped_components = [
+          component for component in components
+          if (component not in unavailable_components) and
+          (component not in not_components)
+      ]
+      mapped_packages = [
+          components_map[component] for component in mapped_components
+      ]
+
+    if mapped_packages:
+      correct_command = correct_command.format(
+          package=' '.join(mapped_packages))
+
+    # Both mapped_components and components are false in the case where
+    # a mapped command template has no components.
+    if mapped_packages or not components:
+      # Message presented when mapping is successful.
+      final_message += (
+          '\nYou cannot perform this action because the Cloud SDK '
+          'component manager \nis disabled for this installation. You can '
+          'run the following command \nto achieve the same result for this '
+          'installation: \n\n{correct_command}\n\n'.format(
+              correct_command=correct_command))
+
+    if unavailable_components:
+      # Message presented when component mapping is unsuccessful.
+      final_message += (
+          '\nThe {component} component(s) is unavailable through the '
+          'packaging system \nyou are currently using. Please consider '
+          'using a separate installation \nof the Cloud SDK created '
+          'through the default mechanism described at: \n\n{doc_url} '
+          '\n\n'.format(
+              component=', '.join(unavailable_components),
+              doc_url=config.INSTALLATION_CONFIG.documentation_url))
+
+    if not_components:
+      # Message presented when component mapping is unsuccessful.
+      final_message += (
+          '"{component}" are not valid component name(s).\n'.format(
+              component=', '.join(not_components)))
+    return final_message
+
+  def _CheckIfDisabledAndThrowError(self, components=None, command=None):
+    """Checks if updater is disabled. If so, raises UpdaterDisabledError.
 
     The updater is disabled for installations that come from other package
     managers like apt-get or if the current user does not have permission
-    to create or delete files in the SDK root directory.
+    to create or delete files in the SDK root directory. If disabled, raises
+    UpdaterDisabledError either with the default message, or an error message
+    from _ComputeMappingMessage if a command was passed in.
+
+    Args:
+      components: str list, Component from user input, to be mapped against
+        component_commands.yaml
+      command: str, Command from user input, to be mapped against
+        command_mapping.yaml
 
     Raises:
-      UpdaterDisableError: If the updater is disabled.
-      exceptions.RequiresAdminRightsError: If the caller has insufficient
-        privilege.
+      UpdaterDisabledError: If the updater is disabled.
     """
+    default_message = (
+        'You cannot perform this action because this Cloud SDK '
+        'installation is managed by an external package manager.\n'
+        'Please consider using a separate installation of the Cloud '
+        'SDK created through the default mechanism described at: '
+        '{doc_url}\n'.format(
+            doc_url=config.INSTALLATION_CONFIG.documentation_url))
+
     if config.INSTALLATION_CONFIG.disable_updater:
-      message = (
-          'You cannot perform this action because this Cloud SDK installation '
-          'is managed by an external package manager.  If you would like to get'
-          ' the latest version, please see our main download page at:\n  '
-          + config.INSTALLATION_CONFIG.documentation_url + '\n')
-      self.__Write(log.err, message, word_wrap=True)
-      raise UpdaterDisableError(
-          'The component manager is disabled for this installation')
+
+      if not command:
+        raise UpdaterDisabledError(default_message)
+
+      # Load YAML files to map commands (install, remove, etc) against.
+      commands_map = self._GetMappingFile(filename='command_mapping.yaml')
+      # Load YAML files to map components (cbt, bq, etc) against.
+      components_map = self._GetMappingFile(filename='component_mapping.yaml')
+
+      # If mapping YAMLs are not found.
+      if not (components_map and commands_map):
+        raise UpdaterDisabledError(default_message)
+
+      mapping_message = self._ComputeMappingMessage(command, commands_map,
+                                                    components_map, components)
+
+      raise UpdaterDisabledError(mapping_message)
 
   def _GetInstallState(self):
     return local_state.InstallationState(self.__sdk_root)
@@ -472,7 +611,7 @@ version [{1}].  To clear your fixed version setting, run:
     current_state = self._GetInstallState()
     versions = {}
     installed_components = current_state.InstalledComponents()
-    for component_id, component in installed_components.iteritems():
+    for component_id, component in six.iteritems(installed_components):
       component_def = component.ComponentDefinition()
       if component_def.is_configuration or component_def.is_hidden:
         continue
@@ -514,7 +653,7 @@ version [{1}].  To clear your fixed version setting, run:
       # Possibly print any notifications that should be triggered right now.
       last_update_check.Notify(command_path)
 
-  def List(self, show_hidden=False):
+  def List(self, show_hidden=False, only_local_state=False):
     """Lists all of the components and their current state.
 
     This pretty prints the list of components along with whether they are up
@@ -522,10 +661,44 @@ version [{1}].  To clear your fixed version setting, run:
 
     Args:
       show_hidden: bool, include hidden components.
+      only_local_state: bool, only return component information for local state.
 
     Returns:
-      The list of snapshots.ComponentDiffs for all components that are not
-      hidden.
+      The list of snapshots.ComponentDiffs (or snapshots.ComponentInfos if
+      only_local_state is True) for all components that are not hidden.
+    """
+    if only_local_state:
+      to_print, current_version = self._GetPrintListOnlyLocal()
+      latest_version = None
+    else:
+      to_print, current_version, latest_version = self._GetPrintListWithDiff()
+
+    if not show_hidden:
+      to_print = [c for c in to_print if not c.is_hidden]
+
+    return to_print, current_version, latest_version
+
+  def _GetPrintListOnlyLocal(self):
+    """Helper method that gets a list of locally installed components to print.
+
+    Returns:
+      List of snapshots.ComponentInfos for the List method as well as the
+      current version string.
+    """
+    install_state = self._GetInstallState()
+    to_print = install_state.Snapshot().CreateComponentInfos(
+        platform_filter=self.__platform_filter)
+    current_version = config.INSTALLATION_CONFIG.version
+    self.__Write(log.status,
+                 '\nYour current Cloud SDK version is: ' + current_version)
+    return to_print, current_version
+
+  def _GetPrintListWithDiff(self):
+    """Helper method that computes a diff and returns a list of diffs to print.
+
+    Returns:
+      List of snapshots.ComponentDiffs for the List method as well as the
+      current and latest version strings.
     """
     try:
       _, diff = self._GetStateAndDiff(command_path='components.list')
@@ -541,9 +714,6 @@ version [{1}].  To clear your fixed version setting, run:
 
     to_print = (diff.AvailableUpdates() + diff.Removed() +
                 diff.AvailableToInstall() + diff.UpToDate())
-    if not show_hidden:
-      to_print = [c for c in to_print if not c.is_hidden]
-
     return (to_print, current_version, latest_version)
 
   def _PrintVersions(self, diff, latest_msg=None):
@@ -708,7 +878,11 @@ version [{1}].  To clear your fixed version setting, run:
       InvalidComponentError: If any of the given component ids do not exist.
     """
     md5dict1 = self._HashRcfiles(_SHELL_RCFILES)
-    self._EnsureNotDisabled()
+    if update_seed:
+      self._CheckIfDisabledAndThrowError(
+          components=update_seed, command='update')
+    else:
+      self._CheckIfDisabledAndThrowError(command='update-all')
 
     try:
       install_state, diff = self._GetStateAndDiff(
@@ -721,7 +895,7 @@ version [{1}].  To clear your fixed version setting, run:
     if update_seed:
       update_seed = self._HandleInvalidUpdateSeeds(diff, version, update_seed)
     else:
-      update_seed = diff.current.components.keys()
+      update_seed = list(diff.current.components.keys())
 
     to_remove = diff.ToRemove(update_seed)
     to_install = diff.ToInstall(update_seed)
@@ -740,7 +914,7 @@ version [{1}].  To clear your fixed version setting, run:
     self._RestartIfUsingBundledPython(args=restart_args)
 
     if self.IsPythonBundled() and BUNDLED_PYTHON_COMPONENT in to_remove:
-      log.warn(BUNDLED_PYTHON_REMOVAL_WARNING)
+      log.warning(BUNDLED_PYTHON_REMOVAL_WARNING)
 
     # If explicitly listing components, you are probably installing and not
     # doing a full update, change the message to be more clear.
@@ -831,10 +1005,11 @@ To revert your SDK to the previously installed version, you may run:
   $ gcloud components update --version {current}
 """.format(current=current_version), word_wrap=False)
 
-    if self.__warn and not os.environ.get('CLOUDSDK_REINSTALL_COMPONENTS'):
+    if (self.__warn and not
+        encoding.GetEncodedValue(os.environ, 'CLOUDSDK_REINSTALL_COMPONENTS')):
       bad_commands = self.FindAllOldToolsOnPath()
       if bad_commands:
-        log.warning(u"""\
+        log.warning("""\
   There are older versions of Google Cloud Platform tools on your system PATH.
   Please remove the following to avoid accidentally invoking these old tools:
 
@@ -843,13 +1018,13 @@ To revert your SDK to the previously installed version, you may run:
   """.format('\n'.join(bad_commands)))
       duplicate_commands = self.FindAllDuplicateToolsOnPath()
       if duplicate_commands:
-        log.warning(u"""\
+        log.warning("""\
   There are alternate versions of the following Google Cloud Platform tools on
   your system PATH. Please double check your PATH:
 
   {0}
 
-  """.format('\n'.join(duplicate_commands)))
+  """.format('\n  '.join(duplicate_commands)))
 
     return True
 
@@ -872,7 +1047,7 @@ To revert your SDK to the previously installed version, you may run:
     if not invalid_seeds:
       return update_seed
 
-    if os.environ.get('CLOUDSDK_REINSTALL_COMPONENTS'):
+    if encoding.GetEncodedValue(os.environ, 'CLOUDSDK_REINSTALL_COMPONENTS'):
       # We are doing a reinstall.  Ignore any components that no longer
       # exist.
       return set(update_seed) - invalid_seeds
@@ -983,7 +1158,7 @@ To revert your SDK to the previously installed version, you may run:
       InvalidComponentError: If any of the given component ids are not
         installed or cannot be removed.
     """
-    self._EnsureNotDisabled()
+    self._CheckIfDisabledAndThrowError(components=ids, command='remove')
     if not ids:
       return
 
@@ -997,7 +1172,7 @@ To revert your SDK to the previously installed version, you may run:
           .format(components=', '.join(not_installed)))
 
     required_components = set(
-        c_id for c_id, component in snapshot.components.iteritems()
+        c_id for c_id, component in six.iteritems(snapshot.components)
         if c_id in id_set and component.is_required)
     if required_components:
       raise InvalidComponentError(
@@ -1023,7 +1198,7 @@ To revert your SDK to the previously installed version, you may run:
     self._RestartIfUsingBundledPython()
 
     if self.IsPythonBundled() and BUNDLED_PYTHON_COMPONENT in to_remove:
-      log.warn(BUNDLED_PYTHON_REMOVAL_WARNING)
+      log.warning(BUNDLED_PYTHON_REMOVAL_WARNING)
 
     message = self._GetDontCancelMessage(disable_backup)
     if not console_io.PromptContinue(message):
@@ -1058,7 +1233,7 @@ To revert your SDK to the previously installed version, you may run:
     Raises:
       NoBackupError: If there is no valid backup to restore.
     """
-    self._EnsureNotDisabled()
+    self._CheckIfDisabledAndThrowError()
     install_state = self._GetInstallState()
     if not install_state.HasBackup():
       raise NoBackupError('There is currently no backup to restore.')
@@ -1073,7 +1248,7 @@ To revert your SDK to the previously installed version, you may run:
         BUNDLED_PYTHON_COMPONENT in
         install_state.BackupInstallationState().InstalledComponents())
     if self.IsPythonBundled() and not backup_has_bundled_python:
-      log.warn(BUNDLED_PYTHON_REMOVAL_WARNING)
+      log.warning(BUNDLED_PYTHON_REMOVAL_WARNING)
 
     if not console_io.PromptContinue(
         message='Your Cloud SDK installation will be restored to its previous '
@@ -1124,8 +1299,9 @@ To revert your SDK to the previously installed version, you may run:
     Returns:
       bool, True if the update succeeded, False if it was cancelled.
     """
-    self._EnsureNotDisabled()
-    if os.environ.get('CLOUDSDK_REINSTALL_COMPONENTS'):
+    self._CheckIfDisabledAndThrowError()
+
+    if encoding.GetEncodedValue(os.environ, 'CLOUDSDK_REINSTALL_COMPONENTS'):
       # We are already reinstalling but got here somehow.  Something is very
       # wrong and we want to avoid the infinite loop.
       self._RaiseReinstallationFailedError()
@@ -1169,8 +1345,8 @@ To revert your SDK to the previously installed version, you may run:
     # shell out to install script
     installed_component_ids = sorted(install_state.InstalledComponents().keys())
     env = dict(os.environ)
-    env['CLOUDSDK_REINSTALL_COMPONENTS'] = ','.join(
-        installed_component_ids)
+    encoding.SetEncodedValue(env, 'CLOUDSDK_REINSTALL_COMPONENTS',
+                             ','.join(installed_component_ids))
     installer_path = os.path.join(staging_state.sdk_root,
                                   'bin', 'bootstrapping', 'install.py')
     p = subprocess.Popen([sys.executable, '-S', installer_path], env=env)
@@ -1377,13 +1553,13 @@ def RestartCommand(command=None, args=None, python=None, block=True):
   command_args = args or sys.argv[1:]
   args = execution_utils.ArgsForPythonTool(command, *command_args,
                                            python=python)
-  args = [console_attr.EncodeForConsole(a) for a in args]
+  args = [encoding.Encode(a) for a in args]
 
   short_command = os.path.basename(command)
   if short_command == 'gcloud.py':
     short_command = 'gcloud'
   log_args = ' '.join([
-      console_attr.EncodeForConsole(a) for a in command_args])
+      console_attr.SafeText(a) for a in command_args])
   log.status.Print('Restarting command:\n  $ {command} {args}\n'.format(
       command=short_command, args=log_args))
   log.debug('Restarting command: %s %s', command, args)
@@ -1403,6 +1579,6 @@ def RestartCommand(command=None, args=None, python=None, block=True):
         # end. Otherwise, the output is either lost (without `pause`) or comes
         # out asynchronously over the next commands (without the new window).
         def Quote(s):
-          return '"' + s + '"'
-        args = 'cmd.exe /c "{0} && pause"'.format(' '.join(map(Quote, args)))
+          return '"' + encoding.Decode(s) + '"'
+        args = 'cmd.exe /c "{0} & pause"'.format(' '.join(map(Quote, args)))
     subprocess.Popen(args, shell=True, **popen_args)

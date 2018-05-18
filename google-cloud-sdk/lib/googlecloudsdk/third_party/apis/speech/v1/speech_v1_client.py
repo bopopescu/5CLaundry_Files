@@ -24,7 +24,7 @@ class SpeechV1(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new speech handle."""
     url = url or self.BASE_URL
     super(SpeechV1, self).__init__(
@@ -33,7 +33,8 @@ class SpeechV1(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
     self.operations = self.OperationsService(self)
     self.speech = self.SpeechService(self)
 
@@ -47,74 +48,8 @@ class SpeechV1(base_api.BaseApiClient):
       self._upload_configs = {
           }
 
-    def Cancel(self, request, global_params=None):
-      """Starts asynchronous cancellation on a long-running operation.  The server.
-makes a best effort to cancel the operation, but success is not
-guaranteed.  If the server doesn't support this method, it returns
-`google.rpc.Code.UNIMPLEMENTED`.  Clients can use
-Operations.GetOperation or
-other methods to check whether the cancellation succeeded or whether the
-operation completed despite cancellation. On successful cancellation,
-the operation is not deleted; instead, it becomes an operation with
-an Operation.error value with a google.rpc.Status.code of 1,
-corresponding to `Code.CANCELLED`.
-
-      Args:
-        request: (SpeechOperationsCancelRequest) input message
-        global_params: (StandardQueryParameters, default: None) global arguments
-      Returns:
-        (Empty) The response message.
-      """
-      config = self.GetMethodConfig('Cancel')
-      return self._RunMethod(
-          config, request, global_params=global_params)
-
-    Cancel.method_config = lambda: base_api.ApiMethodInfo(
-        flat_path=u'v1/operations/{operationsId}:cancel',
-        http_method=u'POST',
-        method_id=u'speech.operations.cancel',
-        ordered_params=[u'name'],
-        path_params=[u'name'],
-        query_params=[],
-        relative_path=u'v1/operations/{+name}:cancel',
-        request_field=u'cancelOperationRequest',
-        request_type_name=u'SpeechOperationsCancelRequest',
-        response_type_name=u'Empty',
-        supports_download=False,
-    )
-
-    def Delete(self, request, global_params=None):
-      """Deletes a long-running operation. This method indicates that the client is.
-no longer interested in the operation result. It does not cancel the
-operation. If the server doesn't support this method, it returns
-`google.rpc.Code.UNIMPLEMENTED`.
-
-      Args:
-        request: (SpeechOperationsDeleteRequest) input message
-        global_params: (StandardQueryParameters, default: None) global arguments
-      Returns:
-        (Empty) The response message.
-      """
-      config = self.GetMethodConfig('Delete')
-      return self._RunMethod(
-          config, request, global_params=global_params)
-
-    Delete.method_config = lambda: base_api.ApiMethodInfo(
-        flat_path=u'v1/operations/{operationsId}',
-        http_method=u'DELETE',
-        method_id=u'speech.operations.delete',
-        ordered_params=[u'name'],
-        path_params=[u'name'],
-        query_params=[],
-        relative_path=u'v1/operations/{+name}',
-        request_field='',
-        request_type_name=u'SpeechOperationsDeleteRequest',
-        response_type_name=u'Empty',
-        supports_download=False,
-    )
-
     def Get(self, request, global_params=None):
-      """Gets the latest state of a long-running operation.  Clients can use this.
+      r"""Gets the latest state of a long-running operation.  Clients can use this.
 method to poll the operation result at intervals as recommended by the API
 service.
 
@@ -142,41 +77,6 @@ service.
         supports_download=False,
     )
 
-    def List(self, request, global_params=None):
-      """Lists operations that match the specified filter in the request. If the.
-server doesn't support this method, it returns `UNIMPLEMENTED`.
-
-NOTE: the `name` binding allows API services to override the binding
-to use different resource name schemes, such as `users/*/operations`. To
-override the binding, API services can add a binding such as
-`"/v1/{name=users/*}/operations"` to their service configuration.
-For backwards compatibility, the default name includes the operations
-collection id, however overriding users must ensure the name binding
-is the parent resource, without the operations collection id.
-
-      Args:
-        request: (SpeechOperationsListRequest) input message
-        global_params: (StandardQueryParameters, default: None) global arguments
-      Returns:
-        (ListOperationsResponse) The response message.
-      """
-      config = self.GetMethodConfig('List')
-      return self._RunMethod(
-          config, request, global_params=global_params)
-
-    List.method_config = lambda: base_api.ApiMethodInfo(
-        http_method=u'GET',
-        method_id=u'speech.operations.list',
-        ordered_params=[],
-        path_params=[],
-        query_params=[u'filter', u'name', u'pageSize', u'pageToken'],
-        relative_path=u'v1/operations',
-        request_field='',
-        request_type_name=u'SpeechOperationsListRequest',
-        response_type_name=u'ListOperationsResponse',
-        supports_download=False,
-    )
-
   class SpeechService(base_api.BaseApiService):
     """Service class for the speech resource."""
 
@@ -188,7 +88,7 @@ is the parent resource, without the operations collection id.
           }
 
     def Longrunningrecognize(self, request, global_params=None):
-      """Performs asynchronous speech recognition: receive results via the.
+      r"""Performs asynchronous speech recognition: receive results via the.
 google.longrunning.Operations interface. Returns either an
 `Operation.error` or an `Operation.response` which contains
 a `LongRunningRecognizeResponse` message.
@@ -217,7 +117,7 @@ a `LongRunningRecognizeResponse` message.
     )
 
     def Recognize(self, request, global_params=None):
-      """Performs synchronous speech recognition: receive results after all audio.
+      r"""Performs synchronous speech recognition: receive results after all audio.
 has been sent and processed.
 
       Args:

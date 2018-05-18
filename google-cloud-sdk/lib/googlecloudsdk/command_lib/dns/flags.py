@@ -15,20 +15,21 @@
 """Common flags for some of the DNS commands."""
 
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope.concepts import concepts
+from googlecloudsdk.calliope.concepts import deps
 from googlecloudsdk.command_lib.util import completers
+from googlecloudsdk.command_lib.util.apis import arg_utils
+from googlecloudsdk.command_lib.util.concepts import concept_parsers
+from googlecloudsdk.core import properties
 
 
 class KeyCompleter(completers.ListCommandCompleter):
 
   def __init__(self, **kwargs):
     super(KeyCompleter, self).__init__(
-        # TODO(b/63443157): dnsKeys not found on server.
-        # Uncomment the next 3 lines when b/63443157 is fixed.
-        # collection='dns.dnsKeys',
-        # api_version='v2beta1',
-        # list_command=('beta dns dnskeys list --flatten=value(keyTag)'),
-        # Delete the next line (a workaround hack) when b/63443157 is fixed.
-        list_command='beta dns dnskeys list --format=value(keyTag)',
+        collection='dns.dnsKeys',
+        api_version='v2beta1',
+        list_command=('beta dns dns-keys list --format=value(keyTag)'),
         parse_output=True,
         flags=['zone'],
         **kwargs)
@@ -43,7 +44,7 @@ class ManagedZoneCompleter(completers.ListCommandCompleter):
         **kwargs)
 
 
-def GetKeyArg(help_text='The DNS key identifer.'):
+def GetKeyArg(help_text='The DNS key identifier.'):
   return base.Argument(
       'key_id',
       metavar='KEY-ID',
@@ -58,14 +59,63 @@ def GetDnsZoneArg(help_text):
       help=help_text)
 
 
-def GetZoneArg(help_text=(
-    'Name of the managed-zone whose record-sets you want to manage.')):
-  return base.Argument(
-      '--zone',
-      '-z',
-      completer=ManagedZoneCompleter,
-      help=help_text,
+def ZoneAttributeConfig():
+  return concepts.ResourceParameterAttributeConfig(
+      name='zone',
+      help_text='The Cloud DNS zone for the {resource}.')
+
+
+def ProjectAttributeConfig():
+  return concepts.ResourceParameterAttributeConfig(
+      name='project',
+      help_text='The Cloud project for the {resource}.',
+      fallthroughs=[deps.PropertyFallthrough(properties.VALUES.core.project)])
+
+
+def GetZoneResourceSpec():
+  return concepts.ResourceSpec(
+      'dns.managedZones',
+      resource_name='zone',
+      managedZone=ZoneAttributeConfig(),
+      project=ProjectAttributeConfig(),
+      disable_auto_completers=False)
+
+
+def GetZoneResourceArg(help_text, positional=True, plural=False):
+  arg_name = 'zones' if plural else 'zone'
+  return concept_parsers.ConceptParser.ForResource(
+      arg_name if positional else '--{}'.format(arg_name),
+      GetZoneResourceSpec(),
+      help_text,
+      plural=plural,
       required=True)
+
+
+def GetZoneArg(help_text=(
+    'Name of the managed-zone whose record-sets you want to manage.'),
+               hide_short_zone_flag=False):
+  if hide_short_zone_flag:
+    zone_group = base.ArgumentGroup(required=True)
+    zone_group.AddArgument(
+        base.Argument(
+            '--zone',
+            completer=ManagedZoneCompleter,
+            help=help_text))
+    zone_group.AddArgument(
+        base.Argument(
+            '-z',
+            dest='zone',
+            completer=ManagedZoneCompleter,
+            help=help_text,
+            hidden=True))
+    return zone_group
+  else:
+    return base.Argument(
+        '--zone',
+        '-z',
+        completer=ManagedZoneCompleter,
+        help=help_text,
+        required=True)
 
 
 def GetManagedZonesDnsNameArg():
@@ -82,44 +132,48 @@ def GetManagedZonesDescriptionArg(required=False):
       help='Short description for the managed-zone.')
 
 
-def AddCommonManagedZonesDnssecArgs(parser):
-  """Add Common DNSSEC flags for the managed-zones group."""
-  parser.add_argument(
-      '--dnssec-state',
-      choices={
-          'off': 'Disable DNSSEC for the managed zone.',
-          'on': 'Enable DNSSEC for the managed zone.',
-          'transfer': 'Enable DNSSEC and allow transfering a signed zone in '
-                      'or out.'},
-      help='The DNSSEC state for this managed zone.',
-      hidden=True)
-  parser.add_argument(
+def GetDnsSecStateFlagMapper(messages):
+  return arg_utils.ChoiceEnumMapper(
+      '--dnssec-state', messages.ManagedZoneDnsSecConfig.StateValueValuesEnum,
+      custom_mappings={
+          'off': ('off', 'Disable DNSSEC for the managed zone.'),
+          'on': ('on', 'Enable DNSSEC for the managed zone.'),
+          'transfer': ('transfer', ('Enable DNSSEC and allow '
+                                    'transferring a signed zone in '
+                                    'or out.'))
+      },
+      help_str='The DNSSEC state for this managed zone.')
+
+
+def GetDoeFlagMapper(messages):
+  return arg_utils.ChoiceEnumMapper(
       '--denial-of-existence',
-      choices=['NSEC', 'NSEC3'],
-      help='Requires DNSSEC enabled.',
-      hidden=True)
+      messages.ManagedZoneDnsSecConfig.NonExistenceValueValuesEnum,
+      help_str='Requires DNSSEC enabled.')
+
+
+def AddCommonManagedZonesDnssecArgs(parser, messages):
+  """Add Common DNSSEC flags for the managed-zones group."""
+  GetDnsSecStateFlagMapper(messages).choice_arg.AddToParser(parser)
+  GetDoeFlagMapper(messages).choice_arg.AddToParser(parser)
   parser.add_argument(
       '--ksk-algorithm',
       help='String mnemonic specifying the DNSSEC algorithm of the '
            'key-signing key. Requires DNSSEC enabled. Example algorithms: '
-           'RSASHA1, RSASHA256, RSASHA512, ECDSAP256SHA256, ECDSAP384SHA384',
-      hidden=True)
+           'RSASHA1, RSASHA256, RSASHA512, ECDSAP256SHA256, ECDSAP384SHA384')
   parser.add_argument(
       '--zsk-algorithm',
       help='String mnemonic specifying the DNSSEC algorithm of the '
            'zone-signing key. Requires DNSSEC enabled. Example algorithms: '
-           'RSASHA1, RSASHA256, RSASHA512, ECDSAP256SHA256, ECDSAP384SHA384',
-      hidden=True)
+           'RSASHA1, RSASHA256, RSASHA512, ECDSAP256SHA256, ECDSAP384SHA384')
   parser.add_argument(
       '--ksk-key-length',
       type=int,
-      help='Length of the key-signing key in bits. Requires DNSSEC enabled.',
-      hidden=True)
+      help='Length of the key-signing key in bits. Requires DNSSEC enabled.')
   parser.add_argument(
       '--zsk-key-length',
       type=int,
-      help='Length of the zone-signing key in bits. Requires DNSSEC enabled.',
-      hidden=True)
+      help='Length of the zone-signing key in bits. Requires DNSSEC enabled.')
 
 
 CHANGES_FORMAT = 'table(id, startTime, status)'

@@ -13,6 +13,9 @@
 # limitations under the License.
 """Utilities for manipulating text."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import collections
 
 
@@ -76,5 +79,5 @@ def PrettyTimeDelta(delta):
     if seconds < seconds_per:
       break
     unit = u
-    num = seconds / seconds_per
+    num = seconds // seconds_per
   return '{0} {1}'.format(num, Pluralize(num, unit))

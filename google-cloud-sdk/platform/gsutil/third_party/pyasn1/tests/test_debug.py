@@ -2,19 +2,24 @@
 # This file is part of pyasn1 software.
 #
 # Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# License: http://snmplabs.com/pyasn1/license.html
 #
 import sys
+
 try:
     import unittest2 as unittest
+
 except ImportError:
     import unittest
+
+from tests.base import BaseTestCase
 
 from pyasn1 import debug
 from pyasn1 import error
 
-class DebugCaseBase(unittest.TestCase):
+class DebugCaseBase(BaseTestCase):
     def testKnownFlags(self):
+        debug.setLogger(0)
         debug.setLogger(debug.Debug('all', 'encoder', 'decoder'))
         debug.setLogger(0)
 

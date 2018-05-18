@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating target TCP proxies."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import target_proxies_utils
 from googlecloudsdk.api_lib.compute import utils
@@ -41,6 +43,8 @@ class Create(base.CreateCommand):
     parser.add_argument(
         '--description',
         help='An optional, textual description for the target TCP proxy.')
+
+    parser.display_info.AddCacheUpdater(flags.TargetTcpProxiesCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())

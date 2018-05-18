@@ -13,16 +13,17 @@
 # limitations under the License.
 """`gcloud app services set-traffic` command."""
 
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.app import appengine_api_client
 from googlecloudsdk.api_lib.app import operations_util
 from googlecloudsdk.api_lib.app import service_util
-from googlecloudsdk.api_lib.util import exceptions as core_api_exceptions
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.resource import resource_printer
+import six
 
 
 class TrafficSplitError(exceptions.Error):
@@ -67,9 +68,9 @@ class SetTraffic(base.Command):
         other. For example, v1=2,v2=2 is equivalent to v1=.5,v2=.5""")
     parser.add_argument(
         '--split-by',
-        choices=['cookie', 'ip'],
+        choices=['cookie', 'ip', 'random'],
         default='ip',
-        help='Whether to split traffic based on cookies or IP addresses.')
+        help='Whether to split traffic based on cookie, IP address or random.')
     parser.add_argument(
         '--migrate',
         action='store_true',
@@ -97,7 +98,7 @@ for more information.""")
 
     display_allocations = []
     for service in services:
-      for version, split in allocations.iteritems():
+      for version, split in six.iteritems(allocations):
         display_allocations.append('{0}/{1}/{2}: {3}'.format(
             api_client.project,
             service.id,
@@ -113,11 +114,10 @@ for more information.""")
     errors = {}
     for service in services:
       try:
-        api_client.SetTrafficSplit(
-            service.id, allocations, args.split_by.upper(), args.migrate)
-      except (core_api_exceptions.HttpException,
-              operations_util.OperationError,
-              operations_util.OperationTimeoutError) as err:
+        operations_util.CallAndCollectOpErrors(
+            api_client.SetTrafficSplit, service.id, allocations,
+            args.split_by.upper(), args.migrate)
+      except operations_util.MiscOperationError as err:
         errors[service.id] = str(err)
     if errors:
       printable_errors = {}

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """General formatting utils, App Engine specific formatters."""
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.logging import util
 from googlecloudsdk.core import log
 from googlecloudsdk.core import resources
@@ -216,8 +217,8 @@ class LogPrinter(object):
       time = times.FormatDateTime(times.ParseDateTime(entry.timestamp),
                                   self.api_time_format)
     except times.Error:
-      log.warn('Received timestamp [{0}] does not match expected'
-               ' format.'.format(entry.timestamp))
+      log.warning('Received timestamp [{0}] does not match expected'
+                  ' format.'.format(entry.timestamp))
       time = '????-??-?? ??:??:??'
 
     out = u'{timestamp} {log_text}'.format(

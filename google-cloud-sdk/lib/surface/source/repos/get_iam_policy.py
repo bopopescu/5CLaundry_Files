@@ -11,13 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Gets the IAM policy for the repository.
-"""
-
-from googlecloudsdk.api_lib.sourcerepo import sourcerepo
+"""Gets the IAM policy for the repository."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from googlecloudsdk.api_lib.source.repos import sourcerepo
 from googlecloudsdk.calliope import base
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.ALPHA,
@@ -50,11 +48,9 @@ class GetIamPolicy(base.ListCommand):
       (sourcerepo_v1_messages.Policy) The IAM policy.
 
     Raises:
-      ToolException: on project initialization errors.
+      sourcerepo.RepoResourceError: on resource initialization errors.
+      apitools.base.py.exceptions.HttpError: on request errors.
     """
-    res = resources.REGISTRY.Parse(
-        args.repository_name,
-        params={'projectsId': properties.VALUES.core.project.GetOrFail},
-        collection='sourcerepo.projects.repos')
+    res = sourcerepo.ParseRepo(args.repository_name)
     source = sourcerepo.Source()
     return source.GetIamPolicy(res)

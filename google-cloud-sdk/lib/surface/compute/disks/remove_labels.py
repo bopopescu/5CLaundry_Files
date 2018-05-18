@@ -21,7 +21,7 @@ from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute import labels_doc_helper
 from googlecloudsdk.command_lib.compute import labels_flags
 from googlecloudsdk.command_lib.compute.disks import flags as disks_flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
@@ -33,11 +33,11 @@ class RemoveLabels(base.UpdateCommand):
 
   @classmethod
   def Args(cls, parser):
-    # Regional disk is in Alpha only.
-    if cls.ReleaseTrack() == base.ReleaseTrack.ALPHA:
-      cls.DISK_ARG = disks_flags.MakeDiskArgZonalOrRegional(plural=False)
-    else:
+    # Regional disk is in Alpha and Beta only.
+    if cls.ReleaseTrack() == base.ReleaseTrack.GA:
       cls.DISK_ARG = disks_flags.MakeDiskArg(plural=False)
+    else:
+      cls.DISK_ARG = disks_flags.MakeDiskArgZonalOrRegional(plural=False)
     cls.DISK_ARG.AddArgument(parser)
     labels_flags.AddArgsForRemoveLabels(parser)
 
@@ -71,34 +71,31 @@ class RemoveLabels(base.UpdateCommand):
         for label in disk.labels.additionalProperties:
           remove_labels[label.key] = label.value
 
+    labels_diff = labels_util.Diff(subtractions=remove_labels)
     if disk_ref.Collection() == 'compute.disks':
       operation_collection = 'compute.zoneOperations'
-      replacement = labels_util.UpdateLabels(
-          disk.labels,
-          messages.ZoneSetLabelsRequest.LabelsValue,
-          remove_labels=remove_labels)
+      labels_update = labels_diff.Apply(
+          messages.ZoneSetLabelsRequest.LabelsValue, disk.labels)
       request = messages.ComputeDisksSetLabelsRequest(
           project=disk_ref.project,
           resource=disk_ref.disk,
           zone=disk_ref.zone,
           zoneSetLabelsRequest=messages.ZoneSetLabelsRequest(
               labelFingerprint=disk.labelFingerprint,
-              labels=replacement))
+              labels=labels_update.GetOrNone()))
     else:
       operation_collection = 'compute.regionOperations'
-      replacement = labels_util.UpdateLabels(
-          disk.labels,
-          messages.RegionSetLabelsRequest.LabelsValue,
-          remove_labels=remove_labels)
+      labels_update = labels_diff.Apply(
+          messages.RegionSetLabelsRequest.LabelsValue, disk.labels)
       request = messages.ComputeRegionDisksSetLabelsRequest(
           project=disk_ref.project,
           resource=disk_ref.disk,
           region=disk_ref.region,
           regionSetLabelsRequest=messages.RegionSetLabelsRequest(
               labelFingerprint=disk.labelFingerprint,
-              labels=replacement))
+              labels=labels_update.GetOrNone()))
 
-    if not replacement:
+    if not labels_update.needs_update:
       return disk
 
     operation = service.SetLabels(request)

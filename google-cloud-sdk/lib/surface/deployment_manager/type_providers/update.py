@@ -14,20 +14,22 @@
 
 """type-providers update command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.deployment_manager import dm_base
 from googlecloudsdk.api_lib.deployment_manager import dm_labels
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.deployment_manager import dm_write
 from googlecloudsdk.command_lib.deployment_manager import flags
 from googlecloudsdk.command_lib.deployment_manager import type_providers
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 
 
-def LogResource(request, async):
+def LogResource(request, is_async):
   log.UpdatedResource(request.typeProvider,
                       kind='type_provider',
-                      async=async)
+                      is_async=is_async)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
@@ -60,7 +62,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
     type_providers.AddApiOptionsFileFlag(parser)
     type_providers.AddDescriptionFlag(parser)
     type_providers.AddDescriptorUrlFlag(parser)
-    labels_util.AddUpdateLabelsFlags(parser)
+    labels_util.AddUpdateLabelsFlags(parser, enable_clear=False)
 
   def Run(self, args):
     """Run 'type-providers update'.
@@ -73,7 +75,8 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
       HttpException: An http error response was received while executing api
           request.
     """
-    type_provider_ref = type_providers.GetReference(args.provider_name)
+    type_provider_ref = type_providers.GetReference(self.resources,
+                                                    args.provider_name)
     project = type_provider_ref.project
     name = type_provider_ref.typeProvider
     get_request = self.messages.DeploymentmanagerTypeProvidersGetRequest(
@@ -92,7 +95,9 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
                                                descriptorUrl=(args.
                                                               descriptor_url),
                                                labels=labels)
-    type_providers.AddOptions(args.api_options_file, type_provider)
+    type_providers.AddOptions(self.messages,
+                              args.api_options_file,
+                              type_provider)
 
     update_request = self.messages.DeploymentmanagerTypeProvidersUpdateRequest(
         project=project,

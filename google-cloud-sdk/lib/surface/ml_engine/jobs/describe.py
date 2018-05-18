@@ -13,14 +13,18 @@
 # limitations under the License.
 """ml-engine jobs describe command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.ml_engine import jobs
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.ml_engine import flags
 from googlecloudsdk.command_lib.ml_engine import jobs_util
+from googlecloudsdk.core import log
 
 
 def _AddDescribeArgs(parser):
   flags.JOB_NAME.AddToParser(parser)
+  flags.GetSummarizeFlag().AddToParser(parser)
 
 
 class Describe(base.DescribeCommand):
@@ -33,6 +37,10 @@ class Describe(base.DescribeCommand):
   def Run(self, args):
     job = jobs_util.Describe(jobs.JobsClient(), args.job)
     self.job = job  # Hack to make the Epilog method work
+    if args.summarize:
+      if args.format:
+        log.warning('--format is ignored when --summarize is present')
+      args.format = jobs_util.GetSummaryFormat(job)
     return job
 
   def Epilog(self, resources_were_displayed):

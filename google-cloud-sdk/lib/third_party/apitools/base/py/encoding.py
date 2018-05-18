@@ -20,8 +20,6 @@ import base64
 import collections
 import datetime
 import json
-import os
-import sys
 
 import six
 
@@ -48,6 +46,40 @@ __all__ = [
 
 _Codec = collections.namedtuple('_Codec', ['encoder', 'decoder'])
 CodecResult = collections.namedtuple('CodecResult', ['value', 'complete'])
+
+
+class EdgeType(object):
+    """The type of transition made by an edge."""
+    SCALAR = 1
+    REPEATED = 2
+    MAP = 3
+
+
+class ProtoEdge(collections.namedtuple('ProtoEdge',
+                                       ['type_', 'field', 'index'])):
+    """A description of a one-level transition from a message to a value.
+
+    Protobuf messages can be arbitrarily nested as fields can be defined with
+    any "message" type. This nesting property means that there are often many
+    levels of proto messages within a single message instance. This class can
+    unambiguously describe a single step from a message to some nested value.
+
+    Properties:
+      type_: EdgeType, The type of transition represented by this edge.
+      field: str, The name of the message-typed field.
+      index: Any, Additional data needed to make the transition. The semantics
+          of the "index" property change based on the value of "type_":
+            SCALAR: ignored.
+            REPEATED: a numeric index into "field"'s list.
+            MAP: a key into "field"'s mapping.
+    """
+    __slots__ = ()
+
+    def __str__(self):
+        if self.type_ == EdgeType.SCALAR:
+            return self.field
+        else:
+            return '{}[{}]'.format(self.field, self.index)
 
 
 # TODO(user): Make these non-global.
@@ -90,10 +122,9 @@ def RegisterFieldTypeCodec(encoder, decoder):
     return Register
 
 
-# TODO(user): Delete this function with the switch to proto2.
 def CopyProtoMessage(message):
-    codec = protojson.ProtoJson()
-    return codec.decode_message(type(message), codec.encode_message(message))
+    """Make a deep copy of a message."""
+    return JsonToMessage(type(message), MessageToJson(message))
 
 
 def MessageToJson(message, include_fields=None):
@@ -118,7 +149,8 @@ def MessageToDict(message):
     return json.loads(MessageToJson(message))
 
 
-def DictToProtoMap(properties, additional_property_type, sort_items=False):
+def DictToAdditionalPropertyMessage(properties, additional_property_type,
+                                    sort_items=False):
     """Convert the given dictionary to an AdditionalProperty message."""
     items = properties.items()
     if sort_items:
@@ -127,7 +159,7 @@ def DictToProtoMap(properties, additional_property_type, sort_items=False):
     for key, value in items:
         map_.append(additional_property_type.AdditionalProperty(
             key=key, value=value))
-    return additional_property_type(additional_properties=map_)
+    return additional_property_type(additionalProperties=map_)
 
 
 def PyValueToMessage(message_type, value):
@@ -416,6 +448,7 @@ def _DecodeUnknownMessages(message, encoded_message, pair_type):
 def _DecodeUnrecognizedFields(message, pair_type):
     """Process unrecognized fields in message."""
     new_values = []
+    codec = _ProtoJsonApiTools.Get()
     for unknown_field in message.all_unrecognized_fields():
         # TODO(user): Consider validating the variant if
         # the assignment below doesn't take care of it. It may
@@ -426,11 +459,21 @@ def _DecodeUnrecognizedFields(message, pair_type):
         if isinstance(value_type, messages.MessageField):
             decoded_value = DictToMessage(value, pair_type.value.message_type)
         else:
-            decoded_value = protojson.ProtoJson().decode_field(
+            decoded_value = codec.decode_field(
                 pair_type.value, value)
-        new_pair = pair_type(key=str(unknown_field), value=decoded_value)
+        try:
+            new_pair_key = str(unknown_field)
+        except UnicodeEncodeError:
+            new_pair_key = protojson.ProtoJson().decode_field(
+                pair_type.key, unknown_field)
+        new_pair = pair_type(key=new_pair_key, value=decoded_value)
         new_values.append(new_pair)
     return new_values
+
+
+def _CopyProtoMessageVanillaProtoJson(message):
+    codec = protojson.ProtoJson()
+    return codec.decode_message(type(message), codec.encode_message(message))
 
 
 def _EncodeUnknownFields(message):
@@ -438,19 +481,20 @@ def _EncodeUnknownFields(message):
     source = _UNRECOGNIZED_FIELD_MAPPINGS.get(type(message))
     if source is None:
         return message
-    result = CopyProtoMessage(message)
+    # CopyProtoMessage uses _ProtoJsonApiTools, which uses this message. Use
+    # the vanilla protojson-based copy function to avoid infinite recursion.
+    result = _CopyProtoMessageVanillaProtoJson(message)
     pairs_field = message.field_by_name(source)
     if not isinstance(pairs_field, messages.MessageField):
         raise exceptions.InvalidUserInputError(
             'Invalid pairs field %s' % pairs_field)
     pairs_type = pairs_field.message_type
-    value_variant = pairs_type.field_by_name('value').variant
+    value_field = pairs_type.field_by_name('value')
+    value_variant = value_field.variant
     pairs = getattr(message, source)
+    codec = _ProtoJsonApiTools.Get()
     for pair in pairs:
-        if value_variant == messages.Variant.MESSAGE:
-            encoded_value = MessageToDict(pair.value)
-        else:
-            encoded_value = pair.value
+        encoded_value = codec.encode_field(value_field, pair.value)
         result.set_unrecognized_field(pair.key, encoded_value, value_variant)
     setattr(result, source, [])
     return result
@@ -547,30 +591,8 @@ _JSON_ENUM_MAPPINGS = {}
 _JSON_FIELD_MAPPINGS = {}
 
 
-def _GetTypeKey(message_type, package):
-    """Get the prefix for this message type in mapping dicts."""
-    key = message_type.definition_name()
-    if package and key.startswith(package + '.'):
-        module_name = message_type.__module__
-        # We normalize '__main__' to something unique, if possible.
-        if module_name == '__main__':
-            try:
-                file_name = sys.modules[module_name].__file__
-            except (AttributeError, KeyError):
-                pass
-            else:
-                base_name = os.path.basename(file_name)
-                split_name = os.path.splitext(base_name)
-                if len(split_name) == 1:
-                    module_name = unicode(base_name)
-                else:
-                    module_name = u'.'.join(split_name[:-1])
-        key = module_name + '.' + key.partition('.')[2]
-    return key
-
-
 def AddCustomJsonEnumMapping(enum_type, python_name, json_name,
-                             package=''):
+                             package=None):  # pylint: disable=unused-argument
     """Add a custom wire encoding for a given enum value.
 
     This is primarily used in generated code, to handle enum values
@@ -580,24 +602,21 @@ def AddCustomJsonEnumMapping(enum_type, python_name, json_name,
       enum_type: (messages.Enum) An enum type
       python_name: (basestring) Python name for this value.
       json_name: (basestring) JSON name to be used on the wire.
-      package: (basestring, optional) Package prefix for this enum, if
-          present. We strip this off the enum name in order to generate
-          unique keys.
+      package: (NoneType, optional) No effect, exists for legacy compatibility.
     """
     if not issubclass(enum_type, messages.Enum):
         raise exceptions.TypecheckError(
             'Cannot set JSON enum mapping for non-enum "%s"' % enum_type)
-    enum_name = _GetTypeKey(enum_type, package)
     if python_name not in enum_type.names():
         raise exceptions.InvalidDataError(
             'Enum value %s not a value for type %s' % (python_name, enum_type))
-    field_mappings = _JSON_ENUM_MAPPINGS.setdefault(enum_name, {})
+    field_mappings = _JSON_ENUM_MAPPINGS.setdefault(enum_type, {})
     _CheckForExistingMappings('enum', enum_type, python_name, json_name)
     field_mappings[python_name] = json_name
 
 
 def AddCustomJsonFieldMapping(message_type, python_name, json_name,
-                              package=''):
+                              package=None):  # pylint: disable=unused-argument
     """Add a custom wire encoding for a given message field.
 
     This is primarily used in generated code, to handle enum values
@@ -607,36 +626,33 @@ def AddCustomJsonFieldMapping(message_type, python_name, json_name,
       message_type: (messages.Message) A message type
       python_name: (basestring) Python name for this value.
       json_name: (basestring) JSON name to be used on the wire.
-      package: (basestring, optional) Package prefix for this message, if
-          present. We strip this off the message name in order to generate
-          unique keys.
+      package: (NoneType, optional) No effect, exists for legacy compatibility.
     """
     if not issubclass(message_type, messages.Message):
         raise exceptions.TypecheckError(
             'Cannot set JSON field mapping for '
             'non-message "%s"' % message_type)
-    message_name = _GetTypeKey(message_type, package)
     try:
         _ = message_type.field_by_name(python_name)
     except KeyError:
         raise exceptions.InvalidDataError(
             'Field %s not recognized for type %s' % (
                 python_name, message_type))
-    field_mappings = _JSON_FIELD_MAPPINGS.setdefault(message_name, {})
+    field_mappings = _JSON_FIELD_MAPPINGS.setdefault(message_type, {})
     _CheckForExistingMappings('field', message_type, python_name, json_name)
     field_mappings[python_name] = json_name
 
 
 def GetCustomJsonEnumMapping(enum_type, python_name=None, json_name=None):
     """Return the appropriate remapping for the given enum, or None."""
-    return _FetchRemapping(enum_type.definition_name(), 'enum',
+    return _FetchRemapping(enum_type, 'enum',
                            python_name=python_name, json_name=json_name,
                            mappings=_JSON_ENUM_MAPPINGS)
 
 
 def GetCustomJsonFieldMapping(message_type, python_name=None, json_name=None):
     """Return the appropriate remapping for the given field, or None."""
-    return _FetchRemapping(message_type.definition_name(), 'field',
+    return _FetchRemapping(message_type, 'field',
                            python_name=python_name, json_name=json_name,
                            mappings=_JSON_FIELD_MAPPINGS)
 
@@ -683,8 +699,8 @@ def _CheckForExistingMappings(mapping_type, message_type,
 
 
 def _EncodeCustomFieldNames(message, encoded_value):
-    message_name = type(message).definition_name()
-    field_remappings = list(_JSON_FIELD_MAPPINGS.get(message_name, {}).items())
+    field_remappings = list(_JSON_FIELD_MAPPINGS.get(type(message), {})
+                            .items())
     if field_remappings:
         decoded_value = json.loads(encoded_value)
         for python_name, json_name in field_remappings:
@@ -695,8 +711,7 @@ def _EncodeCustomFieldNames(message, encoded_value):
 
 
 def _DecodeCustomFieldNames(message_type, encoded_message):
-    message_name = message_type.definition_name()
-    field_remappings = _JSON_FIELD_MAPPINGS.get(message_name, {})
+    field_remappings = _JSON_FIELD_MAPPINGS.get(message_type, {})
     if field_remappings:
         decoded_message = json.loads(encoded_message)
         for python_name, json_name in list(field_remappings.items()):
@@ -729,3 +744,78 @@ def _AsMessageList(msg):
     if isinstance(msg, extra_types.JsonArray):
         msg = msg.entries
     return msg
+
+
+def _IsMap(message, field):
+    """Returns whether the "field" is actually a map-type."""
+    value = message.get_assigned_value(field.name)
+    if not isinstance(value, messages.Message):
+        return False
+    try:
+        additional_properties = value.field_by_name('additionalProperties')
+    except KeyError:
+        return False
+    else:
+        return additional_properties.repeated
+
+
+def _MapItems(message, field):
+    """Yields the (key, value) pair of the map values."""
+    assert _IsMap(message, field)
+    map_message = message.get_assigned_value(field.name)
+    additional_properties = map_message.get_assigned_value(
+        'additionalProperties')
+    for kv_pair in additional_properties:
+        yield kv_pair.key, kv_pair.value
+
+
+def UnrecognizedFieldIter(message, _edges=()):  # pylint: disable=invalid-name
+    """Yields the locations of unrecognized fields within "message".
+
+    If a sub-message is found to have unrecognized fields, that sub-message
+    will not be searched any further. We prune the search of the sub-message
+    because we assume it is malformed and further checks will not yield
+    productive errors.
+
+    Args:
+      message: The Message instance to search.
+      _edges: Internal arg for passing state.
+
+    Yields:
+      (edges_to_message, field_names):
+        edges_to_message: List[ProtoEdge], The edges (relative to "message")
+            describing the path to the sub-message where the unrecognized
+            fields were found.
+        field_names: List[Str], The names of the field(s) that were
+            unrecognized in the sub-message.
+    """
+    if not isinstance(message, messages.Message):
+        # This is a primitive leaf, no errors found down this path.
+        return
+
+    field_names = message.all_unrecognized_fields()
+    if field_names:
+        # This message is malformed. Stop recursing and report it.
+        yield _edges, field_names
+        return
+
+    # Recurse through all fields in the current message.
+    for field in message.all_fields():
+        value = message.get_assigned_value(field.name)
+        if field.repeated:
+            for i, item in enumerate(value):
+                repeated_edge = ProtoEdge(EdgeType.REPEATED, field.name, i)
+                iter_ = UnrecognizedFieldIter(item, _edges + (repeated_edge,))
+                for (e, y) in iter_:
+                    yield e, y
+        elif _IsMap(message, field):
+            for key, item in _MapItems(message, field):
+                map_edge = ProtoEdge(EdgeType.MAP, field.name, key)
+                iter_ = UnrecognizedFieldIter(item, _edges + (map_edge,))
+                for (e, y) in iter_:
+                    yield e, y
+        else:
+            scalar_edge = ProtoEdge(EdgeType.SCALAR, field.name, None)
+            iter_ = UnrecognizedFieldIter(value, _edges + (scalar_edge,))
+            for (e, y) in iter_:
+                yield e, y

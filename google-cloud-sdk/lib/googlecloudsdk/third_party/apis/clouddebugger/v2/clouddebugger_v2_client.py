@@ -24,7 +24,7 @@ class ClouddebuggerV2(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new clouddebugger handle."""
     url = url or self.BASE_URL
     super(ClouddebuggerV2, self).__init__(
@@ -33,7 +33,8 @@ class ClouddebuggerV2(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
     self.controller_debuggees_breakpoints = self.ControllerDebuggeesBreakpointsService(self)
     self.controller_debuggees = self.ControllerDebuggeesService(self)
     self.controller = self.ControllerService(self)
@@ -52,7 +53,7 @@ class ClouddebuggerV2(base_api.BaseApiClient):
           }
 
     def List(self, request, global_params=None):
-      """Returns the list of all active breakpoints for the debuggee.
+      r"""Returns the list of all active breakpoints for the debuggee.
 
 The breakpoint specification (`location`, `condition`, and `expressions`
 fields) is semantically immutable, although the field values may
@@ -90,9 +91,8 @@ setting those breakpoints again.
     )
 
     def Update(self, request, global_params=None):
-      """Updates the breakpoint state or mutable fields.
-The entire Breakpoint message must be sent back to the controller
-service.
+      r"""Updates the breakpoint state or mutable fields.
+The entire Breakpoint message must be sent back to the controller service.
 
 Updates to active breakpoint fields are only allowed if the new value
 does not change the breakpoint specification. Updates to the `location`,
@@ -134,16 +134,16 @@ or snapping the location to the correct line of code.
           }
 
     def Register(self, request, global_params=None):
-      """Registers the debuggee with the controller service.
+      r"""Registers the debuggee with the controller service.
 
-All agents attached to the same application should call this method with
-the same request content to get back the same stable `debuggee_id`. Agents
-should call this method again whenever `google.rpc.Code.NOT_FOUND` is
-returned from any controller method.
+All agents attached to the same application must call this method with
+exactly the same request content to get back the same stable `debuggee_id`.
+Agents should call this method again whenever `google.rpc.Code.NOT_FOUND`
+is returned from any controller method.
 
-This allows the controller service to disable the agent or recover from any
-data loss. If the debuggee is disabled by the server, the response will
-have `is_disabled` set to `true`.
+This protocol allows the controller service to disable debuggees, recover
+from data loss, or change the `debuggee_id` format. Agents must handle
+`debuggee_id` value changing upon re-registration.
 
       Args:
         request: (RegisterDebuggeeRequest) input message
@@ -189,7 +189,7 @@ have `is_disabled` set to `true`.
           }
 
     def Delete(self, request, global_params=None):
-      """Deletes the breakpoint from the debuggee.
+      r"""Deletes the breakpoint from the debuggee.
 
       Args:
         request: (ClouddebuggerDebuggerDebuggeesBreakpointsDeleteRequest) input message
@@ -215,7 +215,7 @@ have `is_disabled` set to `true`.
     )
 
     def Get(self, request, global_params=None):
-      """Gets breakpoint information.
+      r"""Gets breakpoint information.
 
       Args:
         request: (ClouddebuggerDebuggerDebuggeesBreakpointsGetRequest) input message
@@ -241,7 +241,7 @@ have `is_disabled` set to `true`.
     )
 
     def List(self, request, global_params=None):
-      """Lists all breakpoints for the debuggee.
+      r"""Lists all breakpoints for the debuggee.
 
       Args:
         request: (ClouddebuggerDebuggerDebuggeesBreakpointsListRequest) input message
@@ -267,7 +267,7 @@ have `is_disabled` set to `true`.
     )
 
     def Set(self, request, global_params=None):
-      """Sets the breakpoint to the debuggee.
+      r"""Sets the breakpoint to the debuggee.
 
       Args:
         request: (ClouddebuggerDebuggerDebuggeesBreakpointsSetRequest) input message
@@ -303,7 +303,7 @@ have `is_disabled` set to `true`.
           }
 
     def List(self, request, global_params=None):
-      """Lists all the debuggees that the user can set breakpoints to.
+      r"""Lists all the debuggees that the user has access to.
 
       Args:
         request: (ClouddebuggerDebuggerDebuggeesListRequest) input message

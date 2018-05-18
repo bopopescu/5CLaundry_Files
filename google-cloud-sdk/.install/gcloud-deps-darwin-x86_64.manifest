@@ -1,7 +1,6 @@
 lib/
 lib/third_party/
 lib/third_party/grpc/
-lib/third_party/grpc/LICENSE
 lib/third_party/grpc/framework/
 lib/third_party/grpc/framework/interfaces/
 lib/third_party/grpc/framework/interfaces/face/
@@ -31,7 +30,6 @@ lib/third_party/grpc/beta/utilities.py
 lib/third_party/grpc/beta/interfaces.py
 lib/third_party/grpc/beta/implementations.py
 lib/third_party/grpc/beta/_server_adaptations.py
-lib/third_party/grpc/beta/_connectivity_channel.py
 lib/third_party/grpc/beta/_client_adaptations.py
 lib/third_party/grpc/beta/__init__.py
 lib/third_party/grpc/_utilities.py
@@ -50,3 +48,4 @@ lib/third_party/grpc/_common.py
 lib/third_party/grpc/_channel.py
 lib/third_party/grpc/_auth.py
 lib/third_party/grpc/__init__.py
+lib/third_party/grpc/LICENSE

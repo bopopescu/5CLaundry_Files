@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for adding instances to unmanaged instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import instance_groups_utils
 from googlecloudsdk.calliope import arg_parsers
@@ -28,8 +30,8 @@ class AddInstances(base.SilentCommand):
   by name.
   For example:
 
-    $ {command} example-instance-group --instances example-instance-1 \
-        example-instance-2 --zone us-central1-a
+    $ {command} my-group \
+        --instances my-instance-1,my-instance-2 --zone us-central1-a
   """
 
   ZONAL_INSTANCE_GROUP_ARG = None

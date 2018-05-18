@@ -13,9 +13,10 @@
 # limitations under the License.
 
 """Common utilities for the containers tool."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import io
 import os
-import StringIO
-import distutils.version as dist_version
 
 
 from googlecloudsdk.api_lib.container import kubeconfig as kconfig
@@ -28,16 +29,15 @@ from googlecloudsdk.core.updater import update_manager
 from googlecloudsdk.core.util import files as file_utils
 from googlecloudsdk.core.util import platforms
 
-
 CLUSTERS_FORMAT = """
     table(
         name,
-        zone,
+        zone:label=LOCATION,
         master_version():label=MASTER_VERSION,
         endpoint:label=MASTER_IP,
         nodePools[0].config.machineType,
         currentNodeVersion:label=NODE_VERSION,
-        currentNodeCount:label=NUM_NODES,
+        firstof(currentNodeCount,initialNodeCount):label=NUM_NODES,
         status
     )
 """
@@ -46,10 +46,12 @@ OPERATIONS_FORMAT = """
     table(
         name,
         operationType:label=TYPE,
-        zone,
+        zone:label=LOCATION,
         targetLink.basename():label=TARGET,
         statusMessage,
-        status
+        status,
+        startTime,
+        endTime
     )
 """
 
@@ -71,13 +73,13 @@ class Error(core_exceptions.Error):
 
 
 def ConstructList(title, items):
-  buf = StringIO.StringIO()
+  buf = io.StringIO()
   resource_printer.Print(items, 'list[title="{0}"]'.format(title), out=buf)
   return buf.getvalue()
 
 
 MISSING_KUBECTL_MSG = """\
-Accessing a Container Engine cluster requires the kubernetes commandline
+Accessing a Kubernetes Engine cluster requires the kubernetes commandline
 client [kubectl]. To install, run
   $ gcloud components install kubectl
 """
@@ -97,13 +99,19 @@ def CheckKubectlInstalled():
   """Verify that the kubectl component is installed or print a warning."""
   if (not file_utils.FindExecutableOnPath(_KUBECTL_COMPONENT_NAME) and
       not _KubectlInstalledAsComponent()):
-    log.warn(MISSING_KUBECTL_MSG)
+    log.warning(MISSING_KUBECTL_MSG)
+
+
+def GenerateClusterUrl(cluster_ref):
+  return ('https://console.cloud.google.com/kubernetes/'
+          'workload_/gcloud/{location}/{cluster}?project={project}').format(
+              location=cluster_ref.zone,
+              cluster=cluster_ref.clusterId,
+              project=cluster_ref.projectId)
 
 
 KUBECONFIG_USAGE_FMT = '''\
 kubeconfig entry generated for {cluster}.'''
-
-MIN_GCP_AUTH_PROVIDER_VERSION = '1.3.0'
 
 
 class MissingEndpointError(Error):
@@ -113,6 +121,23 @@ class MissingEndpointError(Error):
     super(MissingEndpointError, self).__init__(
         'cluster {0} is missing endpoint. Is it still PROVISIONING?'.format(
             cluster.name))
+
+
+ENABLE_SHARED_NETWORK_REQS_ERROR_MSG = """\
+Must specify --{0}.
+
+Enabling shared networks requires the following flags:
+--enable-kubernetes-alpha, --subnetwork, --enable-ip-alias,
+--cluster-secondary-range-name, and --services-secondary-range-name
+"""
+
+
+class MissingArgForSharedSubnetError(Error):
+  """Error for enabling shared subnets without the required parameters."""
+
+  def __init__(self, opt):
+    super(MissingArgForSharedSubnetError, self).__init__(
+        ENABLE_SHARED_NETWORK_REQS_ERROR_MSG.format(opt))
 
 
 class ClusterConfig(object):
@@ -131,19 +156,15 @@ class ClusterConfig(object):
     self.zone_id = kwargs['zone_id']
     self.project_id = kwargs['project_id']
     self.server = kwargs['server']
-    # auth options are basic (user,password), bearer token, auth-provider, or
-    # client certificate.
-    self.username = kwargs.get('username')
-    self.password = kwargs.get('password')
-    self.token = kwargs.get('token')
+    # auth options are auth-provider, or client certificate.
     self.auth_provider = kwargs.get('auth_provider')
     self.ca_data = kwargs.get('ca_data')
     self.client_cert_data = kwargs.get('client_cert_data')
     self.client_key_data = kwargs.get('client_key_data')
 
   def __str__(self):
-    return 'ClusterConfig{project:%s, cluster:%s, zone:%s, endpoint:%s}' % (
-        self.project_id, self.cluster_name, self.zone_id, self.endpoint)
+    return 'ClusterConfig{project:%s, cluster:%s, zone:%s}' % (
+        self.project_id, self.cluster_name, self.zone_id)
 
   def _Fullpath(self, filename):
     return os.path.abspath(os.path.join(self.config_dir, filename))
@@ -171,11 +192,8 @@ class ClusterConfig(object):
     return self.ca_data
 
   @staticmethod
-  def UseGCPAuthProvider(cluster):
-    return (cluster.currentMasterVersion and
-            dist_version.LooseVersion(cluster.currentMasterVersion) >=
-            dist_version.LooseVersion(MIN_GCP_AUTH_PROVIDER_VERSION) and
-            not properties.VALUES.container.use_client_certificate.GetBool())
+  def UseGCPAuthProvider():
+    return not properties.VALUES.container.use_client_certificate.GetBool()
 
   @staticmethod
   def GetConfigDir(cluster_name, zone_id, project_id):
@@ -195,9 +213,6 @@ class ClusterConfig(object):
     kubeconfig = kconfig.Kubeconfig.Default()
     cluster_kwargs = {}
     user_kwargs = {
-        'token': self.token,
-        'username': self.username,
-        'password': self.password,
         'auth_provider': self.auth_provider,
     }
     if self.has_ca_cert:
@@ -250,26 +265,14 @@ class ClusterConfig(object):
     else:
       # This should not happen unless the cluster is in an unusual error
       # state.
-      log.warn('Cluster is missing certificate authority data.')
+      log.warning('Cluster is missing certificate authority data.')
 
-    if cls.UseGCPAuthProvider(cluster):
+    if cls.UseGCPAuthProvider():
       kwargs['auth_provider'] = 'gcp'
     else:
       if auth.clientCertificate and auth.clientKey:
         kwargs['client_key_data'] = auth.clientKey
         kwargs['client_cert_data'] = auth.clientCertificate
-      # TODO(b/36051984): these are not needed if cluster has certs, though they
-      # are useful for testing, e.g. with curl. Consider removing if/when the
-      # apiserver no longer supports insecure (no certs) requests.
-      # TODO(b/36049791): use api_adapter instead of getattr, or remove
-      # bearerToken support
-      if getattr(auth, 'bearerToken', None):
-        kwargs['token'] = auth.bearerToken
-      else:
-        username = getattr(auth, 'user', None) or getattr(auth, 'username',
-                                                          None)
-        kwargs['username'] = username
-        kwargs['password'] = auth.password
 
     c_config = cls(**kwargs)
     c_config.GenKubeconfig()
@@ -321,15 +324,11 @@ class ClusterConfig(object):
       return None
 
     # Verify user data
-    username = user.get('username')
-    password = user.get('password')
-    token = user.get('token')
     auth_provider = user.get('auth-provider')
     cert_data = user.get('client-certificate-data')
     key_data = user.get('client-key-data')
     cert_auth = cert_data and key_data
-    basic_auth = username and password
-    has_valid_auth = auth_provider or cert_auth or token or basic_auth
+    has_valid_auth = auth_provider or cert_auth
     if not has_valid_auth:
       log.debug('missing auth info for user %s: %s', key, user)
       return None
@@ -339,9 +338,6 @@ class ClusterConfig(object):
         'zone_id': zone_id,
         'project_id': project_id,
         'server': server,
-        'username': username,
-        'password': password,
-        'token': token,
         'auth_provider': auth_provider,
         'ca_data': ca_data,
         'client_key_data': key_data,

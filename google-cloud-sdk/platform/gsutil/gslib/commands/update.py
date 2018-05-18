@@ -31,15 +31,15 @@ from gslib.cs_api_map import ApiSelector
 from gslib.exception import CommandException
 from gslib.metrics import CheckAndMaybePromptForAnalyticsEnabling
 from gslib.sig_handling import RegisterSignalHandler
-from gslib.util import CERTIFICATE_VALIDATION_ENABLED
-from gslib.util import CompareVersions
-from gslib.util import DisallowUpdateIfDataInGsutilDir
-from gslib.util import GetBotoConfigFileList
-from gslib.util import GSUTIL_PUB_TARBALL
-from gslib.util import IS_CYGWIN
-from gslib.util import IS_WINDOWS
-from gslib.util import LookUpGsutilVersion
-from gslib.util import RELEASE_NOTES_URL
+from gslib.utils.boto_util import GetBotoConfigFileList
+from gslib.utils.boto_util import CERTIFICATE_VALIDATION_ENABLED
+from gslib.utils.constants import GSUTIL_PUB_TARBALL
+from gslib.utils.constants import RELEASE_NOTES_URL
+from gslib.utils.system_util import IS_CYGWIN
+from gslib.utils.system_util import IS_WINDOWS
+from gslib.utils.text_util import CompareVersions
+from gslib.utils.update_util import DisallowUpdateIfDataInGsutilDir
+from gslib.utils.update_util import LookUpGsutilVersion
 
 
 _SYNOPSIS = """
@@ -54,7 +54,8 @@ _DETAILED_HELP_TEXT = ("""
 <B>DESCRIPTION</B>
   The gsutil update command downloads the latest gsutil release, checks its
   version, and offers to let you update to it if it differs from the version
-  you're currently running.
+  you're currently running. Note that this functionality is not available if
+  you're using a gsutil installation from a package manager or the Cloud SDK.
 
   Once you say "Y" to the prompt of whether to install the update, the gsutil
   update command locates where the running copy of gsutil is installed,
@@ -315,14 +316,6 @@ class UpdateCommand(Command):
 
     if not no_prompt:
       CheckAndMaybePromptForAnalyticsEnabling()
-      if (2, 6) == sys.version_info[:2]:
-        print('\n'.join(textwrap.wrap(
-            'WARNING: You are using Python 2.6, which gsutil will stop '
-            'supporting on September 1, 2016. If run gsutil update to a '
-            'version released after that date, you will need to upgrade your '
-            'system\'s Python installation to a supported Python version '
-            '(at the time of this writing, version 2.7), or else gsutil will '
-            'fail.\n')))
       (_, major) = CompareVersions(tarball_version, gslib.VERSION)
       if major:
         print('\n'.join(textwrap.wrap(

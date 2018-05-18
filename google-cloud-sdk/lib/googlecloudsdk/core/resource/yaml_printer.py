@@ -14,8 +14,15 @@
 
 """YAML format printer."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core.resource import resource_printer_base
 from googlecloudsdk.core.resource import resource_transform
+
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class YamlPrinter(resource_printer_base.ResourcePrinter):
@@ -49,7 +56,7 @@ class YamlPrinter(resource_printer_base.ResourcePrinter):
   def __init__(self, *args, **kwargs):
     super(YamlPrinter, self).__init__(*args, retain_none_values=True, **kwargs)
     # pylint:disable=g-import-not-at-top, Delay import for performance.
-    import yaml
+    from ruamel import yaml
     self._yaml = yaml
     null = self.attributes.get('null')
 
@@ -86,7 +93,7 @@ class YamlPrinter(resource_printer_base.ResourcePrinter):
                                _NullPresenter,
                                Dumper=yaml.dumper.SafeDumper)
 
-  class _LiteralLines(unicode):
+  class _LiteralLines(six.text_type):
     """A yaml representer hook for literal strings containing newlines."""
 
   def _UpdateTypesForOutput(self, val):
@@ -98,7 +105,7 @@ class YamlPrinter(resource_printer_base.ResourcePrinter):
     Returns:
       An updated version of val.
     """
-    if isinstance(val, basestring) and '\n' in val:
+    if isinstance(val, six.string_types) and '\n' in val:
       return YamlPrinter._LiteralLines(val)
     if isinstance(val, list):
       for i in range(len(val)):
@@ -123,4 +130,10 @@ class YamlPrinter(resource_printer_base.ResourcePrinter):
         stream=self._out,
         default_flow_style=False,
         indent=resource_printer_base.STRUCTURED_INDENTATION,
-        explicit_start=delimit)
+        explicit_start=delimit,
+        # By default, the yaml module uses encoding=None on Py3 and
+        # encoding=utf8 on Py2. This is probably so you can write it directly to
+        # stdout and have it work, but since we put everything through the log
+        # module that handles the encoding there, we want to maintain everything
+        # as unicode strings here.
+        encoding=None)

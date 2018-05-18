@@ -13,11 +13,11 @@
 # limitations under the License.
 """bigtable instances delete command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.bigtable import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.bigtable import arguments
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
 from googlecloudsdk.core.console import console_io
 
 
@@ -28,6 +28,7 @@ class DeleteInstance(base.DeleteCommand):
   def Args(parser):
     """Register flags for this command."""
     arguments.ArgAdder(parser).AddInstance(multiple=True)
+    parser.display_info.AddCacheUpdater(arguments.InstanceCompleter)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -46,12 +47,7 @@ class DeleteInstance(base.DeleteCommand):
           message='Delete instance {}. Are you sure?'.format(instance))
 
       if should_continue:
-        ref = resources.REGISTRY.Parse(
-            instance,
-            params={
-                'projectsId': properties.VALUES.core.project.GetOrFail,
-            },
-            collection='bigtableadmin.projects.instances')
+        ref = util.GetInstanceRef(instance)
         msg = msgs.BigtableadminProjectsInstancesDeleteRequest(
             name=ref.RelativeName())
         cli.projects_instances.Delete(msg)

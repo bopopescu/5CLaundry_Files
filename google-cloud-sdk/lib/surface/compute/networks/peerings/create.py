@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for creating network peerings."""
-from apitools.base.py import encoding
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
-from googlecloudsdk.api_lib.compute import networks_utils
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
@@ -78,7 +78,5 @@ class Create(base.Command):
             peerNetwork=peer_network_ref.RelativeName()),
         project=properties.VALUES.core.project.GetOrFail())
 
-    response = client.MakeRequests([(client.apitools_client.networks,
-                                     'AddPeering', request)])
-
-    return networks_utils.AddMode([encoding.MessageToDict(m) for m in response])
+    return client.MakeRequests([(client.apitools_client.networks, 'AddPeering',
+                                 request)])

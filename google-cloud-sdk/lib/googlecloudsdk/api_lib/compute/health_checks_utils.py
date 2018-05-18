@@ -13,8 +13,13 @@
 # limitations under the License.
 """Code that's shared between multiple health-checks subcommands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import arg_parsers
+from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.util.apis import arg_utils
 
 
 THRESHOLD_UPPER_BOUND = 10
@@ -34,9 +39,9 @@ def AddProtocolAgnosticCreationArgs(parser, protocol_string):
       default='5s',
       help="""\
       How often to perform a health check for an instance. For example,
-      specifying ``10s'' will run the check every 10 seconds. Valid units
-      for this flag are ``s'' for seconds and ``m'' for minutes.
-      The default value is ``5s''.
+      specifying ``10s'' will run the check every 10 seconds. The default
+      value is ``5s''.
+      See $ gcloud topic datetimes for information on duration formats.
        """)
 
   parser.add_argument(
@@ -48,8 +53,8 @@ def AddProtocolAgnosticCreationArgs(parser, protocol_string):
       instance by the time specified by the value of this flag, the health
       check request is considered a failure. For example, specifying ``10s''
       will cause the check to wait for 10 seconds before considering the
-      request a failure.  Valid units for this flag are ``s'' for seconds and
-      ``m'' for minutes.  The default value is ``5s''.
+      request a failure. The default value is ``5s''.
+      See $ gcloud topic datetimes for information on duration formats.
       """)
 
   parser.add_argument(
@@ -86,8 +91,8 @@ def AddProtocolAgnosticUpdateArgs(parser, protocol_string):
       type=arg_parsers.Duration(),
       help="""\
       How often to perform a health check for an instance. For example,
-      specifying ``10s'' will run the check every 10 seconds. Valid units
-      for this flag are ``s'' for seconds and ``m'' for minutes.
+      specifying ``10s'' will run the check every 10 seconds.
+      See $ gcloud topic datetimes for information on duration formats.
       """)
 
   parser.add_argument(
@@ -98,8 +103,8 @@ def AddProtocolAgnosticUpdateArgs(parser, protocol_string):
       instance by the time specified by the value of this flag, the health
       check request is considered a failure. For example, specifying ``10s''
       will cause the check to wait for 10 seconds before considering the
-      request a failure.  Valid units for this flag are ``s'' for seconds and
-      ``m'' for minutes.
+      request a failure.
+      See $ gcloud topic datetimes for information on duration formats.
       """)
 
   parser.add_argument(
@@ -369,3 +374,56 @@ def CheckProtocolAgnosticArgs(args):
         'inclusive; received [{2}].'.format(THRESHOLD_LOWER_BOUND,
                                             THRESHOLD_UPPER_BOUND,
                                             args.unhealthy_threshold))
+
+
+def AddPortSpecificationFlag(parser):
+  """Adds parser argument for specfiying proxy specification."""
+  choices = {
+      'use-fixed-port': '--port is used for health checking.',
+      'use-named-port': '--port-name is used for health checking.',
+      'use-serving-port': """\
+          For NetworkEndpointGroup, the port specified for each
+          network endpoint is used for health checking. For other backends, the
+          port or named port specified in the Backend Service is used for health
+          checking.
+          """
+  }
+
+  base.ChoiceArgument(
+      '--port-specification',
+      choices=choices,
+      help_str="""\
+      Specifies how port is selected for health checking. If not specified,
+      HTTP2 health check follows behavior specified in --port and -port-name
+      fields.
+      """).AddToParser(parser)
+
+
+def _RaiseBadPortSpecificationError(invalid_flag, invalid_enum):
+  raise exceptions.InvalidArgumentException(
+      '--port-specification',
+      '{0} cannot be specified when using: {1}.'.format(
+          invalid_flag, invalid_enum))
+
+
+def ValidateAndAddPortSpecificationToHealthCheck(args, x_health_check):
+  """Modifies the health check as needed and adds port spec to the check."""
+  enum_class = type(x_health_check).PortSpecificationValueValuesEnum
+  if args.port_specification:
+    enum_value = arg_utils.ChoiceToEnum(args.port_specification, enum_class)
+    if enum_value == enum_class.USE_FIXED_PORT:
+      if args.IsSpecified('port_name'):
+        _RaiseBadPortSpecificationError('--port-name', 'USE_FIXED_PORT')
+    if enum_value == enum_class.USE_NAMED_PORT:
+      if args.IsSpecified('port'):
+        _RaiseBadPortSpecificationError('--port', 'USE_NAMED_PORT')
+      # TODO(b/77489293): Stop overriding default values here.
+      x_health_check.port = None
+    if enum_value == enum_class.USE_SERVING_PORT:
+      if args.IsSpecified('port_name'):
+        _RaiseBadPortSpecificationError('--port-name', 'USE_SERVING_PORT')
+      if args.IsSpecified('port'):
+        _RaiseBadPortSpecificationError('--port', 'USE_SERVING_PORT')
+      # TODO(b/77489293): Stop overriding default values here.
+      x_health_check.port = None
+    x_health_check.portSpecification = enum_value

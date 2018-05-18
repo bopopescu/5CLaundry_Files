@@ -14,10 +14,12 @@
 
 """The command to list installed/available gcloud components."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.components import util
 from googlecloudsdk.core import log
-from googlecloudsdk.core.resource import resource_printer_base
 
 
 class List(base.ListCommand):
@@ -56,6 +58,11 @@ class List(base.ListCommand):
     base.PAGE_SIZE_FLAG.RemoveFromParser(parser)
     base.URI_FLAG.RemoveFromParser(parser)
     parser.add_argument(
+        '--only-local-state',
+        action='store_true',
+        help='Only show locally installed components.',
+    )
+    parser.add_argument(
         '--show-versions', required=False, action='store_true',
         help='Show installed and available versions of all components.')
     parser.add_argument(
@@ -64,15 +71,13 @@ class List(base.ListCommand):
         hidden=True,
     )
 
-  def DeprecatedFormat(self, args):
+  def _SetFormat(self, args):
     attributes = [
         'box',
         'title="Components"'
         ]
-    columns = [
-        'state.name:label=Status',
-        'name:label=Name',
-        ]
+    columns = [] if args.only_local_state else ['state.name:label=Status']
+    columns.append('name:label=Name')
     if args.show_versions:
       columns.extend([
           'current_version_string:label=Installed:align=right',
@@ -82,30 +87,29 @@ class List(base.ListCommand):
         'id:label=ID',
         'size.size(zero="",min=1048576):label=Size:align=right',
         ])
-    return 'table[{attributes}]({columns})'.format(
-        attributes=','.join(attributes), columns=','.join(columns))
+    args.GetDisplayInfo().AddFormat('table[{attributes}]({columns})'.format(
+        attributes=','.join(attributes), columns=','.join(columns)))
 
   def Run(self, args):
     """Runs the list command."""
+    self._SetFormat(args)
     update_manager = util.GetUpdateManager(args)
-    result = update_manager.List(show_hidden=args.show_hidden)
+    result = update_manager.List(show_hidden=args.show_hidden,
+                                 only_local_state=args.only_local_state)
     (to_print, self._current_version, self._latest_version) = result
-    if not to_print:
-      raise StopIteration
-
-    for c in to_print:
-      yield c
-    yield resource_printer_base.FinishMarker()
+    return to_print
 
   def Epilog(self, resources_were_displayed):
     if not resources_were_displayed:
       log.status.write('\nNo updates.')
+    latest_version_string = ('' if self._latest_version is None
+                             else ' [{}]'.format(self._latest_version))
     log.status.write("""\
 To install or remove components at your current SDK version [{current}], run:
   $ gcloud components install COMPONENT_ID
   $ gcloud components remove COMPONENT_ID
 
-To update your SDK installation to the latest version [{latest}], run:
+To update your SDK installation to the latest version{latest}, run:
   $ gcloud components update
 
-""".format(current=self._current_version, latest=self._latest_version))
+""".format(current=self._current_version, latest=latest_version_string))

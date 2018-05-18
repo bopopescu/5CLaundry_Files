@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This package facilitates HTTP/REST requests to the registry."""
 
 
@@ -51,28 +50,27 @@ class Diagnostic(object):
     self._error = error
 
   def __eq__(self, other):
-    return (self.code == other.code and
-            self.message == other.message and
+    return (self.code == other.code and self.message == other.message and
             self.detail == other.detail)
 
   @property
   def code(self):
-    return self._error.get('code')
+    return self._error.get('code', 'UNKNOWN')
 
   @property
   def message(self):
-    return self._error.get('message')
+    return self._error.get('message', '<no message specified>')
 
   @property
   def detail(self):
-    return self._error.get('detail')
+    return self._error.get('detail', '<no details provided>')
 
 
 def _DiagnosticsFromContent(content):
   try:
     o = json.loads(content)
     return [Diagnostic(d) for d in o.get('errors', [])]
-  except:
+  except:  # pylint: disable=bare-except
     return [Diagnostic({
         'code': 'UNKNOWN',
         'message': content,
@@ -82,14 +80,12 @@ def _DiagnosticsFromContent(content):
 class V2DiagnosticException(Exception):
   """Exceptions when an unexpected HTTP status is returned."""
 
-  def __init__(
-      self,
-      resp,
-      content):
+  def __init__(self, resp, content):
     self._resp = resp
     self._diagnostics = _DiagnosticsFromContent(content)
-    message = '\n'.join(['response: %s' % resp] + [
-        '%s: %s' % (d.message, d.detail) for d in self._diagnostics])
+    message = '\n'.join(
+        ['response: %s' % resp] +
+        ['%s: %s' % (d.message, d.detail) for d in self._diagnostics])
     super(V2DiagnosticException, self).__init__(message)
 
   @property
@@ -109,7 +105,11 @@ class BadStateException(Exception):
   """Exceptions when we have entered an unexpected state."""
 
 
-def _CheckState(predicate, message=None):
+class TokenRefreshException(BadStateException):
+  """Exception when token refresh fails."""
+
+
+def _CheckState(predicate, message = None):
   if not predicate:
     raise BadStateException(message if message else 'Unknown')
 
@@ -146,12 +146,9 @@ class Transport(object):
      action: One of docker_http.ACTIONS, for which we plan to use this transport
   """
 
-  def __init__(
-      self,
-      name,
-      creds,
-      transport,
-      action):
+  def __init__(self, name,
+               creds,
+               transport, action):
     self._name = name
     self._basic_creds = creds
     self._transport = transport
@@ -184,16 +181,17 @@ class Transport(object):
         'content-type': 'application/json',
         'user-agent': docker_name.USER_AGENT,
     }
-    resp, unused_content = self._transport.request(
-        '{scheme}://{registry}/v2/'.format(scheme=Scheme(self._name.registry),
-                                           registry=self._name.registry),
+    resp, content = self._transport.request(
+        '{scheme}://{registry}/v2/'.format(
+            scheme=Scheme(self._name.registry), registry=self._name.registry),
         'GET',
         body=None,
         headers=headers)
 
     # We expect a www-authenticate challenge.
     _CheckState(resp.status in [httplib.OK, httplib.UNAUTHORIZED],
-                'Unexpected status: %d' % resp.status)
+                'Unexpected response pinging the registry: {}\nBody: {}'.format(
+                    resp.status, content or '<empty>'))
 
     # The registry is authenticated iff we have an authentication challenge.
     if resp.status == httplib.OK:
@@ -208,9 +206,14 @@ class Transport(object):
 
     (self._authentication, remainder) = challenge.split(' ', 1)
 
+    # Normalize the authentication scheme to have exactly the first letter
+    # capitalized. Scheme matching is required to be case insensitive:
+    # https://tools.ietf.org/html/rfc7235#section-2.1
+    self._authentication = self._authentication.capitalize()
+
     _CheckState(self._authentication in [_BASIC, _BEARER],
-                'Unexpected "www-authenticate" challenge type: %s'
-                % self._authentication)
+                'Unexpected "www-authenticate" challenge type: %s' %
+                self._authentication)
 
     # Default "_service" to the registry
     self._service = self._name.registry
@@ -240,6 +243,9 @@ class Transport(object):
     This is generally called under two circumstances:
       1) When the transport is created (eagerly)
       2) When a request fails on a 401 Unauthorized
+
+    Raises:
+      TokenRefreshException: Error during token exchange.
     """
     headers = {
         'content-type': 'application/json',
@@ -253,31 +259,32 @@ class Transport(object):
     resp, content = self._transport.request(
         # 'realm' includes scheme and path
         '{realm}?{query}'.format(
-            realm=self._realm,
-            query=urllib.urlencode(parameters)),
-        'GET', body=None, headers=headers)
+            realm=self._realm, query=urllib.urlencode(parameters)),
+        'GET',
+        body=None,
+        headers=headers)
 
-    _CheckState(resp.status == httplib.OK,
-                'Bad status during token exchange: %d\n%s' % (
-                    resp.status, content))
+    if resp.status != httplib.OK:
+      raise TokenRefreshException('Bad status during token exchange: %d\n%s' %
+                                  (resp.status, content))
 
     wrapper_object = json.loads(content)
-    _CheckState('token' in wrapper_object,
+    token = wrapper_object.get('token') or wrapper_object.get('access_token')
+    _CheckState(token is not None,
                 'Malformed JSON response: %s' % content)
 
     with self._lock:
       # We have successfully reauthenticated.
-      self._creds = v2_creds.Bearer(wrapper_object['token'])
+      self._creds = v2_creds.Bearer(token)
 
   # pylint: disable=invalid-name
-  def Request(
-      self,
-      url,
-      accepted_codes=None,
-      method=None,
-      body=None,
-      content_type=None
-  ):
+  def Request(self,
+              url,
+              accepted_codes = None,
+              method = None,
+              body = None,
+              content_type = None
+             ):
     """Wrapper containing much of the boilerplate REST logic for Registry calls.
 
     Args:
@@ -291,7 +298,7 @@ class Transport(object):
 
     Raises:
       BadStateException: an unexpected internal state has been encountered.
-      V2DiagnosticException: an error has occured interacting with v2.
+      V2DiagnosticException: an error has occurred interacting with v2.
 
     Returns:
       The response of the HTTP request, and its contents.
@@ -312,8 +319,8 @@ class Transport(object):
         headers['Authorization'] = auth
 
       if body:  # Requests w/ bodies should have content-type.
-        headers['content-type'] = (content_type if content_type else
-                                   'application/json')
+        headers['content-type'] = (
+            content_type if content_type else 'application/json')
 
       # POST/PUT require a content-length, when no body is supplied.
       if method in ('POST', 'PUT') and not body:
@@ -334,14 +341,13 @@ class Transport(object):
 
     return resp, content
 
-  def PaginatedRequest(
-      self,
-      url,
-      accepted_codes=None,
-      method=None,
-      body=None,
-      content_type=None
-  ):
+  def PaginatedRequest(self,
+                       url,
+                       accepted_codes = None,
+                       method = None,
+                       body = None,
+                       content_type = None
+                      ):
     """Wrapper around Request that follows Link headers if they exist.
 
     Args:
@@ -358,16 +364,14 @@ class Transport(object):
     next_page = url
 
     while next_page:
-      resp, content = self.Request(next_page, accepted_codes, method,
-                                   body, content_type)
-      yield resp, content
+      resp, content = self.Request(next_page, accepted_codes, method, body,
+                                   content_type)
+      yield resp, content  # pytype: disable=bad-return-type
 
       next_page = ParseNextLinkHeader(resp)
 
 
-def ParseNextLinkHeader(
-    resp
-):
+def ParseNextLinkHeader(resp):
   """Returns "next" link from RFC 5988 Link header or None if not present."""
   link = resp.get('link')
   if not link:
@@ -383,6 +387,8 @@ def ParseNextLinkHeader(
 def Scheme(endpoint):
   """Returns https scheme for all the endpoints except localhost."""
   if endpoint.startswith('localhost:'):
+    return 'http'
+  elif re.match(r'.*\.local(?:host)?(?::\d{1,5})?$', endpoint):
     return 'http'
   else:
     return 'https'

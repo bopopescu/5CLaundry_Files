@@ -18,10 +18,14 @@ This should only be called by api_lib.util.apis, core.resources, gcloud meta
 commands, and module tests.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.util import apis_util
 from googlecloudsdk.api_lib.util import resource as resource_util
 from googlecloudsdk.core import properties
 from googlecloudsdk.third_party.apis import apis_map
+
+import six
 
 
 def _GetApiNameAndAlias(api_name):
@@ -32,7 +36,7 @@ def _GetApiNameAndAlias(api_name):
 def _GetDefaultVersion(api_name):
   api_name, _ = _GetApiNameAndAlias(api_name)
   api_vers = apis_map.MAP.get(api_name, {})
-  for ver, api_def in api_vers.iteritems():
+  for ver, api_def in six.iteritems(api_vers):
     if api_def.default_version:
       return ver
   return None
@@ -59,7 +63,7 @@ def _GetVersions(api_name):
   version_map = apis_map.MAP.get(api_name, None)
   if version_map is None:
     raise apis_util.UnknownAPIError(api_name)
-  return version_map.keys()
+  return list(version_map.keys())
 
 
 def _GetApiDef(api_name, api_version):
@@ -123,7 +127,7 @@ def _GetClientClassFromDef(api_def):
 
 
 def _GetClientInstance(api_name, api_version, no_http=False,
-                       check_response_func=None, disable_resource_quota=False):
+                       check_response_func=None, enable_resource_quota=True):
   """Returns an instance of the API client specified in the args.
 
   Args:
@@ -131,14 +135,17 @@ def _GetClientInstance(api_name, api_version, no_http=False,
     api_version: str, The version of the API.
     no_http: bool, True to not create an http object for this client.
     check_response_func: error handling callback to give to apitools.
-    disable_resource_quota: bool, By default, we are going to tell APIs to use
+    enable_resource_quota: bool, By default, we are going to tell APIs to use
       the quota of the project being operated on. For some APIs we want to use
       gcloud's quota, so you can explicitly disable that behavior by passing
-      True here.
+      False here.
 
   Returns:
     base_api.BaseApiClient, An instance of the specified API client.
   """
+  # TODO(b/77278279): Decide whether we should always set this or not.
+  encoding = None if six.PY2 else 'utf8'
+
   # pylint: disable=g-import-not-at-top
   if no_http:
     http_client = None
@@ -146,7 +153,8 @@ def _GetClientInstance(api_name, api_version, no_http=False,
     # Import http only when needed, as it depends on credential infrastructure
     # which is not needed in all cases.
     from googlecloudsdk.core.credentials import http
-    http_client = http.Http(disable_resource_quota=disable_resource_quota)
+    http_client = http.Http(enable_resource_quota=enable_resource_quota,
+                            response_encoding=encoding)
 
   client_class = _GetClientClass(api_name, api_version)
   client_instance = client_class(
@@ -176,7 +184,7 @@ def _GetEffectiveApiEndpoint(api_name, api_version, client_class=None):
 def _GetDefaultEndpointUrl(url):
   """Looks up default endpoint based on overridden endpoint value."""
   endpoint_overrides = properties.VALUES.api_endpoint_overrides.AllValues()
-  for api_name, overridden_url in endpoint_overrides.iteritems():
+  for api_name, overridden_url in six.iteritems(endpoint_overrides):
     if url.startswith(overridden_url):
       api_version = _GetDefaultVersion(api_name)
       return (_GetClientClass(api_name, api_version).BASE_URL +
@@ -223,7 +231,10 @@ def _GetApiCollections(api_name, api_version):
           api_name,
           api_version,
           resources_module.BASE_URL,
+          resources_module.DOCS_URL,
           collection.collection_name,
           collection.path,
           collection.flat_paths,
-          collection.params)
+          collection.params,
+          collection.enable_uri_parsing,
+      )

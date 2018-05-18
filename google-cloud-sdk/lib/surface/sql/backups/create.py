@@ -42,6 +42,7 @@ class CreateBackup(base.CreateCommand):
         '--async',
         action='store_true',
         help='Do not wait for the operation to complete.')
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     """Restores a backup of a Cloud SQL instance.
@@ -53,11 +54,6 @@ class CreateBackup(base.CreateCommand):
     Returns:
       A dict object representing the operations resource describing the
       restoreBackup operation if the restoreBackup was successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
 
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)

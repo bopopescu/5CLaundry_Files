@@ -17,43 +17,85 @@
 
 from collections import namedtuple
 import copy
+import hashlib
 import os
+
+import six
 
 
 _OverridesT = namedtuple('OverridesT', [
-    'layers', 'entrypoint', 'cmd', 'env', 'labels', 'ports',
-    'volumes', 'workdir', 'user', 'author', 'created_by'
+    'layers', 'entrypoint', 'cmd', 'env', 'labels', 'ports', 'volumes',
+    'workdir', 'user', 'author', 'created_by', 'creation_time'
 ])
+
+# Unix epoch 0, representable in 32 bits.
+_DEFAULT_TIMESTAMP = '1970-01-01T00:00:00Z'
+
+_EMPTY_LAYER = hashlib.sha256(''.encode('utf-8')).hexdigest()
 
 
 class Overrides(_OverridesT):
   """Docker image configuration options."""
 
-  def __new__(
-      cls,
-      layers=None,
-      entrypoint=None,
-      cmd=None,
-      user=None,
-      labels=None,
-      env=None,
-      ports=None,
-      volumes=None,
-      workdir=None,
-      author=None,
-      created_by=None):
+  def __new__(cls,
+              layers = None,
+              entrypoint = None,
+              cmd = None,
+              user = None,
+              labels = None,
+              env = None,
+              ports = None,
+              volumes = None,
+              workdir = None,
+              author = None,
+              created_by = None,
+              creation_time = None):
     """Constructor."""
     return super(Overrides, cls).__new__(
-        cls, layers=layers, entrypoint=entrypoint, cmd=cmd, user=user,
-        labels=labels, env=env, ports=ports, volumes=volumes, workdir=workdir,
-        author=author, created_by=created_by)
+        cls,
+        layers=layers,
+        entrypoint=entrypoint,
+        cmd=cmd,
+        user=user,
+        labels=labels,
+        env=env,
+        ports=ports,
+        volumes=volumes,
+        workdir=workdir,
+        author=author,
+        created_by=created_by,
+        creation_time=creation_time)
+
+  def Override(self,
+               layers = None,
+               entrypoint = None,
+               cmd = None,
+               user = None,
+               labels = None,
+               env = None,
+               ports = None,
+               volumes = None,
+               workdir = None,
+               author = None,
+               created_by = None,
+               creation_time = None):
+    return Overrides(
+        layers=layers or self.layers,
+        entrypoint=entrypoint or self.entrypoint,
+        cmd=cmd or self.cmd,
+        user=user or self.user,
+        labels=labels or self.labels,
+        env=env or self.env,
+        ports=ports or self.ports,
+        volumes=volumes or self.volumes,
+        workdir=workdir or self.workdir,
+        author=author or self.author,
+        created_by=created_by or self.created_by,
+        creation_time=creation_time or self.creation_time)
 
 
 # NOT THREADSAFE
-def _Resolve(
-    value,
-    environment
-):
+def _Resolve(value, environment):
   """Resolves environment variables embedded in the given value."""
   outer_env = os.environ
   try:
@@ -64,19 +106,16 @@ def _Resolve(
 
 
 # TODO(user): Use a typing.Generic?
-def _DeepCopySkipNull(
-    data
-):
+def _DeepCopySkipNull(data):
   """Do a deep copy, skipping null entry."""
   if isinstance(data, dict):
     return dict((_DeepCopySkipNull(k), _DeepCopySkipNull(v))
-                for k, v in data.iteritems() if v is not None)
+                for k, v in six.iteritems(data)
+                if v is not None)
   return copy.deepcopy(data)
 
 
-def _KeyValueToDict(
-    pair
-):
+def _KeyValueToDict(pair):
   """Converts an iterable object of key=value pairs to dictionary."""
   d = dict()
   for kv in pair:
@@ -85,18 +124,14 @@ def _KeyValueToDict(
   return d
 
 
-def _DictToKeyValue(
-    d
-):
+def _DictToKeyValue(d):
   return ['%s=%s' % (k, d[k]) for k in sorted(d.keys())]
 
 
-def Override(
-    data,
-    options,
-    architecture='amd64',
-    operating_system='linux'
-):
+def Override(data,
+             options,
+             architecture = 'amd64',
+             operating_system = 'linux'):
   """Create an image config possibly based on an existing one.
 
   Args:
@@ -113,7 +148,7 @@ def Override(
 
   # dont propagate non-spec keys
   output = dict()
-  output['created'] = '0001-01-01T00:00:00Z'
+  output['created'] = options.creation_time or _DEFAULT_TIMESTAMP
   output['author'] = options.author or 'Unknown'
   output['architecture'] = architecture
   output['os'] = operating_system
@@ -139,10 +174,10 @@ def Override(
 
   # TODO(user) Label is currently docker specific
   if options.labels:
-    label_dict = _KeyValueToDict(output['config'].get('Label', []))
+    label_dict = output['config'].get('Labels', {})
     for k, v in options.labels.iteritems():
       label_dict[k] = v
-    output['config']['Label'] = _DictToKeyValue(label_dict)
+    output['config']['Labels'] = label_dict
 
   if options.ports:
     if 'ExposedPorts' not in output['config']:
@@ -168,20 +203,25 @@ def Override(
 
   # diff_ids are ordered from bottom-most to top-most
   diff_ids = defaults.get('rootfs', {}).get('diff_ids', [])
-  layers = options.layers if options.layers else []
-  diff_ids += ['sha256:%s' % l for l in layers]
-  output['rootfs'] = {
-      'type': 'layers',
-      'diff_ids': diff_ids,
-  }
+  if options.layers:
+    layers = options.layers
+    diff_ids += ['sha256:%s' % l for l in layers if l != _EMPTY_LAYER]
+    output['rootfs'] = {
+        'type': 'layers',
+        'diff_ids': diff_ids,
+    }
 
-  # history is ordered from bottom-most layer to top-most layer
-  history = defaults.get('history', [])
-  # docker only allows the child to have one more history entry than the parent
-  history += [{
-      'created': '0001-01-01T00:00:00Z',
-      'created_by': options.created_by or 'Unknown',
-      'author': options.author or 'Unknown'}]
-  output['history'] = history
+    # The length of history is expected to match the length of diff_ids.
+    history = defaults.get('history', [])
+    for l in layers:
+      cfg = {
+          'created': options.creation_time or _DEFAULT_TIMESTAMP,
+          'created_by': options.created_by or 'Unknown',
+          'author': options.author or 'Unknown'
+      }
+      if l == _EMPTY_LAYER:
+        cfg['empty_layer'] = True
+      history.insert(0, cfg)
+    output['history'] = history
 
   return output

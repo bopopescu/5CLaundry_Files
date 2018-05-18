@@ -13,7 +13,12 @@
 # limitations under the License.
 """Common classes and functions for routers."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import operator
+
+from six.moves import map  # pylint: disable=redefined-builtin
 
 
 def ParseMode(resource_class, mode):
@@ -21,11 +26,12 @@ def ParseMode(resource_class, mode):
 
 
 def ParseGroups(resource_class, groups):
-  return map(resource_class.AdvertisedGroupsValueListEntryValuesEnum, groups)
+  return list(
+      map(resource_class.AdvertisedGroupsValueListEntryValuesEnum, groups))
 
 
 def ParseIpRanges(messages, ip_ranges):
-  """Parse a dict of IP ranges into AdvertisedPrefix objects.
+  """Parse a dict of IP ranges into AdvertisedIpRange objects.
 
   Args:
     messages: API messages holder.
@@ -34,13 +40,13 @@ def ParseIpRanges(messages, ip_ranges):
                text label.
 
   Returns:
-    A list of AdvertisedPrefix objects containing the specified IP ranges.
+    A list of AdvertisedIpRange objects containing the specified IP ranges.
   """
-  prefixes = [
-      messages.RouterAdvertisedPrefix(prefix=ip_range, description=description)
+  ranges = [
+      messages.RouterAdvertisedIpRange(range=ip_range, description=description)
       for ip_range, description in ip_ranges.items()
   ]
   # Sort the resulting list so that requests have a deterministic ordering
   # for test validations and user output.
-  prefixes.sort(key=operator.attrgetter('prefix', 'description'))
-  return prefixes
+  ranges.sort(key=operator.attrgetter('range', 'description'))
+  return ranges

@@ -37,6 +37,7 @@ class Delete(base.DeleteCommand):
     flags.AddUsername(parser)
     flags.AddHost(parser)
     base.ASYNC_FLAG.AddToParser(parser)
+    parser.display_info.AddCacheUpdater(flags.UserCompleter)
 
   def Run(self, args):
     """Lists Cloud SQL users in a given instance.
@@ -47,11 +48,6 @@ class Delete(base.DeleteCommand):
 
     Returns:
       SQL user resource iterator.
-    Raises:
-      HttpException: An http error response was received while executing api
-          request.
-      ToolException: An error other than an http error occured while executing
-          the command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client

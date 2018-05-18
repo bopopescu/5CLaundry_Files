@@ -13,9 +13,15 @@
 # limitations under the License.
 """The main command group for bigtable."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA)
 class BigtableV2(base.Group):
   """Manage your Cloud Bigtable storage."""
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

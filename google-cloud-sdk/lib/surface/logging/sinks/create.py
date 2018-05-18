@@ -32,7 +32,7 @@ class Create(base.CreateCommand):
   The destination must already exist and Stackdriver Logging must have
   permission to write to it.
   Log entries are exported as soon as the sink is created.
-  See https://cloud.google.com/logging/docs/export/configure_export_v2#destination_authorization
+  See https://cloud.google.com/logging/docs/export/configure_export_v2#dest-auth.
 
   ## EXAMPLES
 
@@ -69,6 +69,7 @@ class Create(base.CreateCommand):
         help=('Whether to export logs from all child projects and folders. '
               'Only applies to sinks for organizations and folders.'))
     util.AddNonProjectArgs(parser, 'Create a sink')
+    parser.display_info.AddCacheUpdater(None)
 
   def CreateSink(self, parent, sink_data):
     """Creates a v2 sink specified by the arguments."""
@@ -94,8 +95,8 @@ class Create(base.CreateCommand):
           'Sink with empty filter matches all entries.', cancel_on_no=True)
 
     if args.include_children and not (args.organization or args.folder):
-      log.warn('include-children only has an effect for sinks at the folder '
-               'or organization level')
+      log.warning('include-children only has an effect for sinks at the folder '
+                  'or organization level')
 
     sink_ref = util.GetSinkReference(args.sink_name, args)
 

@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for updating networks."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute.networks import flags
@@ -20,8 +22,7 @@ from googlecloudsdk.command_lib.compute.networks import network_utils
 from googlecloudsdk.core.console import console_io
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class UpdateAlpha(base.UpdateCommand):
+class Update(base.UpdateCommand):
   """Update a Google Compute Engine Network."""
 
   NETWORK_ARG = None
@@ -30,7 +31,7 @@ class UpdateAlpha(base.UpdateCommand):
   def Args(cls, parser):
     cls.NETWORK_ARG = flags.NetworkArgument()
     cls.NETWORK_ARG.AddArgument(parser)
-    network_utils.AddUpdateAlphaArgs(parser)
+    network_utils.AddUpdateArgs(parser)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
@@ -42,8 +43,8 @@ class UpdateAlpha(base.UpdateCommand):
     if args.switch_to_custom_subnet_mode:
       prompt_msg = 'Network [{0}] will be switched to custom mode. '.format(
           network_ref.Name()) + 'This operation cannot be undone.'
-      if not console_io.PromptContinue(message=prompt_msg, default=True):
-        raise network_utils.CancelledException('Operation aborted by user.')
+      console_io.PromptContinue(
+          message=prompt_msg, default=True, cancel_on_no=True)
 
       resource = service.SwitchToCustomMode(
           messages.ComputeNetworksSwitchToCustomModeRequest(
@@ -55,7 +56,7 @@ class UpdateAlpha(base.UpdateCommand):
       network_resource.routingConfig = messages.NetworkRoutingConfig()
       network_resource.routingConfig.routingMode = (
           messages.NetworkRoutingConfig.RoutingModeValueValuesEnum(
-              args.bgp_routing_mode))
+              args.bgp_routing_mode.upper()))
 
       resource = service.Patch(
           messages.ComputeNetworksPatchRequest(
@@ -66,12 +67,11 @@ class UpdateAlpha(base.UpdateCommand):
     return resource
 
 
-UpdateAlpha.detailed_help = {
+Update.detailed_help = {
     'brief':
-        'Update a network',
+        'Update a Google Compute Engine network',
     'DESCRIPTION':
         """\
 
-        *{command}* is used to update virtual networks. TODO: list which fields
-        are allowed to be updated."""
+        *{command}* is used to update Google Compute Engine networks."""
 }

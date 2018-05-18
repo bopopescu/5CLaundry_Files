@@ -78,6 +78,9 @@ Example:
       ProcessMatchedResource(resource)
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import re
 
 from googlecloudsdk.core.resource import resource_exceptions
@@ -85,6 +88,8 @@ from googlecloudsdk.core.resource import resource_expr
 from googlecloudsdk.core.resource import resource_lex
 from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.resource import resource_property
+
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class _Parser(object):
@@ -262,7 +267,8 @@ class _Parser(object):
     try:
       key, transform = self._ParseKey()
       restriction = None
-    except resource_exceptions.ExpressionSyntaxError as syntax_error:
+    except resource_exceptions.ExpressionSyntaxError as e:
+      syntax_error = e
       # An invalid key could be a global restriction.
       self._lex.SetPosition(here)
       restriction = self._lex.Token(resource_lex.OPERATOR_CHARS, space=False)
@@ -283,6 +289,8 @@ class _Parser(object):
       elif restriction in ['AND', 'OR']:
         raise resource_exceptions.ExpressionSyntaxError(
             'Term expected [{0}].'.format(self._lex.Annotate()))
+      elif isinstance(syntax_error, resource_exceptions.UnknownTransformError):
+        raise syntax_error  # pylint: disable=raising-bad-type, previous line checked for valid type, just sayin
       else:
         # A global restriction on key.
         if not restriction:
@@ -442,7 +450,8 @@ class _Parser(object):
     tree = self._ParseAdjTerm()
     if tree:
       tree = self._ParseAdjTail(tree)
-    elif must:
+    # isinstance(self._backend, resource_expr_rewrite.Backend) => import loop
+    elif must and not hasattr(self._backend, 'Rewrite'):
       raise resource_exceptions.ExpressionSyntaxError(
           'Term expected [{0}].'.format(self._lex.Annotate()))
     return tree

@@ -21,7 +21,7 @@ from googlecloudsdk.core import resources
 from googlecloudsdk.core.util import platforms
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class Domains(base.Group):
   """Base class for gcloud domains command group."""
 
@@ -41,3 +41,7 @@ class Domains(base.Group):
             $ {command} list-user-verified
           """
   }
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

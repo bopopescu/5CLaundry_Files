@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Resize cluster command."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.container import flags
 from googlecloudsdk.core import log
@@ -49,7 +51,6 @@ class Resize(base.Command):
     adapter = self.context['api_adapter']
     location_get = self.context['location_get']
     location = location_get(args)
-
     cluster_ref = adapter.ParseCluster(args.name, location)
     cluster = adapter.GetCluster(cluster_ref)
     pool = adapter.FindNodePool(cluster, args.node_pool)
@@ -60,23 +61,19 @@ class Resize(base.Command):
                                        new_size=args.size),
         throw_if_unattended=True,
         cancel_on_no=True)
-    ops = []
-    for ig in pool.instanceGroupUrls:
-      igm = adapter.ParseIGM(ig)
-      op_ref = adapter.ResizeCluster(igm.project, igm.zone,
-                                     igm.instanceGroupManager, args.size)
-      ops.append(op_ref)
+    op_ref = adapter.ResizeNodePool(cluster_ref, pool.name, args.size)
 
     if not args.async:
-      adapter.WaitForComputeOperations(
-          cluster_ref.projectId, cluster.zone, [op.name for op in ops],
-          'Resizing {0}'.format(cluster_ref.clusterId))
+      adapter.WaitForOperation(op_ref,
+                               'Resizing {0}'.format(cluster_ref.clusterId))
     log.UpdatedResource(cluster_ref)
 
 
 Resize.detailed_help = {
-    'brief': 'Resizes an existing cluster for running containers.',
-    'DESCRIPTION': """
+    'brief':
+        'Resizes an existing cluster for running containers.',
+    'DESCRIPTION':
+        """
         Resize an existing cluster to a provided size.
 
 If you have multiple node pools, you must specify which node pool to resize by
@@ -89,10 +86,10 @@ Existing pods are not moved onto the new instances,
 but new pods (such as those created by resizing a replication controller)
 will be scheduled onto the new instances.
 
-When decreasing a cluster, the pods that are scheduled on the instances being
-removed will be killed. If your pods are being managed by a replication
-controller, the controller will attempt to reschedule them onto the remaining
-instances. If your pods are not managed by a replication controller,
+When decreasing a cluster, the nodes are drained. As a result, the pods running
+on these nodes are gracefully terminated. If your pods are being managed by a
+workload controller, the controller will attempt to reschedule them onto the
+remaining instances. If your pods are not managed by a workload controller,
 they will not be restarted.
 Note that when resizing down, instances running pods and instances without pods
 are not differentiated. Resize will pick instances to remove at random.

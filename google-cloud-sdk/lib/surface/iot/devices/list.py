@@ -11,24 +11,30 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command to list all devices in a project and location."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import devices
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.iot import flags
+from googlecloudsdk.command_lib.iot import resource_args
 from googlecloudsdk.command_lib.iot import util
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class List(base.ListCommand):
   """List devices."""
 
   @staticmethod
   def Args(parser):
-    parser.display_info.AddFormat('table(id, numId, enabledState)')
+    parser.display_info.AddFormat('table(id, numId, blocked)')
     parser.display_info.AddUriFunc(util.DevicesUriFunc)
 
-    flags.AddRegistryResourceFlags(parser, 'in which to show devices',
-                                   positional=False)
+    resource_args.AddRegistryResourceArg(parser, 'in which to show devices',
+                                         positional=False)
 
     base.Argument(
         '--device-ids',
@@ -47,13 +53,13 @@ class List(base.ListCommand):
     """Run the list command."""
     client = devices.DevicesClient()
 
-    registry_ref = util.ParseRegistry(args.registry, args.region)
+    registry_ref = args.CONCEPTS.registry.Parse()
 
     return client.List(
         registry_ref,
         device_ids=args.device_ids,
         device_num_ids=args.device_num_ids,
         field_mask=[
-            'devices.enabled_state',
-            'devices.name'],
+            'blocked',
+            'name'],
         limit=args.limit, page_size=args.page_size)

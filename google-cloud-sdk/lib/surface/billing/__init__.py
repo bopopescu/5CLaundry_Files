@@ -17,4 +17,22 @@ from googlecloudsdk.calliope import base
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class Billing(base.Group):
-  """Manage billing accounts and associate them with projects."""
+  """Manage billing accounts and associate them with projects.
+
+  Manage billing accounts and associate them with projects.
+
+  ## EXAMPLES
+
+  To list billing accounts associated with the current user, run:
+
+    $ {command} accounts list
+
+  To link one of the billing accounts `0X0X0X-0X0X0X-0X0X0X` with a project
+  `my-project`, run:
+
+    $ {command} projects link my-project --billing-account 0X0X0X-0X0X0X-0X0X0X
+  """
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

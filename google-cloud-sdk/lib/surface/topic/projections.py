@@ -14,6 +14,8 @@
 
 """Resource projections supplementary help."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core.resource import resource_topics
 
@@ -86,7 +88,9 @@ class Projections(base.TopicCommand):
 
   *sort*=_SORT-ORDER_::
   An integer counting from 1. Keys with lower sort-order are sorted
-  first. Keys with same sort order are sorted left to right.
+  first. Keys with same sort order are sorted left to right. Columns are
+  sorted based on displayed value alone, irrespective of the type of
+  value(date, time, etc.).
 
   *wrap*::
   Enables the column text to be wrapped if the table would otherwise

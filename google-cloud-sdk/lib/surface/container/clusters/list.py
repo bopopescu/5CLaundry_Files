@@ -14,13 +14,15 @@
 
 """List clusters command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
-from googlecloudsdk.api_lib.container import constants
 from googlecloudsdk.api_lib.container import transforms
 from googlecloudsdk.api_lib.container import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.container import constants
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from surface.container.clusters.upgrade import UpgradeHelpText
@@ -47,7 +49,6 @@ class List(base.ListCommand):
     adapter = self.context['api_adapter']
     location_get = self.context['location_get']
     location = location_get(args, ignore_property=True, required=False)
-
     project = properties.VALUES.core.project.Get(required=True)
 
     def sort_key(cluster):
@@ -67,11 +68,14 @@ class List(base.ListCommand):
       expiring = False
       self._upgrade_hint = ''
       self._expire_warning = ''
+      self._degraded_warning = ''
       vv = VersionVerifier()
       for c in clusters.clusters:
         time_left = transforms.ParseExpireTime(c.expireTime)
         if time_left and time_left.days < constants.EXPIRE_WARNING_DAYS:
           expiring = True
+        if adapter.IsDegraded(c):
+          self._degraded_warning = constants.DEGRADED_WARNING
         if c.enableKubernetesAlpha:
           # Don't print upgrade hints for alpha clusters, they aren't
           # upgradeable.
@@ -108,5 +112,6 @@ class List(base.ListCommand):
     if self._upgrade_hint:
       log.status.Print(self._upgrade_hint)
     if self._expire_warning:
-      log.warn(self._expire_warning)
-
+      log.warning(self._expire_warning)
+    if self._degraded_warning:
+      log.warning(self._degraded_warning)

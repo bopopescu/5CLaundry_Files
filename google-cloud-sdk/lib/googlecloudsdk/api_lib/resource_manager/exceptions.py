@@ -13,6 +13,8 @@
 # limitations under the License.
 """Wrapper for user-visible error exceptions to raise in the CLI."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.core import exceptions
 
 
@@ -22,3 +24,7 @@ class ResourceManagerError(exceptions.Error):
 
 class ResourceManagerInputFileError(ResourceManagerError):
   """More specific errors for failure to read input files."""
+
+
+class ArgumentError(ResourceManagerError):
+  """Command argument error."""

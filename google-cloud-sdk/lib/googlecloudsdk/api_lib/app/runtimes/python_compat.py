@@ -14,6 +14,7 @@
 
 """Fingerprinting code for the Python runtime."""
 
+from __future__ import absolute_import
 import os
 import textwrap
 
@@ -96,7 +97,7 @@ class PythonConfigurator(ext_runtime.Configurator):
         runtime = 'custom' if self.params.custom else self.runtime
         with open(app_yaml, 'w') as f:
           f.write(PYTHON_APP_YAML.format(runtime=runtime))
-        log.warn(APP_YAML_WARNING)
+        log.warning(APP_YAML_WARNING)
         return True
     return False
 

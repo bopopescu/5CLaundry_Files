@@ -14,10 +14,15 @@
 
 """Command to list named configuration."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.configurations import named_configs
 from googlecloudsdk.core.configurations import properties_file
+
+import six
 
 
 class List(base.ListCommand):
@@ -41,10 +46,18 @@ class List(base.ListCommand):
   def Args(parser):
     base.PAGE_SIZE_FLAG.RemoveFromParser(parser)
     base.URI_FLAG.RemoveFromParser(parser)
+    parser.display_info.AddFormat("""table(
+        name,
+        is_active,
+        properties.core.account,
+        properties.core.project,
+        properties.compute.zone:label=DEFAULT_ZONE,
+        properties.compute.region:label=DEFAULT_REGION)
+    """)
 
   def Run(self, args):
     configs = named_configs.ConfigurationStore.AllConfigs()
-    for _, config in sorted(configs.iteritems()):
+    for _, config in sorted(six.iteritems(configs)):
       props = properties.VALUES.AllValues(
           list_unset=True,
           properties_file=properties_file.PropertiesFile([config.file_path]),
@@ -54,12 +67,3 @@ class List(base.ListCommand):
           'is_active': config.is_active,
           'properties': props,
       }
-
-  def DeprecatedFormat(self, args):
-    return ('table('
-            'name,'
-            'is_active,'
-            'properties.core.account,'
-            'properties.core.project,'
-            'properties.compute.zone:label=DEFAULT_ZONE,'
-            'properties.compute.region:label=DEFAULT_REGION)')

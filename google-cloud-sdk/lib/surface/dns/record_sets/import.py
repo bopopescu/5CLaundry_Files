@@ -13,7 +13,9 @@
 # limitations under the License.
 """gcloud dns record-sets import command."""
 
+import io
 import os
+
 from apitools.base.py import exceptions as apitools_exceptions
 from apitools.base.py import list_pager
 from googlecloudsdk.api_lib.dns import import_util
@@ -64,7 +66,8 @@ class Import(base.Command):
         '--zone-file-format',
         required=False,
         action='store_true',
-        help='Indicates that the records-file is in the zone file format.')
+        help=('Indicates that the input records-file is in BIND zone format. '
+              'If omitted, indicates that the records-file is in YAML format.'))
     parser.add_argument(
         '--delete-all-existing',
         required=False,
@@ -84,7 +87,7 @@ class Import(base.Command):
     # If in the future there are differences between API version, do NOT use
     # this patter of checking ReleaseTrack. Break this into multiple classes.
     if self.ReleaseTrack() == base.ReleaseTrack.BETA:
-      api_version = 'v2beta1'
+      api_version = 'v1beta2'
 
     if not os.path.exists(args.records_file):
       raise exceptions.ToolException(
@@ -123,7 +126,7 @@ class Import(base.Command):
 
     # Get the imported record-sets.
     try:
-      with open(args.records_file) as import_file:
+      with io.open(args.records_file, 'rt') as import_file:
         if args.zone_file_format:
           imported = import_util.RecordSetsFromZoneFile(
               import_file, zone.dnsName, api_version=api_version)

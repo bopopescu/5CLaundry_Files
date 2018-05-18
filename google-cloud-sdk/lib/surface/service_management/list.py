@@ -14,12 +14,23 @@
 
 """service-management list command."""
 
-from apitools.base.py import list_pager
-
-from googlecloudsdk.api_lib.service_management import services_util
+from googlecloudsdk.api_lib.services import services_util
 from googlecloudsdk.calliope import base
+from googlecloudsdk.core import resources
 
 
+def _GetUriFromResource(resource):
+  """Returns the URI for resource."""
+  return resources.REGISTRY.ParseRelativeName(
+      'services/' + resource.serviceName,
+      collection=services_util.SERVICES_COLLECTION).SelfLink()
+
+
+_ERROR = ('The `service-management list` command has been replaced by '
+          '`endpoints services list` and `services list`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class List(base.ListCommand):
   """List services for a project.
 
@@ -77,46 +88,19 @@ class List(base.ListCommand):
                                   'has already enabled. Or use one of '
                                   '--enabled or --produced.'))
 
-    # Remove unneeded list-related flags from parser
-    base.URI_FLAG.RemoveFromParser(parser)
-
     parser.display_info.AddFormat("""
           table(
             serviceName:label=NAME,
             serviceConfig.title
           )
         """)
+    parser.display_info.AddUriFunc(_GetUriFromResource)
 
   def Run(self, args):
-    """Run 'service-management list'.
+    """Stubs 'service-management list'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The list of managed services for this project.
     """
-    client = services_util.GetClientInstance()
-
-    # Default mode is --enabled, so if no flags were specified,
-    # turn on the args.enabled flag.
-    if not (args.enabled or args.available or args.produced):
-      args.enabled = True
-
-    validated_project = services_util.GetValidatedProject(args.project)
-
-    if args.enabled:
-      request = services_util.GetEnabledListRequest(validated_project)
-    elif args.available:
-      request = services_util.GetAvailableListRequest()
-    elif args.produced:
-      request = services_util.GetProducedListRequest(validated_project)
-
-    return list_pager.YieldFromList(
-        client.services,
-        request,
-        limit=args.limit,
-        batch_size_attribute='pageSize',
-        batch_size=args.page_size or self._DEFAULT_PAGE_SIZE,
-        field='services')
+    pass

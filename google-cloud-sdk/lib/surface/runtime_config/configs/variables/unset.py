@@ -14,6 +14,8 @@
 
 """The configs variables unset command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.runtime_config import util
@@ -96,8 +98,7 @@ class Unset(base.DeleteCommand):
 
       log.DeletedResource(var_resource)
 
-    except apitools_exceptions.HttpError as error:
-      # Raise this failure if the user requested it, or if the
-      # error is not a 404.
-      if not util.IsNotFoundError(error) or args.fail_if_absent:
+    except apitools_exceptions.HttpNotFoundError:
+      # Raise this failure if the user requested it.
+      if args.fail_if_absent:
         raise

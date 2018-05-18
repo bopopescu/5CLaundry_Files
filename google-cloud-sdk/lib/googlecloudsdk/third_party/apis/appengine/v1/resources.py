@@ -17,6 +17,7 @@ import enum
 
 
 BASE_URL = 'https://appengine.googleapis.com/v1/'
+DOCS_URL = 'https://cloud.google.com/appengine/docs/admin-api/'
 
 
 class Collections(enum.Enum):
@@ -29,7 +30,39 @@ class Collections(enum.Enum):
           '':
               'apps/{appsId}',
       },
-      [u'name']
+      [u'name'],
+      True
+  )
+  APPS_AUTHORIZEDCERTIFICATES = (
+      'apps.authorizedCertificates',
+      '{+name}',
+      {
+          '':
+              'apps/{appsId}/authorizedCertificates/'
+              '{authorizedCertificatesId}',
+      },
+      [u'name'],
+      True
+  )
+  APPS_DOMAINMAPPINGS = (
+      'apps.domainMappings',
+      '{+name}',
+      {
+          '':
+              'apps/{appsId}/domainMappings/{domainMappingsId}',
+      },
+      [u'name'],
+      True
+  )
+  APPS_FIREWALL_INGRESSRULES = (
+      'apps.firewall.ingressRules',
+      '{+name}',
+      {
+          '':
+              'apps/{appsId}/firewall/ingressRules/{ingressRulesId}',
+      },
+      [u'name'],
+      True
   )
   APPS_LOCATIONS = (
       'apps.locations',
@@ -38,7 +71,8 @@ class Collections(enum.Enum):
           '':
               'apps/{appsId}/locations/{locationsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   APPS_OPERATIONS = (
       'apps.operations',
@@ -47,7 +81,8 @@ class Collections(enum.Enum):
           '':
               'apps/{appsId}/operations/{operationsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   APPS_SERVICES = (
       'apps.services',
@@ -56,7 +91,8 @@ class Collections(enum.Enum):
           '':
               'apps/{appsId}/services/{servicesId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   APPS_SERVICES_VERSIONS = (
       'apps.services.versions',
@@ -65,7 +101,8 @@ class Collections(enum.Enum):
           '':
               'apps/{appsId}/services/{servicesId}/versions/{versionsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   APPS_SERVICES_VERSIONS_INSTANCES = (
       'apps.services.versions.instances',
@@ -75,17 +112,21 @@ class Collections(enum.Enum):
               'apps/{appsId}/services/{servicesId}/versions/{versionsId}/'
               'instances/{instancesId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS = (
       'projects',
       'projects/{projectId}',
       {},
-      ['projectId']
+      [u'projectId'],
+      True
   )
 
-  def __init__(self, collection_name, path, flat_paths, params):
+  def __init__(self, collection_name, path, flat_paths, params,
+               enable_uri_parsing):
     self.collection_name = collection_name
     self.path = path
     self.flat_paths = flat_paths
     self.params = params
+    self.enable_uri_parsing = enable_uri_parsing

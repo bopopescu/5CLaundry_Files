@@ -11,14 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This package exposes credentials for talking to a Docker registry."""
 
 
 
 import abc
 import base64
+import errno
 import json
+import logging
 import os
 import subprocess
 
@@ -30,7 +31,7 @@ from oauth2client import client as oauth2client
 class Provider(object):
   """Interface for providing User Credentials for use with a Docker Registry."""
 
-  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overriden.
+  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overridden.
 
   # pytype: disable=bad-return-type
   @abc.abstractmethod
@@ -85,16 +86,15 @@ class Basic(SchemeProvider):
   def suffix(self):
     return base64.b64encode(self.username + ':' + self.password)
 
+
 _USERNAME = '_token'
 
 
 class OAuth2(Basic):
   """Base class for turning OAuth2Credentials into suitable GCR credentials."""
 
-  def __init__(
-      self,
-      creds,
-      transport):
+  def __init__(self, creds,
+               transport):
     """Constructor.
 
     Args:
@@ -127,10 +127,7 @@ _MAGIC_NOT_FOUND_MESSAGE = 'credentials not found in native keychain'
 class Helper(Basic):
   """This provider wraps a particularly named credential helper."""
 
-  def __init__(
-      self,
-      name,
-      registry):
+  def __init__(self, name, registry):
     """Constructor.
 
     Args:
@@ -146,30 +143,42 @@ class Helper(Basic):
     #   echo -n {self._registry} | docker-credential-{self._name} get
     # The resulting JSON blob will have 'Username' and 'Secret' fields.
 
-    p = subprocess.Popen(['docker-credential-{name}'.format(name=self._name),
-                          'get'],
-                         stdout=subprocess.PIPE,
-                         stdin=subprocess.PIPE,
-                         stderr=subprocess.STDOUT)
-    stdout = p.communicate(input=self._registry)[0]
+    bin_name = 'docker-credential-{name}'.format(name=self._name)
+    logging.info('Invoking %r to obtain Docker credentials.', bin_name)
+    try:
+      p = subprocess.Popen(
+          [bin_name, 'get'],
+          stdout=subprocess.PIPE,
+          stdin=subprocess.PIPE,
+          stderr=subprocess.STDOUT)
+    except OSError as e:
+      if e.errno == errno.ENOENT:
+        raise Exception('executable not found: ' + bin_name)
+      raise
+
+    # Some keychains expect a scheme:
+    # https://github.com/bazelbuild/rules_docker/issues/111
+    stdout = p.communicate(input='https://' + self._registry)[0]
 
     output = stdout.decode()
     if output.strip() == _MAGIC_NOT_FOUND_MESSAGE:
       # Use empty auth when no auth is found.
+      logging.info('Credentials not found, falling back to anonymous auth.')
       return Anonymous().Get()
 
     if p.returncode != 0:
-      raise Exception('Error fetching credential for %s, exit status: %d\n%s'
-                      % (self._name, p.returncode, stdout))
+      raise Exception('Error fetching credential for %s, exit status: %d\n%s' %
+                      (self._name, p.returncode, stdout))
 
     blob = json.loads(output)
+    logging.info('Successfully obtained Docker credentials.')
     return Basic(blob['Username'], blob['Secret']).Get()
 
 
 class Keychain(object):
   """Interface for resolving an image reference to a credential."""
 
-  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overriden.
+  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overridden.
 
   # pytype: disable=bad-return-type
   @abc.abstractmethod
@@ -184,14 +193,18 @@ class Keychain(object):
     """
   # pytype: enable=bad-return-type
 
+
 _FORMATS = [
     # Allow naked domains
     '%s',
     # Allow scheme-prefixed.
-    'https://%s', 'http://%s',
+    'https://%s',
+    'http://%s',
     # Allow scheme-prefixes with version in url path.
-    'https://%s/v1/', 'http://%s/v1/',
-    'https://%s/v2/', 'http://%s/v2/',
+    'https://%s/v1/',
+    'http://%s/v1/',
+    'https://%s/v2/',
+    'http://%s/v2/',
 ]
 
 
@@ -219,6 +232,7 @@ class _DefaultKeychain(Keychain):
   def Resolve(self, name):
     # TODO(user): Consider supporting .dockercfg, which was used prior
     # to Docker 1.7 and consisted of just the contents of 'auths' below.
+    logging.info('Loading Docker credentials for repository %r', str(name))
     config_file = os.path.join(_GetConfigDirectory(), 'config.json')
     try:
       with open(config_file, 'r') as reader:
@@ -251,8 +265,8 @@ class _DefaultKeychain(Keychain):
           # TODO(user): Support identitytoken
           # TODO(user): Support registrytoken
           raise Exception(
-              'Unsupported entry in "auth" section of Docker config: %s'
-              % json.dumps(entry))
+              'Unsupported entry in "auth" section of Docker config: ' +
+              json.dumps(entry))
 
     return Anonymous()
 

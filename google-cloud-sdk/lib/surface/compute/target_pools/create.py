@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating target pools."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
@@ -55,6 +57,7 @@ class Create(base.CreateCommand):
     cls.HTTP_HEALTH_CHECK_ARG.AddArgument(parser)
     cls.TARGET_POOL_ARG = flags.TargetPoolArgument()
     cls.TARGET_POOL_ARG.AddArgument(parser, operation_type='create')
+    parser.display_info.AddCacheUpdater(flags.TargetPoolsCompleter)
 
     parser.add_argument(
         '--backup-pool',
@@ -123,8 +126,8 @@ class Create(base.CreateCommand):
 
     if args.health_check:
       args.http_health_check = args.health_check
-      log.warn('The --health-check flag is deprecated. Use equivalent '
-               '--http-health-check=%s flag.', args.health_check)
+      log.warning('The --health-check flag is deprecated. Use equivalent '
+                  '--http-health-check=%s flag.', args.health_check)
 
     if args.http_health_check:
       http_health_check = [self.HTTP_HEALTH_CHECK_ARG.ResolveAsResource(

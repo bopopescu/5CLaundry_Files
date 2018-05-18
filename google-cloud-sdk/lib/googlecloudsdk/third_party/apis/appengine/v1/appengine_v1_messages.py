@@ -14,7 +14,7 @@ package = 'appengine'
 
 
 class ApiConfigHandler(_messages.Message):
-  """Google Cloud Endpoints
+  r"""Google Cloud Endpoints
   (https://cloud.google.com/appengine/docs/python/endpoints/) configuration
   for API handlers.
 
@@ -36,8 +36,8 @@ class ApiConfigHandler(_messages.Message):
   """
 
   class AuthFailActionValueValuesEnum(_messages.Enum):
-    """Action to take when users access resources that require authentication.
-    Defaults to redirect.
+    r"""Action to take when users access resources that require
+    authentication. Defaults to redirect.
 
     Values:
       AUTH_FAIL_ACTION_UNSPECIFIED: Not specified. AUTH_FAIL_ACTION_REDIRECT
@@ -53,7 +53,7 @@ class ApiConfigHandler(_messages.Message):
     AUTH_FAIL_ACTION_UNAUTHORIZED = 2
 
   class LoginValueValuesEnum(_messages.Enum):
-    """Level of login required to access this resource. Defaults to optional.
+    r"""Level of login required to access this resource. Defaults to optional.
 
     Values:
       LOGIN_UNSPECIFIED: Not specified. LOGIN_OPTIONAL is assumed.
@@ -72,7 +72,7 @@ class ApiConfigHandler(_messages.Message):
     LOGIN_REQUIRED = 3
 
   class SecurityLevelValueValuesEnum(_messages.Enum):
-    """Security (HTTPS) enforcement for this URL.
+    r"""Security (HTTPS) enforcement for this URL.
 
     Values:
       SECURE_UNSPECIFIED: Not specified.
@@ -102,7 +102,7 @@ class ApiConfigHandler(_messages.Message):
 
 
 class ApiEndpointHandler(_messages.Message):
-  """Uses Google Cloud Endpoints to handle requests.
+  r"""Uses Google Cloud Endpoints to handle requests.
 
   Fields:
     scriptPath: Path to the script from the application root directory.
@@ -111,8 +111,288 @@ class ApiEndpointHandler(_messages.Message):
   scriptPath = _messages.StringField(1)
 
 
+class AppengineAppsAuthorizedCertificatesCreateRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedCertificatesCreateRequest object.
+
+  Fields:
+    authorizedCertificate: A AuthorizedCertificate resource to be passed as
+      the request body.
+    parent: Name of the parent Application resource. Example: apps/myapp.
+  """
+
+  authorizedCertificate = _messages.MessageField('AuthorizedCertificate', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class AppengineAppsAuthorizedCertificatesDeleteRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedCertificatesDeleteRequest object.
+
+  Fields:
+    name: Name of the resource to delete. Example:
+      apps/myapp/authorizedCertificates/12345.
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class AppengineAppsAuthorizedCertificatesGetRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedCertificatesGetRequest object.
+
+  Enums:
+    ViewValueValuesEnum: Controls the set of fields returned in the GET
+      response.
+
+  Fields:
+    name: Name of the resource requested. Example:
+      apps/myapp/authorizedCertificates/12345.
+    view: Controls the set of fields returned in the GET response.
+  """
+
+  class ViewValueValuesEnum(_messages.Enum):
+    r"""Controls the set of fields returned in the GET response.
+
+    Values:
+      BASIC_CERTIFICATE: <no description>
+      FULL_CERTIFICATE: <no description>
+    """
+    BASIC_CERTIFICATE = 0
+    FULL_CERTIFICATE = 1
+
+  name = _messages.StringField(1, required=True)
+  view = _messages.EnumField('ViewValueValuesEnum', 2)
+
+
+class AppengineAppsAuthorizedCertificatesListRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedCertificatesListRequest object.
+
+  Enums:
+    ViewValueValuesEnum: Controls the set of fields returned in the LIST
+      response.
+
+  Fields:
+    pageSize: Maximum results to return per page.
+    pageToken: Continuation token for fetching the next page of results.
+    parent: Name of the parent Application resource. Example: apps/myapp.
+    view: Controls the set of fields returned in the LIST response.
+  """
+
+  class ViewValueValuesEnum(_messages.Enum):
+    r"""Controls the set of fields returned in the LIST response.
+
+    Values:
+      BASIC_CERTIFICATE: <no description>
+      FULL_CERTIFICATE: <no description>
+    """
+    BASIC_CERTIFICATE = 0
+    FULL_CERTIFICATE = 1
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+  view = _messages.EnumField('ViewValueValuesEnum', 4)
+
+
+class AppengineAppsAuthorizedCertificatesPatchRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedCertificatesPatchRequest object.
+
+  Fields:
+    authorizedCertificate: A AuthorizedCertificate resource to be passed as
+      the request body.
+    name: Name of the resource to update. Example:
+      apps/myapp/authorizedCertificates/12345.
+    updateMask: Standard field mask for the set of fields to be updated.
+      Updates are only supported on the certificate_raw_data and display_name
+      fields.
+  """
+
+  authorizedCertificate = _messages.MessageField('AuthorizedCertificate', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
+class AppengineAppsAuthorizedDomainsListRequest(_messages.Message):
+  r"""A AppengineAppsAuthorizedDomainsListRequest object.
+
+  Fields:
+    pageSize: Maximum results to return per page.
+    pageToken: Continuation token for fetching the next page of results.
+    parent: Name of the parent Application resource. Example: apps/myapp.
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class AppengineAppsDomainMappingsCreateRequest(_messages.Message):
+  r"""A AppengineAppsDomainMappingsCreateRequest object.
+
+  Enums:
+    OverrideStrategyValueValuesEnum: Whether the domain creation should
+      override any existing mappings for this domain. By default, overrides
+      are rejected.
+
+  Fields:
+    domainMapping: A DomainMapping resource to be passed as the request body.
+    overrideStrategy: Whether the domain creation should override any existing
+      mappings for this domain. By default, overrides are rejected.
+    parent: Name of the parent Application resource. Example: apps/myapp.
+  """
+
+  class OverrideStrategyValueValuesEnum(_messages.Enum):
+    r"""Whether the domain creation should override any existing mappings for
+    this domain. By default, overrides are rejected.
+
+    Values:
+      UNSPECIFIED_DOMAIN_OVERRIDE_STRATEGY: <no description>
+      STRICT: <no description>
+      OVERRIDE: <no description>
+    """
+    UNSPECIFIED_DOMAIN_OVERRIDE_STRATEGY = 0
+    STRICT = 1
+    OVERRIDE = 2
+
+  domainMapping = _messages.MessageField('DomainMapping', 1)
+  overrideStrategy = _messages.EnumField('OverrideStrategyValueValuesEnum', 2)
+  parent = _messages.StringField(3, required=True)
+
+
+class AppengineAppsDomainMappingsDeleteRequest(_messages.Message):
+  r"""A AppengineAppsDomainMappingsDeleteRequest object.
+
+  Fields:
+    name: Name of the resource to delete. Example:
+      apps/myapp/domainMappings/example.com.
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class AppengineAppsDomainMappingsGetRequest(_messages.Message):
+  r"""A AppengineAppsDomainMappingsGetRequest object.
+
+  Fields:
+    name: Name of the resource requested. Example:
+      apps/myapp/domainMappings/example.com.
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class AppengineAppsDomainMappingsListRequest(_messages.Message):
+  r"""A AppengineAppsDomainMappingsListRequest object.
+
+  Fields:
+    pageSize: Maximum results to return per page.
+    pageToken: Continuation token for fetching the next page of results.
+    parent: Name of the parent Application resource. Example: apps/myapp.
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class AppengineAppsDomainMappingsPatchRequest(_messages.Message):
+  r"""A AppengineAppsDomainMappingsPatchRequest object.
+
+  Fields:
+    domainMapping: A DomainMapping resource to be passed as the request body.
+    name: Name of the resource to update. Example:
+      apps/myapp/domainMappings/example.com.
+    updateMask: Standard field mask for the set of fields to be updated.
+  """
+
+  domainMapping = _messages.MessageField('DomainMapping', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
+class AppengineAppsFirewallIngressRulesBatchUpdateRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesBatchUpdateRequest object.
+
+  Fields:
+    batchUpdateIngressRulesRequest: A BatchUpdateIngressRulesRequest resource
+      to be passed as the request body.
+    name: Name of the Firewall collection to set. Example:
+      apps/myapp/firewall/ingressRules.
+  """
+
+  batchUpdateIngressRulesRequest = _messages.MessageField('BatchUpdateIngressRulesRequest', 1)
+  name = _messages.StringField(2, required=True)
+
+
+class AppengineAppsFirewallIngressRulesCreateRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesCreateRequest object.
+
+  Fields:
+    firewallRule: A FirewallRule resource to be passed as the request body.
+    parent: Name of the parent Firewall collection in which to create a new
+      rule. Example: apps/myapp/firewall/ingressRules.
+  """
+
+  firewallRule = _messages.MessageField('FirewallRule', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class AppengineAppsFirewallIngressRulesDeleteRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesDeleteRequest object.
+
+  Fields:
+    name: Name of the Firewall resource to delete. Example:
+      apps/myapp/firewall/ingressRules/100.
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class AppengineAppsFirewallIngressRulesGetRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesGetRequest object.
+
+  Fields:
+    name: Name of the Firewall resource to retrieve. Example:
+      apps/myapp/firewall/ingressRules/100.
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class AppengineAppsFirewallIngressRulesListRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesListRequest object.
+
+  Fields:
+    matchingAddress: A valid IP Address. If set, only rules matching this
+      address will be returned. The first returned rule will be the rule that
+      fires on requests from this IP.
+    pageSize: Maximum results to return per page.
+    pageToken: Continuation token for fetching the next page of results.
+    parent: Name of the Firewall collection to retrieve. Example:
+      apps/myapp/firewall/ingressRules.
+  """
+
+  matchingAddress = _messages.StringField(1)
+  pageSize = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(3)
+  parent = _messages.StringField(4, required=True)
+
+
+class AppengineAppsFirewallIngressRulesPatchRequest(_messages.Message):
+  r"""A AppengineAppsFirewallIngressRulesPatchRequest object.
+
+  Fields:
+    firewallRule: A FirewallRule resource to be passed as the request body.
+    name: Name of the Firewall resource to update. Example:
+      apps/myapp/firewall/ingressRules/100.
+    updateMask: Standard field mask for the set of fields to be updated.
+  """
+
+  firewallRule = _messages.MessageField('FirewallRule', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
 class AppengineAppsGetRequest(_messages.Message):
-  """A AppengineAppsGetRequest object.
+  r"""A AppengineAppsGetRequest object.
 
   Fields:
     name: Name of the Application resource to get. Example: apps/myapp.
@@ -122,7 +402,7 @@ class AppengineAppsGetRequest(_messages.Message):
 
 
 class AppengineAppsLocationsGetRequest(_messages.Message):
-  """A AppengineAppsLocationsGetRequest object.
+  r"""A AppengineAppsLocationsGetRequest object.
 
   Fields:
     name: Resource name for the location.
@@ -132,7 +412,7 @@ class AppengineAppsLocationsGetRequest(_messages.Message):
 
 
 class AppengineAppsLocationsListRequest(_messages.Message):
-  """A AppengineAppsLocationsListRequest object.
+  r"""A AppengineAppsLocationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -148,7 +428,7 @@ class AppengineAppsLocationsListRequest(_messages.Message):
 
 
 class AppengineAppsOperationsGetRequest(_messages.Message):
-  """A AppengineAppsOperationsGetRequest object.
+  r"""A AppengineAppsOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -158,7 +438,7 @@ class AppengineAppsOperationsGetRequest(_messages.Message):
 
 
 class AppengineAppsOperationsListRequest(_messages.Message):
-  """A AppengineAppsOperationsListRequest object.
+  r"""A AppengineAppsOperationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -174,7 +454,7 @@ class AppengineAppsOperationsListRequest(_messages.Message):
 
 
 class AppengineAppsPatchRequest(_messages.Message):
-  """A AppengineAppsPatchRequest object.
+  r"""A AppengineAppsPatchRequest object.
 
   Fields:
     application: A Application resource to be passed as the request body.
@@ -188,7 +468,7 @@ class AppengineAppsPatchRequest(_messages.Message):
 
 
 class AppengineAppsRepairRequest(_messages.Message):
-  """A AppengineAppsRepairRequest object.
+  r"""A AppengineAppsRepairRequest object.
 
   Fields:
     name: Name of the application to repair. Example: apps/myapp
@@ -201,7 +481,7 @@ class AppengineAppsRepairRequest(_messages.Message):
 
 
 class AppengineAppsServicesDeleteRequest(_messages.Message):
-  """A AppengineAppsServicesDeleteRequest object.
+  r"""A AppengineAppsServicesDeleteRequest object.
 
   Fields:
     name: Name of the resource requested. Example:
@@ -212,7 +492,7 @@ class AppengineAppsServicesDeleteRequest(_messages.Message):
 
 
 class AppengineAppsServicesGetRequest(_messages.Message):
-  """A AppengineAppsServicesGetRequest object.
+  r"""A AppengineAppsServicesGetRequest object.
 
   Fields:
     name: Name of the resource requested. Example:
@@ -223,7 +503,7 @@ class AppengineAppsServicesGetRequest(_messages.Message):
 
 
 class AppengineAppsServicesListRequest(_messages.Message):
-  """A AppengineAppsServicesListRequest object.
+  r"""A AppengineAppsServicesListRequest object.
 
   Fields:
     pageSize: Maximum results to return per page.
@@ -237,7 +517,7 @@ class AppengineAppsServicesListRequest(_messages.Message):
 
 
 class AppengineAppsServicesPatchRequest(_messages.Message):
-  """A AppengineAppsServicesPatchRequest object.
+  r"""A AppengineAppsServicesPatchRequest object.
 
   Fields:
     migrateTraffic: Set to true to gradually shift traffic to one or more
@@ -267,7 +547,7 @@ class AppengineAppsServicesPatchRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsCreateRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsCreateRequest object.
+  r"""A AppengineAppsServicesVersionsCreateRequest object.
 
   Fields:
     parent: Name of the parent resource to create this version under. Example:
@@ -280,7 +560,7 @@ class AppengineAppsServicesVersionsCreateRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsDeleteRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsDeleteRequest object.
+  r"""A AppengineAppsServicesVersionsDeleteRequest object.
 
   Fields:
     name: Name of the resource requested. Example:
@@ -291,7 +571,7 @@ class AppengineAppsServicesVersionsDeleteRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsGetRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsGetRequest object.
+  r"""A AppengineAppsServicesVersionsGetRequest object.
 
   Enums:
     ViewValueValuesEnum: Controls the set of fields returned in the Get
@@ -304,7 +584,7 @@ class AppengineAppsServicesVersionsGetRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Controls the set of fields returned in the Get response.
+    r"""Controls the set of fields returned in the Get response.
 
     Values:
       BASIC: <no description>
@@ -318,7 +598,7 @@ class AppengineAppsServicesVersionsGetRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsInstancesDebugRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsInstancesDebugRequest object.
+  r"""A AppengineAppsServicesVersionsInstancesDebugRequest object.
 
   Fields:
     debugInstanceRequest: A DebugInstanceRequest resource to be passed as the
@@ -332,7 +612,7 @@ class AppengineAppsServicesVersionsInstancesDebugRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsInstancesDeleteRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsInstancesDeleteRequest object.
+  r"""A AppengineAppsServicesVersionsInstancesDeleteRequest object.
 
   Fields:
     name: Name of the resource requested. Example:
@@ -343,7 +623,7 @@ class AppengineAppsServicesVersionsInstancesDeleteRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsInstancesGetRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsInstancesGetRequest object.
+  r"""A AppengineAppsServicesVersionsInstancesGetRequest object.
 
   Fields:
     name: Name of the resource requested. Example:
@@ -354,7 +634,7 @@ class AppengineAppsServicesVersionsInstancesGetRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsInstancesListRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsInstancesListRequest object.
+  r"""A AppengineAppsServicesVersionsInstancesListRequest object.
 
   Fields:
     pageSize: Maximum results to return per page.
@@ -369,7 +649,7 @@ class AppengineAppsServicesVersionsInstancesListRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsListRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsListRequest object.
+  r"""A AppengineAppsServicesVersionsListRequest object.
 
   Enums:
     ViewValueValuesEnum: Controls the set of fields returned in the List
@@ -384,7 +664,7 @@ class AppengineAppsServicesVersionsListRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Controls the set of fields returned in the List response.
+    r"""Controls the set of fields returned in the List response.
 
     Values:
       BASIC: <no description>
@@ -400,7 +680,7 @@ class AppengineAppsServicesVersionsListRequest(_messages.Message):
 
 
 class AppengineAppsServicesVersionsPatchRequest(_messages.Message):
-  """A AppengineAppsServicesVersionsPatchRequest object.
+  r"""A AppengineAppsServicesVersionsPatchRequest object.
 
   Fields:
     name: Name of the resource to update. Example:
@@ -415,8 +695,8 @@ class AppengineAppsServicesVersionsPatchRequest(_messages.Message):
 
 
 class Application(_messages.Message):
-  """An Application resource contains the top-level configuration of an App
-  Engine application. Next tag: 20
+  r"""An Application resource contains the top-level configuration of an App
+  Engine application.
 
   Enums:
     ServingStatusValueValuesEnum: Serving status of this application.
@@ -437,24 +717,26 @@ class Application(_messages.Message):
     dispatchRules: HTTP path dispatch rules for requests to the application
       that do not explicitly target a service or version. Rules are order-
       dependent. Up to 20 dispatch rules can be supported.@OutputOnly
+    featureSettings: The feature specific settings to be used in the
+      application.
     gcrDomain: The Google Container Registry domain used for storing managed
       build docker images for this application.
     iap: A IdentityAwareProxy attribute.
     id: Identifier of the Application resource. This identifier is equivalent
       to the project ID of the Google Cloud Platform project where you want to
       deploy your application. Example: myapp.
-    locationId: Location from which this application will be run. Application
-      instances will run out of data centers in the chosen location, which is
-      also where all of the application's end user content is stored.Defaults
-      to us-central.Options are:us-central - Central USeurope-west - Western
-      Europeus-east1 - Eastern US
+    locationId: Location from which this application runs. Application
+      instances run out of the data centers in the specified location, which
+      is also where all of the application's end user content is
+      stored.Defaults to us-central.View the list of supported locations
+      (https://cloud.google.com/appengine/docs/locations).
     name: Full path to the Application resource in the API. Example:
       apps/myapp.@OutputOnly
     servingStatus: Serving status of this application.
   """
 
   class ServingStatusValueValuesEnum(_messages.Enum):
-    """Serving status of this application.
+    r"""Serving status of this application.
 
     Values:
       UNSPECIFIED: Serving status is unspecified.
@@ -473,23 +755,87 @@ class Application(_messages.Message):
   defaultCookieExpiration = _messages.StringField(4)
   defaultHostname = _messages.StringField(5)
   dispatchRules = _messages.MessageField('UrlDispatchRule', 6, repeated=True)
-  gcrDomain = _messages.StringField(7)
-  iap = _messages.MessageField('IdentityAwareProxy', 8)
-  id = _messages.StringField(9)
-  locationId = _messages.StringField(10)
-  name = _messages.StringField(11)
-  servingStatus = _messages.EnumField('ServingStatusValueValuesEnum', 12)
+  featureSettings = _messages.MessageField('FeatureSettings', 7)
+  gcrDomain = _messages.StringField(8)
+  iap = _messages.MessageField('IdentityAwareProxy', 9)
+  id = _messages.StringField(10)
+  locationId = _messages.StringField(11)
+  name = _messages.StringField(12)
+  servingStatus = _messages.EnumField('ServingStatusValueValuesEnum', 13)
+
+
+class AuthorizedCertificate(_messages.Message):
+  r"""An SSL certificate that a user has been authorized to administer. A user
+  is authorized to administer any certificate that applies to one of their
+  authorized domains.
+
+  Fields:
+    certificateRawData: The SSL certificate serving the AuthorizedCertificate
+      resource. This must be obtained independently from a certificate
+      authority.
+    displayName: The user-specified display name of the certificate. This is
+      not guaranteed to be unique. Example: My Certificate.
+    domainMappingsCount: Aggregate count of the domain mappings with this
+      certificate mapped. This count includes domain mappings on applications
+      for which the user does not have VIEWER permissions.Only returned by GET
+      or LIST requests when specifically requested by the
+      view=FULL_CERTIFICATE option.@OutputOnly
+    domainNames: Topmost applicable domains of this certificate. This
+      certificate applies to these domains and their subdomains. Example:
+      example.com.@OutputOnly
+    expireTime: The time when this certificate expires. To update the renewal
+      time on this certificate, upload an SSL certificate with a different
+      expiration time using
+      AuthorizedCertificates.UpdateAuthorizedCertificate.@OutputOnly
+    id: Relative name of the certificate. This is a unique value autogenerated
+      on AuthorizedCertificate resource creation. Example: 12345.@OutputOnly
+    name: Full path to the AuthorizedCertificate resource in the API. Example:
+      apps/myapp/authorizedCertificates/12345.@OutputOnly
+    visibleDomainMappings: The full paths to user visible Domain Mapping
+      resources that have this certificate mapped. Example:
+      apps/myapp/domainMappings/example.com.This may not represent the full
+      list of mapped domain mappings if the user does not have VIEWER
+      permissions on all of the applications that have this certificate
+      mapped. See domain_mappings_count for a complete count.Only returned by
+      GET or LIST requests when specifically requested by the
+      view=FULL_CERTIFICATE option.@OutputOnly
+  """
+
+  certificateRawData = _messages.MessageField('CertificateRawData', 1)
+  displayName = _messages.StringField(2)
+  domainMappingsCount = _messages.IntegerField(3, variant=_messages.Variant.INT32)
+  domainNames = _messages.StringField(4, repeated=True)
+  expireTime = _messages.StringField(5)
+  id = _messages.StringField(6)
+  name = _messages.StringField(7)
+  visibleDomainMappings = _messages.StringField(8, repeated=True)
+
+
+class AuthorizedDomain(_messages.Message):
+  r"""A domain that a user has been authorized to administer. To authorize use
+  of a domain, verify ownership via Webmaster Central
+  (https://www.google.com/webmasters/verification/home).
+
+  Fields:
+    id: Fully qualified domain name of the domain authorized for use. Example:
+      example.com.
+    name: Full path to the AuthorizedDomain resource in the API. Example:
+      apps/myapp/authorizedDomains/example.com.@OutputOnly
+  """
+
+  id = _messages.StringField(1)
+  name = _messages.StringField(2)
 
 
 class AutomaticScaling(_messages.Message):
-  """Automatic scaling is based on request rate, response latencies, and other
-  application metrics.
+  r"""Automatic scaling is based on request rate, response latencies, and
+  other application metrics.
 
   Fields:
     coolDownPeriod: Amount of time that the Autoscaler
       (https://cloud.google.com/compute/docs/autoscaler/) should wait between
-      changes to the number of virtual machines. Only applicable for VM
-      runtimes.
+      changes to the number of virtual machines. Only applicable in the App
+      Engine flexible environment.
     cpuUtilization: Target scaling by CPU usage.
     diskUtilization: Target scaling by disk usage.
     maxConcurrentRequests: Number of concurrent requests an automatic scaling
@@ -500,16 +846,17 @@ class AutomaticScaling(_messages.Message):
     maxPendingLatency: Maximum amount of time that a request should wait in
       the pending queue before starting a new instance to handle it.
     maxTotalInstances: Maximum number of instances that should be started to
-      handle requests.
+      handle requests for this version.
     minIdleInstances: Minimum number of idle instances that should be
       maintained for this version. Only applicable for the default version of
       a service.
     minPendingLatency: Minimum amount of time a request should wait in the
       pending queue before starting a new instance to handle it.
-    minTotalInstances: Minimum number of instances that should be maintained
-      for this version.
+    minTotalInstances: Minimum number of running instances that should be
+      maintained for this version.
     networkUtilization: Target scaling by network usage.
     requestUtilization: Target scaling by request utilization.
+    standardSchedulerSettings: Scheduler settings for standard environment.
   """
 
   coolDownPeriod = _messages.StringField(1)
@@ -524,13 +871,14 @@ class AutomaticScaling(_messages.Message):
   minTotalInstances = _messages.IntegerField(10, variant=_messages.Variant.INT32)
   networkUtilization = _messages.MessageField('NetworkUtilization', 11)
   requestUtilization = _messages.MessageField('RequestUtilization', 12)
+  standardSchedulerSettings = _messages.MessageField('StandardSchedulerSettings', 13)
 
 
 class BasicScaling(_messages.Message):
-  """A service with basic scaling will create an instance when the application
-  receives a request. The instance will be turned down when the app becomes
-  idle. Basic scaling is ideal for work that is intermittent or driven by user
-  activity.
+  r"""A service with basic scaling will create an instance when the
+  application receives a request. The instance will be turned down when the
+  app becomes idle. Basic scaling is ideal for work that is intermittent or
+  driven by user activity.
 
   Fields:
     idleTimeout: Duration of time after the last request that an instance must
@@ -542,8 +890,66 @@ class BasicScaling(_messages.Message):
   maxInstances = _messages.IntegerField(2, variant=_messages.Variant.INT32)
 
 
+class BatchUpdateIngressRulesRequest(_messages.Message):
+  r"""Request message for Firewall.BatchUpdateIngressRules.
+
+  Fields:
+    ingressRules: A list of FirewallRules to replace the existing set.
+  """
+
+  ingressRules = _messages.MessageField('FirewallRule', 1, repeated=True)
+
+
+class BatchUpdateIngressRulesResponse(_messages.Message):
+  r"""Response message for Firewall.UpdateAllIngressRules.
+
+  Fields:
+    ingressRules: The full list of ingress FirewallRules for this application.
+  """
+
+  ingressRules = _messages.MessageField('FirewallRule', 1, repeated=True)
+
+
+class CertificateRawData(_messages.Message):
+  r"""An SSL certificate obtained from a certificate authority.
+
+  Fields:
+    privateKey: Unencrypted PEM encoded RSA private key. This field is set
+      once on certificate creation and then encrypted. The key size must be
+      2048 bits or fewer. Must include the header and footer. Example: <pre>
+      -----BEGIN RSA PRIVATE KEY----- <unencrypted_key_value> -----END RSA
+      PRIVATE KEY----- </pre> @InputOnly
+    publicCertificate: PEM encoded x.509 public key certificate. This field is
+      set once on certificate creation. Must include the header and footer.
+      Example: <pre> -----BEGIN CERTIFICATE----- <certificate_value> -----END
+      CERTIFICATE----- </pre>
+  """
+
+  privateKey = _messages.StringField(1)
+  publicCertificate = _messages.StringField(2)
+
+
+class CloudBuildOptions(_messages.Message):
+  r"""Options for the build operations performed as a part of the version
+  deployment. Only applicable for App Engine flexible environment when
+  creating a version using source code directly.
+
+  Fields:
+    appYamlPath: Path to the yaml file used in deployment, used to determine
+      runtime configuration details.Required for flexible environment
+      builds.See
+      https://cloud.google.com/appengine/docs/standard/python/config/appref
+      for more details.
+    cloudBuildTimeout: The Cloud Build timeout used as part of any dependent
+      builds performed by version creation. Defaults to 10 minutes.
+  """
+
+  appYamlPath = _messages.StringField(1)
+  cloudBuildTimeout = _messages.StringField(2)
+
+
 class ContainerInfo(_messages.Message):
-  """Docker image that is used to create a container and start a VM instance
+  r"""Docker image that is used to create a container and start a VM instance
   for the version that you deploy. Only applicable for instances running in
   the App Engine flexible environment.
 
@@ -557,7 +963,7 @@ class ContainerInfo(_messages.Message):
 
 
 class CpuUtilization(_messages.Message):
-  """Target scaling by CPU usage.
+  r"""Target scaling by CPU usage.
 
   Fields:
     aggregationWindowLength: Period of time over which CPU utilization is
@@ -570,8 +976,44 @@ class CpuUtilization(_messages.Message):
   targetUtilization = _messages.FloatField(2)
 
 
+class CreateVersionMetadataV1(_messages.Message):
+  r"""Metadata for the given google.longrunning.Operation during a
+  google.appengine.v1.CreateVersionRequest.
+
+  Fields:
+    cloudBuildId: The Cloud Build ID if one was created as part of the version
+      create. @OutputOnly
+  """
+
+  cloudBuildId = _messages.StringField(1)
+
+
+class CreateVersionMetadataV1Alpha(_messages.Message):
+  r"""Metadata for the given google.longrunning.Operation during a
+  google.appengine.v1alpha.CreateVersionRequest.
+
+  Fields:
+    cloudBuildId: The Cloud Build ID if one was created as part of the version
+      create. @OutputOnly
+  """
+
+  cloudBuildId = _messages.StringField(1)
+
+
+class CreateVersionMetadataV1Beta(_messages.Message):
+  r"""Metadata for the given google.longrunning.Operation during a
+  google.appengine.v1beta.CreateVersionRequest.
+
+  Fields:
+    cloudBuildId: The Cloud Build ID if one was created as part of the version
+      create. @OutputOnly
+  """
+
+  cloudBuildId = _messages.StringField(1)
+
+
 class DebugInstanceRequest(_messages.Message):
-  """Request message for Instances.DebugInstance.
+  r"""Request message for Instances.DebugInstance.
 
   Fields:
     sshKey: Public SSH key to add to the instance. Examples: [USERNAME]:ssh-
@@ -586,7 +1028,7 @@ class DebugInstanceRequest(_messages.Message):
 
 
 class Deployment(_messages.Message):
-  """Code and application artifacts used to deploy a version to App Engine.
+  r"""Code and application artifacts used to deploy a version to App Engine.
 
   Messages:
     FilesValue: Manifest of the files stored in Google Cloud Storage that are
@@ -594,6 +1036,12 @@ class Deployment(_messages.Message):
       credentials supplied with this call.
 
   Fields:
+    cloudBuildOptions: Options for any Google Cloud Container Builder builds
+      created as a part of this deployment.Note that this is orthogonal to the
+      build parameter, where the deployment depends on an already existing
+      cloud build. These options will only be used if a new build is created,
+      such as when deploying to the App Engine flexible environment using
+      files or zip.
     container: The Docker image for the container that runs the version. Only
       applicable for instances running in the App Engine flexible environment.
     files: Manifest of the files stored in Google Cloud Storage that are
@@ -604,7 +1052,7 @@ class Deployment(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class FilesValue(_messages.Message):
-    """Manifest of the files stored in Google Cloud Storage that are included
+    r"""Manifest of the files stored in Google Cloud Storage that are included
     as part of this version. All files must be readable using the credentials
     supplied with this call.
 
@@ -616,7 +1064,7 @@ class Deployment(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a FilesValue object.
+      r"""An additional property for a FilesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -628,13 +1076,15 @@ class Deployment(_messages.Message):
 
     additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
 
-  container = _messages.MessageField('ContainerInfo', 1)
-  files = _messages.MessageField('FilesValue', 2)
-  zip = _messages.MessageField('ZipInfo', 3)
+  cloudBuildOptions = _messages.MessageField('CloudBuildOptions', 1)
+  container = _messages.MessageField('ContainerInfo', 2)
+  files = _messages.MessageField('FilesValue', 3)
+  zip = _messages.MessageField('ZipInfo', 4)
 
 
 class DiskUtilization(_messages.Message):
-  """Target scaling by disk usage. Only applicable for VM runtimes.
+  r"""Target scaling by disk usage. Only applicable in the App Engine flexible
+  environment.
 
   Fields:
     targetReadBytesPerSecond: Target bytes read per second.
@@ -649,12 +1099,44 @@ class DiskUtilization(_messages.Message):
   targetWriteOpsPerSecond = _messages.IntegerField(4, variant=_messages.Variant.INT32)
 
 
+class DomainMapping(_messages.Message):
+  r"""A domain serving an App Engine application.
+
+  Fields:
+    id: Relative name of the domain serving the application. Example:
+      example.com.
+    name: Full path to the DomainMapping resource in the API. Example:
+      apps/myapp/domainMapping/example.com.@OutputOnly
+    resourceRecords: The resource records required to configure this domain
+      mapping. These records must be added to the domain's DNS configuration
+      in order to serve the application via this domain mapping.@OutputOnly
+    sslSettings: SSL configuration for this domain. If unconfigured, this
+      domain will not serve with SSL.
+  """
+
+  id = _messages.StringField(1)
+  name = _messages.StringField(2)
+  resourceRecords = _messages.MessageField('ResourceRecord', 3, repeated=True)
+  sslSettings = _messages.MessageField('SslSettings', 4)
+
+
+class Empty(_messages.Message):
+  r"""A generic empty message that you can re-use to avoid defining duplicated
+  empty messages in your APIs. A typical example is to use it as the request
+  or the response type of an API method. For instance: service Foo {   rpc
+  Bar(google.protobuf.Empty) returns (google.protobuf.Empty); } The JSON
+  representation for Empty is empty JSON object {}.
+  """
+
+
+
 class EndpointsApiService(_messages.Message):
-  """Cloud Endpoints (https://cloud.google.com/endpoints) configuration. The
+  r"""Cloud Endpoints (https://cloud.google.com/endpoints) configuration. The
   Endpoints API Service provides tooling for serving Open API and gRPC
-  endpoints via an NGINX proxy.The fields here refer to the name and
-  configuration id of a "service" resource in the Service Management API
-  (https://cloud.google.com/service-management/overview).
+  endpoints via an NGINX proxy. Only valid for App Engine Flexible environment
+  deployments.The fields here refer to the name and configuration id of a
+  "service" resource in the Service Management API (https://cloud.google.com
+  /service-management/overview).
 
   Fields:
     configId: Endpoints service configuration id as specified by the Service
@@ -669,7 +1151,7 @@ class EndpointsApiService(_messages.Message):
 
 
 class ErrorHandler(_messages.Message):
-  """Custom static error page to be served when an error occurs.
+  r"""Custom static error page to be served when an error occurs.
 
   Enums:
     ErrorCodeValueValuesEnum: Error condition this handler applies to.
@@ -681,7 +1163,7 @@ class ErrorHandler(_messages.Message):
   """
 
   class ErrorCodeValueValuesEnum(_messages.Enum):
-    """Error condition this handler applies to.
+    r"""Error condition this handler applies to.
 
     Values:
       ERROR_CODE_UNSPECIFIED: Not specified. ERROR_CODE_DEFAULT is assumed.
@@ -702,8 +1184,24 @@ class ErrorHandler(_messages.Message):
   staticFile = _messages.StringField(3)
 
 
+class FeatureSettings(_messages.Message):
+  r"""The feature specific settings to be used in the application. These
+  define behaviors that are user configurable.
+
+  Fields:
+    splitHealthChecks: Boolean value indicating if split health checks should
+      be used instead of the legacy health checks. At an app.yaml level, this
+      means defaulting to 'readiness_check' and 'liveness_check' values
+      instead of 'health_check' ones. Once the legacy 'health_check' behavior
+      is deprecated, and this value is always true, this setting can be
+      removed.
+  """
+
+  splitHealthChecks = _messages.BooleanField(1)
+
+
 class FileInfo(_messages.Message):
-  """Single source file that is part of the version to be deployed. Each
+  r"""Single source file that is part of the version to be deployed. Each
   source file that is deployed must be specified separately.
 
   Fields:
@@ -720,8 +1218,52 @@ class FileInfo(_messages.Message):
   sourceUrl = _messages.StringField(3)
 
 
+class FirewallRule(_messages.Message):
+  r"""A single firewall rule that is evaluated against incoming traffic and
+  provides an action to take on matched requests.
+
+  Enums:
+    ActionValueValuesEnum: The action to take on matched requests.
+
+  Fields:
+    action: The action to take on matched requests.
+    description: An optional string description of this rule. This field has a
+      maximum length of 100 characters.
+    priority: A positive integer between 1, Int32.MaxValue-1 that defines the
+      order of rule evaluation. Rules with the lowest priority are evaluated
+      first.A default rule at priority Int32.MaxValue matches all IPv4 and
+      IPv6 traffic when no previous rule matches. Only the action of this rule
+      can be modified by the user.
+    sourceRange: IP address or range, defined using CIDR notation, of requests
+      that this rule applies to. You can use the wildcard character "*" to
+      match all IPs equivalent to "0/0" and "::/0" together. Examples:
+      192.168.1.1 or 192.168.0.0/16 or 2001:db8::/32  or
+      2001:0db8:0000:0042:0000:8a2e:0370:7334.<p>Truncation will be silently
+      performed on addresses which are not properly truncated. For example,
+      1.2.3.4/24 is accepted as the same address as 1.2.3.0/24. Similarly, for
+      IPv6, 2001:db8::1/32 is accepted as the same address as 2001:db8::/32.
+  """
+
+  class ActionValueValuesEnum(_messages.Enum):
+    r"""The action to take on matched requests.
+
+    Values:
+      UNSPECIFIED_ACTION: <no description>
+      ALLOW: Matching requests are allowed.
+      DENY: Matching requests are denied.
+    """
+    UNSPECIFIED_ACTION = 0
+    ALLOW = 1
+    DENY = 2
+
+  action = _messages.EnumField('ActionValueValuesEnum', 1)
+  description = _messages.StringField(2)
+  priority = _messages.IntegerField(3, variant=_messages.Variant.INT32)
+  sourceRange = _messages.StringField(4)
+
+
 class HealthCheck(_messages.Message):
-  """Health checking configuration for VM instances. Unhealthy instances are
+  r"""Health checking configuration for VM instances. Unhealthy instances are
   killed and replaced with new instances. Only applicable for instances in App
   Engine flexible environment.
 
@@ -750,7 +1292,7 @@ class HealthCheck(_messages.Message):
 
 
 class IdentityAwareProxy(_messages.Message):
-  """Identity-Aware Proxy
+  r"""Identity-Aware Proxy
 
   Fields:
     enabled: Whether the serving infrastructure will authenticate and
@@ -772,7 +1314,7 @@ class IdentityAwareProxy(_messages.Message):
 
 
 class Instance(_messages.Message):
-  """An Instance resource is the computing unit that App Engine uses to
+  r"""An Instance resource is the computing unit that App Engine uses to
   automatically scale an application.
 
   Enums:
@@ -807,7 +1349,7 @@ class Instance(_messages.Message):
   """
 
   class AvailabilityValueValuesEnum(_messages.Enum):
-    """Availability of the instance.@OutputOnly
+    r"""Availability of the instance.@OutputOnly
 
     Values:
       UNSPECIFIED: <no description>
@@ -837,7 +1379,7 @@ class Instance(_messages.Message):
 
 
 class Library(_messages.Message):
-  """Third-party Python runtime library that is required by the application.
+  r"""Third-party Python runtime library that is required by the application.
 
   Fields:
     name: Name of the library. Example: "django".
@@ -848,8 +1390,56 @@ class Library(_messages.Message):
   version = _messages.StringField(2)
 
 
+class ListAuthorizedCertificatesResponse(_messages.Message):
+  r"""Response message for AuthorizedCertificates.ListAuthorizedCertificates.
+
+  Fields:
+    certificates: The SSL certificates the user is authorized to administer.
+    nextPageToken: Continuation token for fetching the next page of results.
+  """
+
+  certificates = _messages.MessageField('AuthorizedCertificate', 1, repeated=True)
+  nextPageToken = _messages.StringField(2)
+
+
+class ListAuthorizedDomainsResponse(_messages.Message):
+  r"""Response message for AuthorizedDomains.ListAuthorizedDomains.
+
+  Fields:
+    domains: The authorized domains belonging to the user.
+    nextPageToken: Continuation token for fetching the next page of results.
+  """
+
+  domains = _messages.MessageField('AuthorizedDomain', 1, repeated=True)
+  nextPageToken = _messages.StringField(2)
+
+
+class ListDomainMappingsResponse(_messages.Message):
+  r"""Response message for DomainMappings.ListDomainMappings.
+
+  Fields:
+    domainMappings: The domain mappings for the application.
+    nextPageToken: Continuation token for fetching the next page of results.
+  """
+
+  domainMappings = _messages.MessageField('DomainMapping', 1, repeated=True)
+  nextPageToken = _messages.StringField(2)
+
+
+class ListIngressRulesResponse(_messages.Message):
+  r"""Response message for Firewall.ListIngressRules.
+
+  Fields:
+    ingressRules: The ingress FirewallRules for this application.
+    nextPageToken: Continuation token for fetching the next page of results.
+  """
+
+  ingressRules = _messages.MessageField('FirewallRule', 1, repeated=True)
+  nextPageToken = _messages.StringField(2)
+
+
 class ListInstancesResponse(_messages.Message):
-  """Response message for Instances.ListInstances.
+  r"""Response message for Instances.ListInstances.
 
   Fields:
     instances: The instances belonging to the requested version.
@@ -861,7 +1451,7 @@ class ListInstancesResponse(_messages.Message):
 
 
 class ListLocationsResponse(_messages.Message):
-  """The response message for Locations.ListLocations.
+  r"""The response message for Locations.ListLocations.
 
   Fields:
     locations: A list of locations that matches the specified filter in the
@@ -874,7 +1464,7 @@ class ListLocationsResponse(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -887,7 +1477,7 @@ class ListOperationsResponse(_messages.Message):
 
 
 class ListServicesResponse(_messages.Message):
-  """Response message for Services.ListServices.
+  r"""Response message for Services.ListServices.
 
   Fields:
     nextPageToken: Continuation token for fetching the next page of results.
@@ -899,7 +1489,7 @@ class ListServicesResponse(_messages.Message):
 
 
 class ListVersionsResponse(_messages.Message):
-  """Response message for Versions.ListVersions.
+  r"""Response message for Versions.ListVersions.
 
   Fields:
     nextPageToken: Continuation token for fetching the next page of results.
@@ -911,7 +1501,7 @@ class ListVersionsResponse(_messages.Message):
 
 
 class LivenessCheck(_messages.Message):
-  """Health checking configuration for VM instances. Unhealthy instances are
+  r"""Health checking configuration for VM instances. Unhealthy instances are
   killed and replaced with new instances.
 
   Fields:
@@ -937,7 +1527,7 @@ class LivenessCheck(_messages.Message):
 
 
 class Location(_messages.Message):
-  """A resource that represents Google Cloud Platform location.
+  r"""A resource that represents Google Cloud Platform location.
 
   Messages:
     LabelsValue: Cross-service attributes for the location. For example
@@ -946,6 +1536,8 @@ class Location(_messages.Message):
       capacity at the given location.
 
   Fields:
+    displayName: The friendly name for this location, typically a nearby city
+      name. For example, "Tokyo".
     labels: Cross-service attributes for the location. For example
       {"cloud.googleapis.com/region": "us-east1"}
     locationId: The canonical id for this location. For example: "us-east1".
@@ -958,7 +1550,7 @@ class Location(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Cross-service attributes for the location. For example
+    r"""Cross-service attributes for the location. For example
     {"cloud.googleapis.com/region": "us-east1"}
 
     Messages:
@@ -969,7 +1561,7 @@ class Location(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -983,7 +1575,7 @@ class Location(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata. For example the available capacity at the
+    r"""Service-specific metadata. For example the available capacity at the
     given location.
 
     Messages:
@@ -995,7 +1587,7 @@ class Location(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1007,19 +1599,20 @@ class Location(_messages.Message):
 
     additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
 
-  labels = _messages.MessageField('LabelsValue', 1)
-  locationId = _messages.StringField(2)
-  metadata = _messages.MessageField('MetadataValue', 3)
-  name = _messages.StringField(4)
+  displayName = _messages.StringField(1)
+  labels = _messages.MessageField('LabelsValue', 2)
+  locationId = _messages.StringField(3)
+  metadata = _messages.MessageField('MetadataValue', 4)
+  name = _messages.StringField(5)
 
 
 class LocationMetadata(_messages.Message):
-  """Metadata for the given google.cloud.location.Location.
+  r"""Metadata for the given google.cloud.location.Location.
 
   Fields:
-    flexibleEnvironmentAvailable: App Engine Flexible Environment is available
+    flexibleEnvironmentAvailable: App Engine flexible environment is available
       in the given location.@OutputOnly
-    standardEnvironmentAvailable: App Engine Standard Environment is available
+    standardEnvironmentAvailable: App Engine standard environment is available
       in the given location.@OutputOnly
   """
 
@@ -1028,7 +1621,7 @@ class LocationMetadata(_messages.Message):
 
 
 class ManualScaling(_messages.Message):
-  """A service with manual scaling runs continuously, allowing you to perform
+  r"""A service with manual scaling runs continuously, allowing you to perform
   complex initialization and rely on the state of its memory over time.
 
   Fields:
@@ -1042,28 +1635,32 @@ class ManualScaling(_messages.Message):
 
 
 class Network(_messages.Message):
-  """Extra network settings. Only applicable for VM runtimes.
+  r"""Extra network settings. Only applicable in the App Engine flexible
+  environment.
 
   Fields:
     forwardedPorts: List of ports, or port pairs, to forward from the virtual
-      machine to the application container.
-    instanceTag: Tag to apply to the VM instance during creation.
-    name: Google Cloud Platform network where the virtual machines are
+      machine to the application container. Only applicable in the App Engine
+      flexible environment.
+    instanceTag: Tag to apply to the instance during creation. Only applicable
+      in the App Engine flexible environment.
+    name: Google Compute Engine network where the virtual machines are
       created. Specify the short name, not the resource path.Defaults to
       default.
     subnetworkName: Google Cloud Platform sub-network where the virtual
       machines are created. Specify the short name, not the resource path.If a
       subnetwork name is specified, a network name will also be required
-      unless it is for the default network. If the network the VM instance is
-      being created in is a Legacy network, then the IP address is allocated
-      from the IPv4Range. If the network the VM instance is being created in
-      is an auto Subnet Mode Network, then only network name should be
-      specified (not the subnetwork_name) and the IP address is created from
-      the IPCidrRange of the subnetwork that exists in that zone for that
-      network. If the network the VM instance is being created in is a custom
-      Subnet Mode Network, then the subnetwork_name must be specified and the
-      IP address is created from the IPCidrRange of the subnetwork.If
-      specified, the subnetwork must exist in the same region as the Flex app.
+      unless it is for the default network. If the network that the instance
+      is being created in is a Legacy network, then the IP address is
+      allocated from the IPv4Range. If the network that the instance is being
+      created in is an auto Subnet Mode Network, then only network name should
+      be specified (not the subnetwork_name) and the IP address is created
+      from the IPCidrRange of the subnetwork that exists in that zone for that
+      network. If the network that the instance is being created in is a
+      custom Subnet Mode Network, then the subnetwork_name must be specified
+      and the IP address is created from the IPCidrRange of the subnetwork.If
+      specified, the subnetwork must exist in the same region as the App
+      Engine flexible environment application.
   """
 
   forwardedPorts = _messages.StringField(1, repeated=True)
@@ -1073,7 +1670,8 @@ class Network(_messages.Message):
 
 
 class NetworkUtilization(_messages.Message):
-  """Target scaling by network usage. Only applicable for VM runtimes.
+  r"""Target scaling by network usage. Only applicable in the App Engine
+  flexible environment.
 
   Fields:
     targetReceivedBytesPerSecond: Target bytes received per second.
@@ -1089,8 +1687,8 @@ class NetworkUtilization(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
     MetadataValue: Service-specific metadata associated with the operation. It
@@ -1131,7 +1729,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata associated with the operation. It typically
+    r"""Service-specific metadata associated with the operation. It typically
     contains progress information and common metadata such as create time.
     Some services might not provide such metadata. Any method that returns a
     long-running operation should document the metadata type, if any.
@@ -1145,7 +1743,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1159,7 +1757,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """The normal response of the operation in case of success. If the
+    r"""The normal response of the operation in case of success. If the
     original method returns no data on success, such as Delete, the response
     is google.protobuf.Empty. If the original method is standard
     Get/Create/Update, the response should be the resource. For other methods,
@@ -1176,7 +1774,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1196,7 +1794,7 @@ class Operation(_messages.Message):
 
 
 class OperationMetadata(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
+  r"""Metadata for the given google.longrunning.Operation.
 
   Fields:
     endTime: Timestamp that this operation completed.@OutputOnly
@@ -1218,31 +1816,11 @@ class OperationMetadata(_messages.Message):
   user = _messages.StringField(6)
 
 
-class OperationMetadataExperimental(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
-
-  Fields:
-    endTime: Time that this operation completed.@OutputOnly
-    insertTime: Time that this operation was created.@OutputOnly
-    method: API method that initiated this operation. Example:
-      google.appengine.experimental.CustomDomains.CreateCustomDomain.@OutputOn
-      ly
-    target: Name of the resource that this operation is acting on. Example:
-      apps/myapp/customDomains/example.com.@OutputOnly
-    user: User who requested this operation.@OutputOnly
-  """
-
-  endTime = _messages.StringField(1)
-  insertTime = _messages.StringField(2)
-  method = _messages.StringField(3)
-  target = _messages.StringField(4)
-  user = _messages.StringField(5)
-
-
 class OperationMetadataV1(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
+  r"""Metadata for the given google.longrunning.Operation.
 
   Fields:
+    createVersionMetadata: A CreateVersionMetadataV1 attribute.
     endTime: Time that this operation completed.@OutputOnly
     ephemeralMessage: Ephemeral message that may change every time the
       operation is polled. @OutputOnly
@@ -1256,19 +1834,21 @@ class OperationMetadataV1(_messages.Message):
       @OutputOnly
   """
 
-  endTime = _messages.StringField(1)
-  ephemeralMessage = _messages.StringField(2)
-  insertTime = _messages.StringField(3)
-  method = _messages.StringField(4)
-  target = _messages.StringField(5)
-  user = _messages.StringField(6)
-  warning = _messages.StringField(7, repeated=True)
+  createVersionMetadata = _messages.MessageField('CreateVersionMetadataV1', 1)
+  endTime = _messages.StringField(2)
+  ephemeralMessage = _messages.StringField(3)
+  insertTime = _messages.StringField(4)
+  method = _messages.StringField(5)
+  target = _messages.StringField(6)
+  user = _messages.StringField(7)
+  warning = _messages.StringField(8, repeated=True)
 
 
 class OperationMetadataV1Alpha(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
+  r"""Metadata for the given google.longrunning.Operation.
 
   Fields:
+    createVersionMetadata: A CreateVersionMetadataV1Alpha attribute.
     endTime: Time that this operation completed.@OutputOnly
     ephemeralMessage: Ephemeral message that may change every time the
       operation is polled. @OutputOnly
@@ -1282,19 +1862,21 @@ class OperationMetadataV1Alpha(_messages.Message):
       @OutputOnly
   """
 
-  endTime = _messages.StringField(1)
-  ephemeralMessage = _messages.StringField(2)
-  insertTime = _messages.StringField(3)
-  method = _messages.StringField(4)
-  target = _messages.StringField(5)
-  user = _messages.StringField(6)
-  warning = _messages.StringField(7, repeated=True)
+  createVersionMetadata = _messages.MessageField('CreateVersionMetadataV1Alpha', 1)
+  endTime = _messages.StringField(2)
+  ephemeralMessage = _messages.StringField(3)
+  insertTime = _messages.StringField(4)
+  method = _messages.StringField(5)
+  target = _messages.StringField(6)
+  user = _messages.StringField(7)
+  warning = _messages.StringField(8, repeated=True)
 
 
 class OperationMetadataV1Beta(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
+  r"""Metadata for the given google.longrunning.Operation.
 
   Fields:
+    createVersionMetadata: A CreateVersionMetadataV1Beta attribute.
     endTime: Time that this operation completed.@OutputOnly
     ephemeralMessage: Ephemeral message that may change every time the
       operation is polled. @OutputOnly
@@ -1308,17 +1890,18 @@ class OperationMetadataV1Beta(_messages.Message):
       @OutputOnly
   """
 
-  endTime = _messages.StringField(1)
-  ephemeralMessage = _messages.StringField(2)
-  insertTime = _messages.StringField(3)
-  method = _messages.StringField(4)
-  target = _messages.StringField(5)
-  user = _messages.StringField(6)
-  warning = _messages.StringField(7, repeated=True)
+  createVersionMetadata = _messages.MessageField('CreateVersionMetadataV1Beta', 1)
+  endTime = _messages.StringField(2)
+  ephemeralMessage = _messages.StringField(3)
+  insertTime = _messages.StringField(4)
+  method = _messages.StringField(5)
+  target = _messages.StringField(6)
+  user = _messages.StringField(7)
+  warning = _messages.StringField(8, repeated=True)
 
 
 class OperationMetadataV1Beta5(_messages.Message):
-  """Metadata for the given google.longrunning.Operation.
+  r"""Metadata for the given google.longrunning.Operation.
 
   Fields:
     endTime: Timestamp that this operation completed.@OutputOnly
@@ -1338,7 +1921,7 @@ class OperationMetadataV1Beta5(_messages.Message):
 
 
 class ReadinessCheck(_messages.Message):
-  """Readiness checking configuration for VM instances. Unhealthy instances
+  r"""Readiness checking configuration for VM instances. Unhealthy instances
   are removed from traffic rotation.
 
   Fields:
@@ -1366,11 +1949,12 @@ class ReadinessCheck(_messages.Message):
 
 
 class RepairApplicationRequest(_messages.Message):
-  """Request message for 'Applications.RepairApplication'."""
+  r"""Request message for 'Applications.RepairApplication'."""
 
 
 class RequestUtilization(_messages.Message):
-  """Target scaling by request utilization. Only applicable for VM runtimes.
+  r"""Target scaling by request utilization. Only applicable in the App Engine
+  flexible environment.
 
   Fields:
     targetConcurrentRequests: Target number of concurrent requests.
@@ -1381,8 +1965,41 @@ class RequestUtilization(_messages.Message):
   targetRequestCountPerSecond = _messages.IntegerField(2, variant=_messages.Variant.INT32)
 
 
+class ResourceRecord(_messages.Message):
+  r"""A DNS resource record.
+
+  Enums:
+    TypeValueValuesEnum: Resource record type. Example: AAAA.
+
+  Fields:
+    name: Relative name of the object affected by this record. Only applicable
+      for CNAME records. Example: 'www'.
+    rrdata: Data for this record. Values vary by record type, as defined in
+      RFC 1035 (section 5) and RFC 1034 (section 3.6.1).
+    type: Resource record type. Example: AAAA.
+  """
+
+  class TypeValueValuesEnum(_messages.Enum):
+    r"""Resource record type. Example: AAAA.
+
+    Values:
+      RECORD_TYPE_UNSPECIFIED: An unknown resource record.
+      A: An A resource record. Data is an IPv4 address.
+      AAAA: An AAAA resource record. Data is an IPv6 address.
+      CNAME: A CNAME resource record. Data is a domain name to be aliased.
+    """
+    RECORD_TYPE_UNSPECIFIED = 0
+    A = 1
+    AAAA = 2
+    CNAME = 3
+
+  name = _messages.StringField(1)
+  rrdata = _messages.StringField(2)
+  type = _messages.EnumField('TypeValueValuesEnum', 3)
+
+
 class Resources(_messages.Message):
-  """Machine resources for a version.
+  r"""Machine resources for a version.
 
   Fields:
     cpu: Number of CPU cores needed.
@@ -1398,7 +2015,7 @@ class Resources(_messages.Message):
 
 
 class ScriptHandler(_messages.Message):
-  """Executes a script to handle the request that matches the URL pattern.
+  r"""Executes a script to handle the request that matches the URL pattern.
 
   Fields:
     scriptPath: Path to the script from the application root directory.
@@ -1408,7 +2025,7 @@ class ScriptHandler(_messages.Message):
 
 
 class Service(_messages.Message):
-  """A Service resource is a logical component of an application that can
+  r"""A Service resource is a logical component of an application that can
   share state and communicate in a secure fashion with other services. For
   example, an application that handles customer requests might include
   separate services to handle tasks such as backend data analysis or API
@@ -1430,8 +2047,20 @@ class Service(_messages.Message):
   split = _messages.MessageField('TrafficSplit', 3)
 
 
+class SslSettings(_messages.Message):
+  r"""SSL configuration for a DomainMapping resource.
+
+  Fields:
+    certificateId: ID of the AuthorizedCertificate resource configuring SSL
+      for the application. Clearing this field will remove SSL support.
+      Example: 12345.
+  """
+
+  certificateId = _messages.StringField(1)
+
+
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -1460,7 +2089,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1472,7 +2101,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -1497,8 +2126,28 @@ class StandardQueryParameters(_messages.Message):
   upload_protocol = _messages.StringField(14)
 
 
+class StandardSchedulerSettings(_messages.Message):
+  r"""Scheduler settings for standard environment.
+
+  Fields:
+    maxInstances: Maximum number of instances to run for this version. Set to
+      zero to disable max_instances configuration.
+    minInstances: Minimum number of instances to run for this version. Set to
+      zero to disable min_instances configuration.
+    targetCpuUtilization: Target CPU utilization ratio to maintain when
+      scaling.
+    targetThroughputUtilization: Target throughput utilization ratio to
+      maintain when scaling
+  """
+
+  maxInstances = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  minInstances = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  targetCpuUtilization = _messages.FloatField(3)
+  targetThroughputUtilization = _messages.FloatField(4)
+
+
 class StaticFilesHandler(_messages.Message):
-  """Files served directly to the user for a given URL, such as images, CSS
+  r"""Files served directly to the user for a given URL, such as images, CSS
   stylesheets, or JavaScript source files. Static file handlers describe which
   files in the application directory are static files, and which URLs serve
   them.
@@ -1529,7 +2178,7 @@ class StaticFilesHandler(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class HttpHeadersValue(_messages.Message):
-    """HTTP headers to use for all responses from these URLs.
+    r"""HTTP headers to use for all responses from these URLs.
 
     Messages:
       AdditionalProperty: An additional property for a HttpHeadersValue
@@ -1540,7 +2189,7 @@ class StaticFilesHandler(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a HttpHeadersValue object.
+      r"""An additional property for a HttpHeadersValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1562,7 +2211,7 @@ class StaticFilesHandler(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The Status type defines a logical error model that is suitable for
+  r"""The Status type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by gRPC (https://github.com/grpc). The error model is designed to be:
   Simple to use and understand for most users Flexible enough to meet
@@ -1609,7 +2258,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -1621,7 +2270,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -1639,7 +2288,7 @@ class Status(_messages.Message):
 
 
 class TrafficSplit(_messages.Message):
-  """Traffic routing configuration for versions within a single service.
+  r"""Traffic routing configuration for versions within a single service.
   Traffic splits define how traffic directed to the service is assigned to
   versions.
 
@@ -1673,7 +2322,7 @@ class TrafficSplit(_messages.Message):
   """
 
   class ShardByValueValuesEnum(_messages.Enum):
-    """Mechanism used to determine which version a request is sent to. The
+    r"""Mechanism used to determine which version a request is sent to. The
     traffic selection algorithm will be stable for either type until
     allocations are changed.
 
@@ -1695,7 +2344,7 @@ class TrafficSplit(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class AllocationsValue(_messages.Message):
-    """Mapping from version IDs within the service to fractional (0.000, 1]
+    r"""Mapping from version IDs within the service to fractional (0.000, 1]
     allocations of traffic for that version. Each version can be specified
     only once, but some versions in the service may not have any traffic
     allocation. Services that have traffic allocated cannot be deleted until
@@ -1713,7 +2362,7 @@ class TrafficSplit(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a AllocationsValue object.
+      r"""An additional property for a AllocationsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1730,7 +2379,7 @@ class TrafficSplit(_messages.Message):
 
 
 class UrlDispatchRule(_messages.Message):
-  """Rules to match an HTTP request and dispatch that request to a service.
+  r"""Rules to match an HTTP request and dispatch that request to a service.
 
   Fields:
     domain: Domain name to match against. The wildcard "*" is supported if
@@ -1748,7 +2397,7 @@ class UrlDispatchRule(_messages.Message):
 
 
 class UrlMap(_messages.Message):
-  """URL pattern and description of how the URL should be handled. App Engine
+  r"""URL pattern and description of how the URL should be handled. App Engine
   can handle URLs by executing application code or by serving static files
   uploaded with the version, such as images, CSS, or JavaScript.
 
@@ -1779,8 +2428,8 @@ class UrlMap(_messages.Message):
   """
 
   class AuthFailActionValueValuesEnum(_messages.Enum):
-    """Action to take when users access resources that require authentication.
-    Defaults to redirect.
+    r"""Action to take when users access resources that require
+    authentication. Defaults to redirect.
 
     Values:
       AUTH_FAIL_ACTION_UNSPECIFIED: Not specified. AUTH_FAIL_ACTION_REDIRECT
@@ -1796,7 +2445,7 @@ class UrlMap(_messages.Message):
     AUTH_FAIL_ACTION_UNAUTHORIZED = 2
 
   class LoginValueValuesEnum(_messages.Enum):
-    """Level of login required to access this resource.
+    r"""Level of login required to access this resource.
 
     Values:
       LOGIN_UNSPECIFIED: Not specified. LOGIN_OPTIONAL is assumed.
@@ -1815,7 +2464,7 @@ class UrlMap(_messages.Message):
     LOGIN_REQUIRED = 3
 
   class RedirectHttpResponseCodeValueValuesEnum(_messages.Enum):
-    """30x code to use when performing redirects for the secure field.
+    r"""30x code to use when performing redirects for the secure field.
     Defaults to 302.
 
     Values:
@@ -1832,7 +2481,7 @@ class UrlMap(_messages.Message):
     REDIRECT_HTTP_RESPONSE_CODE_307 = 4
 
   class SecurityLevelValueValuesEnum(_messages.Enum):
-    """Security (HTTPS) enforcement for this URL.
+    r"""Security (HTTPS) enforcement for this URL.
 
     Values:
       SECURE_UNSPECIFIED: Not specified.
@@ -1865,7 +2514,7 @@ class UrlMap(_messages.Message):
 
 
 class Version(_messages.Message):
-  """A Version resource is a specific set of source code and configuration
+  r"""A Version resource is a specific set of source code and configuration
   files that are deployed into a service.
 
   Enums:
@@ -1904,7 +2553,7 @@ class Version(_messages.Message):
     deployment: Code and application artifacts that make up this version.Only
       returned in GET requests if view=FULL is set.
     diskUsageBytes: Total size in bytes of all the files that are included in
-      this version and curerntly hosted on the App Engine disk.@OutputOnly
+      this version and currently hosted on the App Engine disk.@OutputOnly
     endpointsApiService: Cloud Endpoints configuration.If
       endpoints_api_service is set, the Cloud Endpoints Extensible Service
       Proxy will be provided to serve the API implemented by the app.
@@ -1918,9 +2567,10 @@ class Version(_messages.Message):
       to incoming requests. The first matching URL handles the request and
       other request handlers are not attempted.Only returned in GET requests
       if view=FULL is set.
-    healthCheck: Configures health checking for VM instances. Unhealthy
-      instances are stopped and replaced with new instances. Only applicable
-      for VM runtimes.Only returned in GET requests if view=FULL is set.
+    healthCheck: Configures health checking for instances. Unhealthy instances
+      are stopped and replaced with new instances. Only applicable in the App
+      Engine flexible environment.Only returned in GET requests if view=FULL
+      is set.
     id: Relative name of the version within the service. Example: v1. Version
       names can contain only lowercase letters, numbers, or hyphens. Reserved
       names: "default", "latest", and any name with the prefix "ah-".
@@ -1933,7 +2583,7 @@ class Version(_messages.Message):
     libraries: Configuration for third-party Python runtime libraries that are
       required by the application.Only returned in GET requests if view=FULL
       is set.
-    livenessCheck: Configures liveness health checking for VM instances.
+    livenessCheck: Configures liveness health checking for instances.
       Unhealthy instances are stopped and replaced with new instancesOnly
       returned in GET requests if view=FULL is set.
     manualScaling: A service with manual scaling runs continuously, allowing
@@ -1941,19 +2591,22 @@ class Version(_messages.Message):
       memory over time.
     name: Full path to the Version resource in the API. Example:
       apps/myapp/services/default/versions/v1.@OutputOnly
-    network: Extra network settings. Only applicable for VM runtimes.
+    network: Extra network settings. Only applicable in the App Engine
+      flexible environment.
     nobuildFilesRegex: Files that match this pattern will not be built into
       this version. Only applicable for Go runtimes.Only returned in GET
       requests if view=FULL is set.
-    readinessCheck: Configures readiness health checking for VM instances.
+    readinessCheck: Configures readiness health checking for instances.
       Unhealthy instances are not put into the backend traffic rotation.Only
       returned in GET requests if view=FULL is set.
-    resources: Machine resources for this version. Only applicable for VM
-      runtimes.
+    resources: Machine resources for this version. Only applicable in the App
+      Engine flexible environment.
     runtime: Desired runtime. Example: python27.
     runtimeApiVersion: The version of the API in the given runtime
       environment. Please see the app.yaml reference for valid values at https
       ://cloud.google.com/appengine/docs/standard/<language>/config/appref
+    runtimeChannel: The channel of the runtime to use. Only available for some
+      runtimes. Defaults to the default channel.
     servingStatus: Current serving status of this version. Only the versions
       with a SERVING status create instances and can be
       billed.SERVING_STATUS_UNSPECIFIED is an invalid value. Defaults to
@@ -1963,10 +2616,12 @@ class Version(_messages.Message):
     versionUrl: Serving URL for this version. Example: "https://myversion-dot-
       myservice-dot-myapp.appspot.com"@OutputOnly
     vm: Whether to deploy this version in a container on a virtual machine.
+    zones: The Google Compute Engine zones that are supported by this version
+      in the App Engine flexible environment.
   """
 
   class InboundServicesValueListEntryValuesEnum(_messages.Enum):
-    """InboundServicesValueListEntryValuesEnum enum type.
+    r"""InboundServicesValueListEntryValuesEnum enum type.
 
     Values:
       INBOUND_SERVICE_UNSPECIFIED: <no description>
@@ -1990,7 +2645,7 @@ class Version(_messages.Message):
     INBOUND_SERVICE_WARMUP = 8
 
   class ServingStatusValueValuesEnum(_messages.Enum):
-    """Current serving status of this version. Only the versions with a
+    r"""Current serving status of this version. Only the versions with a
     SERVING status create instances and can be
     billed.SERVING_STATUS_UNSPECIFIED is an invalid value. Defaults to
     SERVING.
@@ -2008,7 +2663,7 @@ class Version(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class BetaSettingsValue(_messages.Message):
-    """Metadata settings that are supplied to this version to enable beta
+    r"""Metadata settings that are supplied to this version to enable beta
     runtime features.
 
     Messages:
@@ -2020,7 +2675,7 @@ class Version(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a BetaSettingsValue object.
+      r"""An additional property for a BetaSettingsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2034,8 +2689,8 @@ class Version(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class EnvVariablesValue(_messages.Message):
-    """Environment variables available to the application.Only returned in GET
-    requests if view=FULL is set.
+    r"""Environment variables available to the application.Only returned in
+    GET requests if view=FULL is set.
 
     Messages:
       AdditionalProperty: An additional property for a EnvVariablesValue
@@ -2046,7 +2701,7 @@ class Version(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a EnvVariablesValue object.
+      r"""An additional property for a EnvVariablesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2086,15 +2741,17 @@ class Version(_messages.Message):
   resources = _messages.MessageField('Resources', 26)
   runtime = _messages.StringField(27)
   runtimeApiVersion = _messages.StringField(28)
-  servingStatus = _messages.EnumField('ServingStatusValueValuesEnum', 29)
-  threadsafe = _messages.BooleanField(30)
-  versionUrl = _messages.StringField(31)
-  vm = _messages.BooleanField(32)
+  runtimeChannel = _messages.StringField(29)
+  servingStatus = _messages.EnumField('ServingStatusValueValuesEnum', 30)
+  threadsafe = _messages.BooleanField(31)
+  versionUrl = _messages.StringField(32)
+  vm = _messages.BooleanField(33)
+  zones = _messages.StringField(34, repeated=True)
 
 
 class Volume(_messages.Message):
-  """Volumes mounted within the app container. Only applicable for VM
-  runtimes.
+  r"""Volumes mounted within the app container. Only applicable in the App
+  Engine flexible environment.
 
   Fields:
     name: Unique name for the volume.
@@ -2108,7 +2765,7 @@ class Volume(_messages.Message):
 
 
 class ZipInfo(_messages.Message):
-  """The zip file information for a zip deployment.
+  r"""The zip file information for a zip deployment.
 
   Fields:
     filesCount: An estimate of the number of files in a zip for a zip
@@ -2125,11 +2782,8 @@ class ZipInfo(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'appengine')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'appengine')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'appengine')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

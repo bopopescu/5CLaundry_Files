@@ -39,13 +39,26 @@ Usage:
   markdown = generator.Edit()
 """
 
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope import cli_tree
 from googlecloudsdk.calliope import markdown
 from googlecloudsdk.calliope import usage_text
 from googlecloudsdk.core import properties
+
+import six
+
+
+if six.PY2:
+  FLAG_TYPE_NAME = b'flag'
+  POSITIONAL_TYPE_NAME = b'positional'
+  GROUP_TYPE_NAME = b'group'
+else:
+  FLAG_TYPE_NAME = 'flag'
+  POSITIONAL_TYPE_NAME = 'positional'
+  GROUP_TYPE_NAME = 'group'
 
 
 def _GetReleaseTrackFromId(release_id):
@@ -55,23 +68,26 @@ def _GetReleaseTrackFromId(release_id):
   return base.ReleaseTrack.FromId(release_id)
 
 
-def GroupAttr(d):
-  """Returns a group attr object suitable for the calliope.markdown module."""
-  return type('attr', (object,), d)
-
-
-def Flag(d, is_global=False):
+def Flag(d):
   """Returns a flag object suitable for the calliope.markdown module."""
-  flag = type('flag', (object,), d)
-  flag.help = argparse.SUPPRESS if flag.hidden else flag.description
-  flag.is_global = is_global
-  flag.dest = flag.value.lower().replace('-', '_')
+  flag = type(FLAG_TYPE_NAME, (object,), d)
+  flag.is_group = False
+  flag.is_hidden = d.get(cli_tree.LOOKUP_IS_HIDDEN, d.get('hidden', False))
+  flag.hidden = flag.is_hidden
+  flag.is_positional = False
+  flag.is_required = d.get(cli_tree.LOOKUP_IS_REQUIRED,
+                           d.get(cli_tree.LOOKUP_REQUIRED, False))
+  flag.required = flag.is_required
+  flag.help = flag.description
+  flag.dest = flag.name.lower().replace('-', '_')
   flag.metavar = flag.value
   flag.option_strings = [flag.name]
+  if not hasattr(flag, 'default'):
+    flag.default = None
 
   if flag.type == 'bool':
     flag.nargs = 0
-  else:
+  elif flag.nargs not in ('?', '*', '+'):
     flag.nargs = 1
   if flag.type == 'dict':
     flag.type = arg_parsers.ArgDict()
@@ -79,37 +95,54 @@ def Flag(d, is_global=False):
     flag.type = arg_parsers.ArgList()
   elif flag.type == 'string':
     flag.type = None
-  if not flag.group:
-    flag.group = flag.name
 
-  if flag.attr.get('inverted_synopsis'):
+  if flag.attr.get(cli_tree.LOOKUP_INVERTED_SYNOPSIS):
     flag.inverted_synopsis = True
   prop = flag.attr.get('property')
   if prop:
-    if 'value' in prop:
+    if cli_tree.LOOKUP_VALUE in prop:
       kind = 'value'
-      value = prop['value']
+      value = prop[cli_tree.LOOKUP_VALUE]
     else:
       value = None
       kind = 'bool' if flag.type == 'bool' else None
-    flag.store_property = (properties.FromString(prop['name']), kind, value)
+    flag.store_property = (properties.FromString(
+        prop[cli_tree.LOOKUP_NAME]), kind, value)
 
   return flag
 
 
 def Positional(d):
   """Returns a positional object suitable for the calliope.markdown module."""
-  positional = type('positional', (object,), d)
+  positional = type(POSITIONAL_TYPE_NAME, (object,), d)
   positional.help = positional.description
-  positional.hidden = False
+  positional.is_group = False
+  positional.is_hidden = False
+  positional.is_positional = True
+  positional.is_required = positional.nargs != '*'
   positional.dest = positional.value.lower().replace('-', '_')
   positional.metavar = positional.value
-  positional.option_strings = [positional.name]
+  positional.option_strings = []
   try:
     positional.nargs = int(positional.nargs)
   except ValueError:
     pass
   return positional
+
+
+def Argument(d):
+  """Returns an argument object suitable for the calliope.markdown module."""
+  if d.get(cli_tree.LOOKUP_IS_POSITIONAL, False):
+    return Positional(d)
+  if not d.get(cli_tree.LOOKUP_IS_GROUP, False):
+    return Flag(d)
+  group = type(GROUP_TYPE_NAME, (object,), d)
+  group.arguments = [Argument(a) for a in d.get(cli_tree.LOOKUP_ARGUMENTS, [])]
+  group.category = None
+  group.help = group.description
+  group.is_global = False
+  group.is_hidden = False
+  return group
 
 
 class CliTreeMarkdownGenerator(markdown.MarkdownGenerator):
@@ -134,58 +167,47 @@ class CliTreeMarkdownGenerator(markdown.MarkdownGenerator):
     """
     self._tree = tree
     self._command = command
-    self._command_path = command['path']
-    self._subcommands = self.GetSubCommandHelp()
-    self._subgroups = self.GetSubGroupHelp()
+    self._command_path = command[cli_tree.LOOKUP_PATH]
     super(CliTreeMarkdownGenerator, self).__init__(
         self._command_path,
-        _GetReleaseTrackFromId(self._command['release']),
-        self._command['hidden'])
-    self._capsule = self._command['capsule']
-    self._sections = self._command['sections']
-
-  @staticmethod
-  def FlagGroupSortKey(flags):
-    """Returns a flag group sort key for sorted()."""
-    return [len(flags) > 1] + sorted([flag.name for flag in flags])
-
-  @staticmethod
-  def IsHidden(arg):
-    """Returns True if arg is hidden."""
-    return arg.hidden
+        _GetReleaseTrackFromId(self._command[cli_tree.LOOKUP_RELEASE]),
+        self._command.get(cli_tree.LOOKUP_IS_HIDDEN,
+                          self._command.get('hidden', False)))
+    self._capsule = self._command[cli_tree.LOOKUP_CAPSULE]
+    self._sections = self._command[cli_tree.LOOKUP_SECTIONS]
+    self._subcommands = self.GetSubCommandHelp()
+    self._subgroups = self.GetSubGroupHelp()
 
   def _GetCommandFromPath(self, command_path):
     """Returns the command node for command_path."""
-    commands = self._tree['commands']
+    path = self._tree[cli_tree.LOOKUP_PATH]
+    if path:
+      # self._tree is not a super root. The first path name must match.
+      if command_path[:1] != path:
+        return None
+      # Already checked the first name.
+      command_path = command_path[1:]
+    command = self._tree
     for name in command_path:
+      commands = command[cli_tree.LOOKUP_COMMANDS]
       if name not in commands:
         return None
-      commands = commands[name]['commands']
-    return commands
+      command = commands[name]
+    return command
 
   def IsValidSubPath(self, command_path):
     """Returns True if the given command path after the top is valid."""
-    return self._GetCommandFromPath(command_path) is not None
+    return self._GetCommandFromPath([cli_tree.DEFAULT_CLI_NAME] +
+                                    command_path) is not None
 
-  def GetPositionalArgs(self):
-    """Returns the command positional args."""
-    return [Positional(value) for value in self._command['positionals']]
-
-  def _GetAllFlagsAndGroupAttr(self):
-    """Returns the flag group attrs and list of all flags for the command."""
-    flags = {}
-    groups = {}
-    commands = self._tree['commands']
-    for name in self._command_path[1:]:
-      if name not in commands:
-        break
-      flags.update(commands[name]['flags'])
-      groups.update(commands[name]['groups'])
-      commands = commands[name]['commands']
-    return ([Flag(flag, is_global=True)
-             for flag in self._tree['flags'].values() if not flag['hidden']] +
-            [Flag(flag) for flag in flags.values() if not flag['hidden']],
-            {name: GroupAttr(attr) for name, attr in groups.iteritems()})
+  def GetArguments(self):
+    """Returns the command arguments."""
+    command = self._GetCommandFromPath(self._command_path)
+    try:
+      return [Argument(a) for a in
+              command[cli_tree.LOOKUP_CONSTRAINTS][cli_tree.LOOKUP_ARGUMENTS]]
+    except KeyError:
+      return []
 
   def GetArgDetails(self, arg):
     """Returns the help text with auto-generated details for arg.
@@ -200,32 +222,17 @@ class CliTreeMarkdownGenerator(markdown.MarkdownGenerator):
     """
     return arg.help
 
-  def GetFlagGroups(self):
-    """Returns (group, group_attr, global_flags)."""
-    # Place all flag groups into a dict. Flags that are in a mutually
-    # exclusive group are mapped group_id -> [flags]. All other flags
-    # are mapped dest -> [flag].
-    global_flags = []
-    groups = {}
-    flags, group_attr = self._GetAllFlagsAndGroupAttr()
-    for flag in flags:
-      if not self._is_root and flag.is_global:
-        global_flags.append(flag.name)
-      else:
-        group_id = flag.group
-        if group_id not in groups:
-          groups[group_id] = []
-        groups[group_id].append(flag)
-    return groups, group_attr, global_flags
-
   def _GetSubHelp(self, is_group=False):
     """Returns the help dict indexed by command for sub commands or groups."""
     return {name: usage_text.HelpInfo(
-        help_text=subcommand['capsule'],
-        is_hidden=subcommand['hidden'],
-        release_track=_GetReleaseTrackFromId(subcommand['release']))
-            for name, subcommand in self._command['commands'].iteritems()
-            if subcommand['group'] == is_group}
+        help_text=subcommand[cli_tree.LOOKUP_CAPSULE],
+        is_hidden=subcommand.get(cli_tree.LOOKUP_IS_HIDDEN,
+                                 subcommand.get('hidden', False)),
+        release_track=_GetReleaseTrackFromId(
+            subcommand[cli_tree.LOOKUP_RELEASE]))
+            for name, subcommand in six.iteritems(self._command[
+                cli_tree.LOOKUP_COMMANDS])
+            if subcommand[cli_tree.LOOKUP_IS_GROUP] == is_group}
 
   def GetSubCommandHelp(self):
     """Returns the subcommand help dict indexed by subcommand."""

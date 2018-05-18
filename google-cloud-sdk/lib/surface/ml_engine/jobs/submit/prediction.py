@@ -12,14 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ml-engine jobs submit batch prediction command."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.ml_engine import jobs
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.ml_engine import flags
 from googlecloudsdk.command_lib.ml_engine import jobs_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
-_TF_RECORD_URL = ('https://www.tensorflow.org/versions/r0.12/how_tos/'
-                  'reading_data/index.html#file-formats')
+
+def _AddAcceleratorFlags(parser):
+  """Add arguments for accelerator config."""
+  accelerator_config_group = base.ArgumentGroup(
+      help='Accelerator Configuration.')
+
+  accelerator_config_group.AddArgument(base.Argument(
+      '--accelerator-count',
+      required=True,
+      default=1,
+      type=arg_parsers.BoundedInt(lower_bound=1),
+      help=('The number of accelerators to attach to the machines.'
+            ' Must be >= 1.')))
+  accelerator_config_group.AddArgument(
+      jobs_util.AcceleratorFlagMap().choice_arg)
+  accelerator_config_group.AddToParser(parser)
 
 
 def _AddSubmitPredictionArgs(parser):
@@ -64,16 +81,7 @@ as the `other-instances1` bucket, while
 will match any objects in the `instance-dir` "directory" (since directories
 aren't a first-class Cloud Storage concept) of `my-bucket`.
 """)
-  parser.add_argument(
-      '--data-format',
-      required=True,
-      choices={
-          'TEXT': ('Text files with instances separated by the new-line '
-                   'character.'),
-          'TF_RECORD': 'TFRecord files; see {}'.format(_TF_RECORD_URL),
-          'TF_RECORD_GZIP': 'GZIP-compressed TFRecord files.'
-      },
-      help='Data format of the input files.')
+  jobs_util.DataFormatFlagMap().choice_arg.AddToParser(parser)
   parser.add_argument(
       '--output-path', required=True,
       help='Google Cloud Storage path to which to save the output. '
@@ -88,9 +96,20 @@ aren't a first-class Cloud Storage concept) of `my-bucket`.
       type=int,
       help=('The maximum number of workers to be used for parallel processing. '
             'Defaults to 10 if not specified.'))
+  parser.add_argument(
+      '--batch-size',
+      required=False,
+      type=int,
+      help=('The number of records per batch. The service will buffer '
+            'batch_size number of records in memory before invoking TensorFlow.'
+            ' Defaults to 64 if not specified.'))
+
   flags.RUNTIME_VERSION.AddToParser(parser)
+  labels_util.AddCreateLabelsFlags(parser)
 
 
+@base.ReleaseTracks(base.ReleaseTrack.GA,
+                    base.ReleaseTrack.BETA)
 class Prediction(base.Command):
   """Start a Cloud ML Engine batch prediction job."""
 
@@ -100,14 +119,54 @@ class Prediction(base.Command):
     parser.display_info.AddFormat(jobs_util.JOB_FORMAT)
 
   def Run(self, args):
+    data_format = jobs_util.DataFormatFlagMap().GetEnumForChoice(
+        args.data_format)
+    jobs_client = jobs.JobsClient()
+
+    labels = jobs_util.ParseCreateLabels(jobs_client, args)
     return jobs_util.SubmitPrediction(
-        jobs.JobsClient(), args.job,
+        jobs_client, args.job,
         model_dir=args.model_dir,
         model=args.model,
         version=args.version,
         input_paths=args.input_paths,
-        data_format=args.data_format,
+        data_format=data_format.name,
         output_path=args.output_path,
         region=args.region,
         runtime_version=args.runtime_version,
-        max_worker_count=args.max_worker_count)
+        max_worker_count=args.max_worker_count,
+        batch_size=args.batch_size,
+        labels=labels)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class PredictionAlpha(base.Command):
+  """Start a Cloud ML Engine batch prediction job."""
+
+  @staticmethod
+  def Args(parser):
+    _AddSubmitPredictionArgs(parser)
+    _AddAcceleratorFlags(parser)
+    parser.display_info.AddFormat(jobs_util.JOB_FORMAT)
+
+  def Run(self, args):
+    data_format = jobs_util.DataFormatFlagMap().GetEnumForChoice(
+        args.data_format)
+    jobs_client = jobs.JobsClient()
+
+    labels = jobs_util.ParseCreateLabels(jobs_client, args)
+    return jobs_util.SubmitPrediction(
+        jobs_client, args.job,
+        model_dir=args.model_dir,
+        model=args.model,
+        version=args.version,
+        input_paths=args.input_paths,
+        data_format=data_format.name,
+        output_path=args.output_path,
+        region=args.region,
+        runtime_version=args.runtime_version,
+        max_worker_count=args.max_worker_count,
+        batch_size=args.batch_size,
+        labels=labels,
+        accelerator_type=args.accelerator_type,
+        accelerator_count=args.accelerator_count)

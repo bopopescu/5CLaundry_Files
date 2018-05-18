@@ -13,6 +13,12 @@
 # limitations under the License.
 
 """Utilities to manage credentials."""
+# Pytype fails to analyze this file.
+# type: ignore
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 
 import abc
 import base64
@@ -24,12 +30,14 @@ import enum
 from googlecloudsdk.core import config
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
-from googlecloudsdk.core import properties
 from googlecloudsdk.core.credentials import devshell as c_devshell
+
 from oauth2client import client
 from oauth2client import service_account
 from oauth2client.contrib import gce as oauth2client_gce
 from oauth2client.contrib import multistore_file
+import six
+import sqlite3
 
 
 class Error(exceptions.Error):
@@ -41,9 +49,9 @@ class UnknownCredentialsType(Error):
   pass
 
 
-class CredentialStore(object):
+@six.add_metaclass(abc.ABCMeta)
+class CredentialStore(object):  # pytype: disable=ignored-abstractmethod
   """Abstract definition of credential store."""
-  __metaclass__ = abc.ABCMeta
 
   @abc.abstractmethod
   def GetAccounts(self):
@@ -78,15 +86,15 @@ class _SqlCursor(object):
     self._cursor = None
 
   def __enter__(self):
-    # TODO(b/36879084): Do not import sqlite upfront since some python
-    # setups might not have it.
-    import sqlite3  # pylint: disable=g-import-not-at-top
     self._connection = sqlite3.connect(
         self._store_file,
         detect_types=sqlite3.PARSE_DECLTYPES,
         isolation_level=None,  # Use autocommit mode.
         check_same_thread=True  # Only creating thread may use the connection.
     )
+    # Wait up to 1 second for any locks to clear up.
+    # https://sqlite.org/pragma.html#pragma_busy_timeout
+    self._connection.execute('PRAGMA busy_timeout = 1000')
     self._cursor = self._connection.cursor()
     return self
 
@@ -204,12 +212,13 @@ class AccessTokenStore(client.Storage):
     self._credentials = credentials
 
   def locked_get(self):
-    access_token, token_expiry, rapt_token = self._access_token_cache.Load(
-        self._account_id)
-    self._credentials.access_token = access_token
-    self._credentials.token_expiry = token_expiry
-    if rapt_token is not None:
-      self._credentials.rapt_token = rapt_token
+    token_data = self._access_token_cache.Load(self._account_id)
+    if token_data:
+      access_token, token_expiry, rapt_token = token_data
+      self._credentials.access_token = access_token
+      self._credentials.token_expiry = token_expiry
+      if rapt_token is not None:
+        self._credentials.rapt_token = rapt_token
     return self._credentials
 
   def locked_put(self, credentials):
@@ -221,6 +230,34 @@ class AccessTokenStore(client.Storage):
 
   def locked_delete(self):
     self._access_token_cache.Remove(self._account_id)
+
+
+def MaybeAttachAccessTokenCacheStore(credentials,
+                                     access_token_file=None):
+  """Attaches access token cache to given credentials if no store set.
+
+  Note that credentials themselves will not be persisted only access token. Use
+  this whenever access token caching is desired, yet credentials themselves
+  should not be persisted.
+
+  Args:
+    credentials: oauth2client.client.OAuth2Credentials.
+    access_token_file: str, optional path to use for access token storage.
+  Returns:
+    oauth2client.client.OAuth2Credentials, reloaded credentials.
+  """
+  if credentials.store is not None:
+    return credentials
+  account_id = getattr(credentials, 'service_account_email', None)
+  if not account_id:
+    account_id = str(hash(credentials.refresh_token))
+
+  access_token_cache = AccessTokenCache(
+      access_token_file or config.Paths().access_token_db_path)
+  store = AccessTokenStore(access_token_cache, account_id, credentials)
+  credentials.set_store(store)
+  # Return from the store, which will reload credentials with access token info.
+  return store.get()
 
 
 class CredentialStoreWithCache(CredentialStore):
@@ -267,21 +304,9 @@ def GetCredentialStore(store_file=None, access_token_file=None):
     CredentialStore object.
   """
 
-  try:
-    import sqlite3  # pylint: disable=g-import-not-at-top,unused-variable
-  except ImportError:
-    log.warn('This python installation does not have sqlite3 library. '
-             'Please upgrade your set of dependencies to include sqlite3 as '
-             'otherwise gcloud commands will stop working in near future. '
-             'Contact Cloud SDK if you have any questions.')
-  else:
-    if properties.VALUES.auth.use_sqlite_store.GetBool():
-      _MigrateMultistore2Sqlite()
-      return _GetSqliteStore(store_file, access_token_file)
-
-  _MigrateSqlite2Multistore()
-  return Oauth2ClientCredentialStore(
-      store_file or config.Paths().credentials_path)
+  # TODO(b/69059614): remove migration logic and all of oauth2client multistore.
+  _MigrateMultistore2Sqlite()
+  return _GetSqliteStore(store_file, access_token_file)
 
 
 class Oauth2ClientCredentialStore(CredentialStore):
@@ -351,17 +376,20 @@ class Oauth2ClientCredentialStore(CredentialStore):
 class CredentialType(enum.Enum):
   """Enum of credential types managed by gcloud."""
 
-  UNKNOWN = (0, 'unknown', False)
-  USER_ACCOUNT = (1, client.AUTHORIZED_USER, True)
-  SERVICE_ACCOUNT = (2, client.SERVICE_ACCOUNT, True)
-  P12_SERVICE_ACCOUNT = (3, 'service_account_p12', True)
-  DEVSHELL = (4, 'devshell', False)
-  GCE = (5, 'gce', False)
+  UNKNOWN = (0, 'unknown', False, False)
+  USER_ACCOUNT = (1, client.AUTHORIZED_USER, True, True)
+  SERVICE_ACCOUNT = (2, client.SERVICE_ACCOUNT, True, False)
+  P12_SERVICE_ACCOUNT = (3, 'service_account_p12', True, False)
+  DEVSHELL = (4, 'devshell', False, True)
+  GCE = (5, 'gce', False, False)
 
-  def __init__(self, type_id, key, is_serializable):
+  def __init__(self, type_id, key, is_serializable, is_user):
     self.type_id = type_id
     self.key = key
     self.is_serializable = is_serializable
+    # True if this cooresponds to a "user" or 3LO credential as opposed to a
+    # service account of some kind.
+    self.is_user = is_user
 
   @staticmethod
   def FromTypeKey(key):
@@ -372,6 +400,7 @@ class CredentialType(enum.Enum):
 
   @staticmethod
   def FromCredentials(creds):
+    # type: (...) -> CredentialType
     if isinstance(creds, c_devshell.DevshellCredentials):
       return CredentialType.DEVSHELL
     if isinstance(creds, oauth2client_gce.AppAssertionCredentials):
@@ -397,10 +426,13 @@ def ToJson(credentials):
     }
     # These fields are optionally serialized as they are not required for
     # credentials to be usable, these are used by Oauth2client.
-    for field in ('id_token', 'invalid', 'revoke_uri', 'token_response',
-                  'token_uri', 'user_agent', 'rapt_token'):
+    for field in ('id_token', 'invalid', 'revoke_uri', 'scopes',
+                  'token_response', 'token_uri', 'user_agent', 'rapt_token'):
       value = getattr(credentials, field, None)
       if value:
+        # Sets are not json serializable as is, so encode as a list.
+        if isinstance(value, set):
+          value = list(value)
         creds_dict[field] = value
 
   elif creds_type == CredentialType.SERVICE_ACCOUNT:
@@ -410,7 +442,11 @@ def ToJson(credentials):
     creds_dict = {
         'client_email': credentials._service_account_email,
         'type': creds_type.key,
-        'private_key': base64.b64encode(credentials._private_key_pkcs12),
+        # The base64 only deals with bytes. The encoded value is bytes but is
+        # known to be a safe ascii string. To serialize it, convert it to a
+        # text object.
+        'private_key': (base64.b64encode(credentials._private_key_pkcs12)
+                        .decode('ascii')),
         'password': credentials._private_key_password
     }
   else:
@@ -476,20 +512,4 @@ def _MigrateMultistore2Sqlite():
       sqlite_store.Store(account_id, credential)
 
     os.remove(multistore_file_path)
-
-
-def _MigrateSqlite2Multistore():
-  credential_db_file = config.Paths().credentials_db_path
-  if os.path.isfile(credential_db_file):
-    multistore = Oauth2ClientCredentialStore(config.Paths().credentials_path)
-    access_token_file = config.Paths().access_token_db_path
-    sqlite_store = _GetSqliteStore(credential_db_file,
-                                   access_token_file)
-
-    for account_id in sqlite_store.GetAccounts():
-      credential = sqlite_store.Load(account_id)
-      multistore.Store(account_id, credential)
-
-    os.remove(credential_db_file)
-    os.remove(access_token_file)
 

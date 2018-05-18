@@ -14,6 +14,8 @@
 
 """Implementation of gcloud dataflow jobs export-steps command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.dataflow import apis
 from googlecloudsdk.api_lib.dataflow import step_graph
 from googlecloudsdk.api_lib.dataflow import step_json
@@ -47,9 +49,12 @@ class ExportSteps(base.Command):
     Returns:
       An iterator over the steps in the given job.
     """
+    job_ref = job_utils.ExtractJobRef(args)
     return step_json.ExtractSteps(
         apis.Jobs.Get(
-            job_id=args.job,
+            job_ref.jobId,
+            project_id=job_ref.projectId,
+            region_id=job_ref.location,
             view=apis.Jobs.GET_REQUEST.ViewValueValuesEnum.JOB_VIEW_ALL))
 
   def Display(self, args, steps):

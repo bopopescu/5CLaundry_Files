@@ -11,11 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub subscriptions seek command."""
 
-from googlecloudsdk.calliope import arg_parsers
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+from googlecloudsdk.api_lib.pubsub import subscriptions
+
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.projects import util as projects_util
+from googlecloudsdk.command_lib.pubsub import flags
+from googlecloudsdk.command_lib.pubsub import resource_args
 from googlecloudsdk.command_lib.pubsub import util
 
 
@@ -32,28 +38,8 @@ class SeekAlpha(base.Command):
 
   @staticmethod
   def Args(parser):
-    """Registers flags for this command."""
-
-    parser.add_argument('subscription',
-                        help='Name of the subscription to affect.')
-
-    seek_to_parser = parser.add_mutually_exclusive_group(required=True)
-    seek_to_parser.add_argument(
-        '--time', type=arg_parsers.Datetime.Parse,
-        help=('The time to seek to. Messages in the subscription that '
-              'were published before this time are marked as acknowledged, and '
-              'messages retained in the subscription that were published after '
-              'this time are marked as unacknowledged. See `gcloud topic '
-              'datetimes` for information on time formats.'))
-    seek_to_parser.add_argument(
-        '--snapshot',
-        help=('The name of the snapshot. The snapshot\'s topic must be the same'
-              ' as that of the subscription.'))
-    parser.add_argument(
-        '--snapshot-project', default='',
-        help=('The name of the project the snapshot belongs to (if seeking to '
-              'a snapshot). If not set, it defaults to the currently selected '
-              'cloud project.'))
+    resource_args.AddSubscriptionResourceArg(parser, 'to affect.')
+    flags.AddSeekFlags(parser)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -67,27 +53,21 @@ class SeekAlpha(base.Command):
       description fits the Resource described in the ResourceRegistry under
       'pubsub.subscriptions.seek'.
     """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
+    client = subscriptions.SubscriptionsClient()
 
-    subscription_path = util.SubscriptionFormat(args.subscription)
-    result = {'subscriptionId': subscription_path}
+    subscription_ref = args.CONCEPTS.subscription.Parse()
+    result = {'subscriptionId': subscription_ref.RelativeName()}
 
-    seek_req = msgs.SeekRequest()
+    snapshot_ref = None
+    time = None
     if args.snapshot:
-      if args.snapshot_project:
-        snapshot_project = (
-            projects_util.ParseProject(args.snapshot_project).Name())
-      else:
-        snapshot_project = ''
-      seek_req.snapshot = util.SnapshotFormat(args.snapshot, snapshot_project)
-      result['snapshotId'] = seek_req.snapshot
+      snapshot_ref = util.ParseSnapshot(
+          args.snapshot, args.snapshot_project)
+      result['snapshotId'] = snapshot_ref.RelativeName()
     else:
-      seek_req.time = args.time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-      result['time'] = seek_req.time
+      time = util.FormatSeekTime(args.time)
+      result['time'] = time
 
-    pubsub.projects_subscriptions.Seek(
-        msgs.PubsubProjectsSubscriptionsSeekRequest(
-            seekRequest=seek_req, subscription=subscription_path))
+    client.Seek(subscription_ref, time=time, snapshot_ref=snapshot_ref)
 
     return result

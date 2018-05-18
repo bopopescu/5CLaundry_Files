@@ -6,7 +6,7 @@
   "canonicalName": "Cloud Natural Language",
   "version": "v1",
   "revision": "0",
-  "title": "Google Cloud Natural Language API",
+  "title": "Cloud Natural Language API",
   "description": "Provides natural language understanding technologies to developers. Examples include sentiment analysis, entity recognition, entity sentiment analysis, and text annotations.",
   "ownerDomain": "google.com",
   "ownerName": "Google",
@@ -20,7 +20,7 @@
   "servicePath": "",
   "baseUrl": "https://language.googleapis.com/",
   "batchPath": "batch",
-  "version_module": "True",
+  "version_module": true,
   "parameters": {
     "access_token": {
       "type": "string",
@@ -348,6 +348,10 @@
           "items": {
             "$ref": "EntityMention"
           }
+        },
+        "sentiment": {
+          "description": "For calls to AnalyzeEntitySentiment or if\nAnnotateTextRequest.Features.extract_entity_sentiment is set to\ntrue, this field will contain the aggregate sentiment expressed for this\nentity in the provided document.",
+          "$ref": "Sentiment"
         }
       }
     },
@@ -373,6 +377,55 @@
             "PROPER",
             "COMMON"
           ]
+        },
+        "sentiment": {
+          "description": "For calls to AnalyzeEntitySentiment or if\nAnnotateTextRequest.Features.extract_entity_sentiment is set to\ntrue, this field will contain the sentiment expressed for this mention of\nthe entity in the provided document.",
+          "$ref": "Sentiment"
+        }
+      }
+    },
+    "AnalyzeEntitySentimentRequest": {
+      "id": "AnalyzeEntitySentimentRequest",
+      "description": "The entity-level sentiment analysis request message.",
+      "type": "object",
+      "properties": {
+        "document": {
+          "description": "Input document.",
+          "$ref": "Document"
+        },
+        "encodingType": {
+          "description": "The encoding type used by the API to calculate offsets.",
+          "enumDescriptions": [
+            "If `EncodingType` is not specified, encoding-dependent information (such as\n`begin_offset`) will be set at `-1`.",
+            "Encoding-dependent information (such as `begin_offset`) is calculated based\non the UTF-8 encoding of the input. C++ and Go are examples of languages\nthat use this encoding natively.",
+            "Encoding-dependent information (such as `begin_offset`) is calculated based\non the UTF-16 encoding of the input. Java and Javascript are examples of\nlanguages that use this encoding natively.",
+            "Encoding-dependent information (such as `begin_offset`) is calculated based\non the UTF-32 encoding of the input. Python is an example of a language\nthat uses this encoding natively."
+          ],
+          "type": "string",
+          "enum": [
+            "NONE",
+            "UTF8",
+            "UTF16",
+            "UTF32"
+          ]
+        }
+      }
+    },
+    "AnalyzeEntitySentimentResponse": {
+      "id": "AnalyzeEntitySentimentResponse",
+      "description": "The entity-level sentiment analysis response message.",
+      "type": "object",
+      "properties": {
+        "entities": {
+          "description": "The recognized entities in the input document with associated sentiments.",
+          "type": "array",
+          "items": {
+            "$ref": "Entity"
+          }
+        },
+        "language": {
+          "description": "The language of the text, which will be the same as the language specified\nin the request or, if not specified, the automatically-detected language.\nSee Document.language field for more details.",
+          "type": "string"
         }
       }
     },
@@ -807,7 +860,13 @@
             "Nominalized clausal passive",
             "Compound of numeric modifier",
             "Copula",
-            "Dislocated relation (for fronted\/topicalized elements)"
+            "Dislocated relation (for fronted\/topicalized elements)",
+            "Aspect marker",
+            "Genitive modifier",
+            "Genitive object",
+            "Infinitival modifier",
+            "Measure",
+            "Nominal complement of a noun"
           ],
           "type": "string",
           "enum": [
@@ -887,8 +946,55 @@
             "NOMCSUBJPASS",
             "NUMC",
             "COP",
-            "DISLOCATED"
+            "DISLOCATED",
+            "ASP",
+            "GMOD",
+            "GOBJ",
+            "INFMOD",
+            "MES",
+            "NCOMP"
           ]
+        }
+      }
+    },
+    "ClassifyTextRequest": {
+      "id": "ClassifyTextRequest",
+      "description": "The document classification request message.",
+      "type": "object",
+      "properties": {
+        "document": {
+          "description": "Input document.",
+          "$ref": "Document"
+        }
+      }
+    },
+    "ClassifyTextResponse": {
+      "id": "ClassifyTextResponse",
+      "description": "The document classification response message.",
+      "type": "object",
+      "properties": {
+        "categories": {
+          "description": "Categories representing the input document.",
+          "type": "array",
+          "items": {
+            "$ref": "ClassificationCategory"
+          }
+        }
+      }
+    },
+    "ClassificationCategory": {
+      "id": "ClassificationCategory",
+      "description": "Represents a category returned from the text classifier.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "The name of the category representing the document, from the [predefined\ntaxonomy](\/natural-language\/docs\/categories).",
+          "type": "string"
+        },
+        "confidence": {
+          "description": "The classifier's confidence of the category. Number represents how certain\nthe classifier is that this category represents the given text.",
+          "type": "number",
+          "format": "float"
         }
       }
     },
@@ -939,6 +1045,14 @@
         "extractDocumentSentiment": {
           "description": "Extract document-level sentiment.",
           "type": "boolean"
+        },
+        "extractEntitySentiment": {
+          "description": "Extract entities and their associated sentiment.",
+          "type": "boolean"
+        },
+        "classifyText": {
+          "description": "Classify the full document into categories.",
+          "type": "boolean"
         }
       }
     },
@@ -975,6 +1089,13 @@
         "language": {
           "description": "The language of the text, which will be the same as the language specified\nin the request or, if not specified, the automatically-detected language.\nSee Document.language field for more details.",
           "type": "string"
+        },
+        "categories": {
+          "description": "Categories identified in the input document.",
+          "type": "array",
+          "items": {
+            "$ref": "ClassificationCategory"
+          }
         }
       }
     },
@@ -1014,7 +1135,6 @@
           "path": "v1/documents:analyzeSentiment",
           "flatPath": "v1/documents:analyzeSentiment",
           "httpMethod": "POST",
-          "description": "Analyzes the sentiment of the provided text.",
           "parameters": {
           },
           "parameterOrder": [
@@ -1028,14 +1148,14 @@
           "scopes": [
             "https://www.googleapis.com/auth/cloud-language",
             "https://www.googleapis.com/auth/cloud-platform"
-          ]
+          ],
+          "description": "Analyzes the sentiment of the provided text."
         },
         "analyzeEntities": {
           "id": "language.documents.analyzeEntities",
           "path": "v1/documents:analyzeEntities",
           "flatPath": "v1/documents:analyzeEntities",
           "httpMethod": "POST",
-          "description": "Finds named entities (currently proper names and common nouns) in the text\nalong with entity types, salience, mentions for each entity, and\nother properties.",
           "parameters": {
           },
           "parameterOrder": [
@@ -1049,14 +1169,35 @@
           "scopes": [
             "https://www.googleapis.com/auth/cloud-language",
             "https://www.googleapis.com/auth/cloud-platform"
-          ]
+          ],
+          "description": "Finds named entities (currently proper names and common nouns) in the text\nalong with entity types, salience, mentions for each entity, and\nother properties."
+        },
+        "analyzeEntitySentiment": {
+          "id": "language.documents.analyzeEntitySentiment",
+          "path": "v1/documents:analyzeEntitySentiment",
+          "flatPath": "v1/documents:analyzeEntitySentiment",
+          "httpMethod": "POST",
+          "parameters": {
+          },
+          "parameterOrder": [
+          ],
+          "request": {
+            "$ref": "AnalyzeEntitySentimentRequest"
+          },
+          "response": {
+            "$ref": "AnalyzeEntitySentimentResponse"
+          },
+          "scopes": [
+            "https://www.googleapis.com/auth/cloud-language",
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "description": "Finds entities, similar to AnalyzeEntities in the text and analyzes\nsentiment associated with each entity and its mentions."
         },
         "analyzeSyntax": {
           "id": "language.documents.analyzeSyntax",
           "path": "v1/documents:analyzeSyntax",
           "flatPath": "v1/documents:analyzeSyntax",
           "httpMethod": "POST",
-          "description": "Analyzes the syntax of the text and provides sentence boundaries and\ntokenization along with part of speech tags, dependency trees, and other\nproperties.",
           "parameters": {
           },
           "parameterOrder": [
@@ -1070,14 +1211,35 @@
           "scopes": [
             "https://www.googleapis.com/auth/cloud-language",
             "https://www.googleapis.com/auth/cloud-platform"
-          ]
+          ],
+          "description": "Analyzes the syntax of the text and provides sentence boundaries and\ntokenization along with part of speech tags, dependency trees, and other\nproperties."
+        },
+        "classifyText": {
+          "id": "language.documents.classifyText",
+          "path": "v1/documents:classifyText",
+          "flatPath": "v1/documents:classifyText",
+          "httpMethod": "POST",
+          "parameters": {
+          },
+          "parameterOrder": [
+          ],
+          "request": {
+            "$ref": "ClassifyTextRequest"
+          },
+          "response": {
+            "$ref": "ClassifyTextResponse"
+          },
+          "scopes": [
+            "https://www.googleapis.com/auth/cloud-language",
+            "https://www.googleapis.com/auth/cloud-platform"
+          ],
+          "description": "Classifies a document into categories."
         },
         "annotateText": {
           "id": "language.documents.annotateText",
           "path": "v1/documents:annotateText",
           "flatPath": "v1/documents:annotateText",
           "httpMethod": "POST",
-          "description": "A convenience method that provides all the features that analyzeSentiment,\nanalyzeEntities, and analyzeSyntax provide in one call.",
           "parameters": {
           },
           "parameterOrder": [
@@ -1091,7 +1253,8 @@
           "scopes": [
             "https://www.googleapis.com/auth/cloud-language",
             "https://www.googleapis.com/auth/cloud-platform"
-          ]
+          ],
+          "description": "A convenience method that provides all the features that analyzeSentiment,\nanalyzeEntities, and analyzeSyntax provide in one call."
         }
       }
     }

@@ -13,17 +13,19 @@
 # limitations under the License.
 """High-level client for interacting with the Cloud Build API."""
 
-import io
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import json
 import time
 
 from apitools.base.py import encoding
 from googlecloudsdk.api_lib.cloudbuild import cloudbuild_util
 from googlecloudsdk.api_lib.cloudbuild import logs as cloudbuild_logs
+from googlecloudsdk.api_lib.util import requests
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
-from googlecloudsdk.core.resource import resource_printer
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 _ERROR_FORMAT_STRING = ('Error Response:{status_code? [{?}]}'
@@ -31,32 +33,51 @@ _ERROR_FORMAT_STRING = ('Error Response:{status_code? [{?}]}'
                         '{details?\n\nDetails:\n{?}}')
 
 
-# TODO(b/64025279): Move functionality into core.
-def _ExtractErrorMessage(error_details):
-  """Extracts error details from a Status message.
-
-  Adapted from api_lib.app.requests.ExtractErrorMessage.
+def GetBuildProp(build_op, prop_key, required=False):
+  """Extract the value of a build's prop_key from a build operation.
 
   Args:
-    error_details: a python dictionary returned from decoding a Status message
-      that was serialized to json.
+    build_op: A Google Cloud Builder build operation.
+    prop_key: str, The property name.
+    required: If True, raise an OperationError if prop_key isn't present.
 
   Returns:
-    Multiline string containing a detailed error message suitable to show to a
-    user.
-  """
-  error_message = io.BytesIO()
-  error_message.write('Error Response: [{code}] {message}'.format(
-      code=error_details.get('code', 'UNKNOWN'),  # error_details.code is an int
-      message=error_details.get('message', u'').encode('utf-8')))
+    The corresponding build operation value indexed by prop_key.
 
-  if 'details' in error_details:
-    error_message.write('\n\nDetails: ')
-    resource_printer.Print(
-        resources=[error_details['details']],
-        print_format='json',
-        out=error_message)
-  return error_message.getvalue()
+  Raises:
+    OperationError: The required prop_key was not found.
+  """
+  if build_op.metadata is not None:
+    for prop in build_op.metadata.additionalProperties:
+      if prop.key == 'build':
+        for build_prop in prop.value.object_value.properties:
+          if build_prop.key == prop_key:
+            string_value = build_prop.value.string_value
+            return string_value or build_prop.value
+  if required:
+    raise OperationError('Build operation does not contain required '
+                         'property [{}]'.format(prop_key))
+
+
+def _GetStatusFromOp(op):
+  """Get the Cloud Build Status from an Operation object.
+
+  The op.response field is supposed to have a copy of the build object; however,
+  the wire JSON from the server doesn't get deserialized into an actual build
+  object. Instead, it is stored as a generic ResponseValue object, so we have
+  to root around a bit.
+
+  Args:
+    op: the Operation object from a CloudBuild build request.
+
+  Returns:
+    string status, likely "SUCCESS" or "ERROR".
+  """
+  if op.response and op.response.additionalProperties:
+    for prop in op.response.additionalProperties:
+      if prop.key == 'status':
+        return prop.value.string_value
+  return 'UNKNOWN'
 
 
 class BuildFailedError(exceptions.Error):
@@ -85,7 +106,30 @@ class CloudBuildClient(object):
     self.client = client or cloudbuild_util.GetClientInstance()
     self.messages = messages or cloudbuild_util.GetMessagesModule()
 
-  # TODO(b/33173476): Convert `container builds submit` code to use this too
+  def ExecuteCloudBuildAsync(self, build, project=None):
+    """Execute a call to CloudBuild service and return the build operation.
+
+
+    Args:
+      build: Build object. The Build to execute.
+      project: The project to execute, or None to use the current project
+          property.
+
+    Raises:
+      BuildFailedError: when the build fails.
+
+    Returns:
+      build_op, an in-progress build operation.
+    """
+    if project is None:
+      project = properties.VALUES.core.project.Get(required=True)
+
+    build_op = self.client.projects_builds.Create(
+        self.messages.CloudbuildProjectsBuildsCreateRequest(
+            projectId=project,
+            build=build,))
+    return build_op
+
   def ExecuteCloudBuild(self, build, project=None):
     """Execute a call to CloudBuild service and wait for it to finish.
 
@@ -98,67 +142,54 @@ class CloudBuildClient(object):
     Raises:
       BuildFailedError: when the build fails.
     """
-    if project is None:
-      project = properties.VALUES.core.project.Get(required=True)
 
-    build_op = self.client.projects_builds.Create(
-        self.messages.CloudbuildProjectsBuildsCreateRequest(
-            projectId=project,
-            build=build,
-        )
-    )
-    # Find build ID from operation metadata and print the logs URL.
-    build_id = None
-    logs_uri = None
-    if build_op.metadata is not None:
-      for prop in build_op.metadata.additionalProperties:
-        if prop.key == 'build':
-          for build_prop in prop.value.object_value.properties:
-            if build_prop.key == 'id':
-              build_id = build_prop.value.string_value
-              if logs_uri is not None:
-                break
-            if build_prop.key == 'logUrl':
-              logs_uri = build_prop.value.string_value
-              if build_id is not None:
-                break
-          break
+    build_op = self.ExecuteCloudBuildAsync(build, project)
+    self.WaitAndStreamLogs(build_op)
 
-    if build_id is None:
-      raise BuildFailedError('Could not determine build ID')
-
-    self._WaitAndStreamLogs(build_op, build.logsBucket, build_id, logs_uri)
-
-  def _WaitAndStreamLogs(self, build_op, logs_bucket, build_id, logs_uri):
-    """Wait for a Cloud Build to finish, optionally streaming logs."""
+  def WaitAndStreamLogs(self, build_op):
+    """Wait for a Cloud Build to finish, streaming logs if possible."""
+    build_id = GetBuildProp(build_op, 'id', required=True)
+    logs_uri = GetBuildProp(build_op, 'logUrl')
+    logs_bucket = GetBuildProp(build_op, 'logsBucket')
     log.status.Print(
         'Started cloud build [{build_id}].'.format(build_id=build_id))
+    log_loc = 'in the Cloud Console.'
+    log_tailer = None
     if logs_bucket:
       log_object = self.CLOUDBUILD_LOGFILE_FMT_STRING.format(build_id=build_id)
       log_tailer = cloudbuild_logs.LogTailer(
           bucket=logs_bucket,
           obj=log_object)
-      log_loc = None
       if logs_uri:
         log.status.Print('To see logs in the Cloud Console: ' + logs_uri)
         log_loc = 'at ' + logs_uri
       else:
         log.status.Print('Logs can be found in the Cloud Console.')
-        log_loc = 'in the Cloud Console.'
-      op = self.WaitForOperation(operation=build_op,
-                                 retry_callback=log_tailer.Poll)
-      # Poll the logs one final time to ensure we have everything. We know this
-      # final poll will get the full log contents because GCS is strongly
-      # consistent and Container Builder waits for logs to finish pushing before
-      # marking the build complete.
+
+    callback = None
+    if log_tailer:
+      callback = log_tailer.Poll
+
+    try:
+      op = self.WaitForOperation(operation=build_op, retry_callback=callback)
+    except OperationTimeoutError:
+      log.debug('', exc_info=True)
+      raise BuildFailedError('Cloud build timed out. Check logs ' + log_loc)
+
+    # Poll the logs one final time to ensure we have everything. We know this
+    # final poll will get the full log contents because GCS is strongly
+    # consistent and Container Builder waits for logs to finish pushing before
+    # marking the build complete.
+    if log_tailer:
       log_tailer.Poll(is_last=True)
-    else:
-      op = self.WaitForOperation(operation=build_op)
 
     final_status = _GetStatusFromOp(op)
     if final_status != self.CLOUDBUILD_SUCCESS:
-      raise BuildFailedError('Cloud build failed with status '
-                             + final_status + '. Check logs ' + log_loc)
+      message = requests.ExtractErrorMessage(
+          encoding.MessageToPyValue(op.error))
+      raise BuildFailedError('Cloud build failed. Check logs ' + log_loc
+                             + ' Failure status: ' + final_status + ': '
+                             + message)
 
   def WaitForOperation(self, operation, retry_callback=None):
     """Wait until the operation is complete or times out.
@@ -173,7 +204,6 @@ class CloudBuildClient(object):
       The operation resource when it has completed
     Raises:
       OperationTimeoutError: when the operation polling times out
-      OperationError: when the operation completed with an error
     """
 
     completed_operation = self._PollUntilDone(operation, retry_callback)
@@ -181,12 +211,6 @@ class CloudBuildClient(object):
       raise OperationTimeoutError(('Operation [{0}] timed out. This operation '
                                    'may still be underway.').format(
                                        operation.name))
-
-    if completed_operation.error:
-      message = _ExtractErrorMessage(
-          encoding.MessageToPyValue(completed_operation.error))
-
-      raise OperationError(message)
 
     return completed_operation
 
@@ -198,7 +222,7 @@ class CloudBuildClient(object):
     request_type = self.client.operations.GetRequestType('Get')
     request = request_type(name=operation.name)
 
-    for _ in xrange(self._MAX_RETRIES):
+    for _ in range(self._MAX_RETRIES):
       operation = self.client.operations.Get(request)
       if operation.done:
         log.debug('Operation [{0}] complete. Result: {1}'.format(
@@ -212,23 +236,3 @@ class CloudBuildClient(object):
         retry_callback()
 
     return None
-
-
-def _GetStatusFromOp(op):
-  """Get the Cloud Build Status from an Operation object.
-
-  The op.response field is supposed to have a copy of the build object; however,
-  the wire JSON from the server doesn't get deserialized into an actual build
-  object. Instead, it is stored as a generic ResponseValue object, so we have
-  to root around a bit.
-
-  Args:
-    op: the Operation object from a CloudBuild build request.
-
-  Returns:
-    string status, likely "SUCCESS" or "ERROR".
-  """
-  for prop in op.response.additionalProperties:
-    if prop.key == 'status':
-      return prop.value.string_value
-  return 'UNKNOWN'

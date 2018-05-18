@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Updates the settings of a Cloud SQL instance."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 from apitools.base.py import encoding
 
-from googlecloudsdk.api_lib.sql import api_util
-from googlecloudsdk.api_lib.sql import instances
+from googlecloudsdk.api_lib.sql import api_util as common_api_util
+from googlecloudsdk.api_lib.sql import exceptions
+from googlecloudsdk.api_lib.sql import instances as api_util
 from googlecloudsdk.api_lib.sql import operations
 from googlecloudsdk.api_lib.sql import validate
+from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
-from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.sql import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.sql import instances as command_util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
@@ -55,7 +60,7 @@ def _PrintAndConfirmWarningMessage(args):
                       'if it is running in a different zone.')
 
   if continue_msg and not console_io.PromptContinue(continue_msg):
-    raise exceptions.ToolException('canceled by the user.')
+    raise exceptions.CancelledError('canceled by the user.')
 
 
 def _GetConfirmedClearedFields(args, patch_instance):
@@ -84,7 +89,7 @@ def AddBaseArgs(parser):
   """Adds base args and flags to the parser."""
   # TODO(b/35705305): move common flags to command_lib.sql.flags
   flags.AddActivationPolicy(parser)
-  flags.AddAssignIp(parser)
+  flags.AddAssignIp(parser, show_negated_in_help=True)
   parser.add_argument(
       '--async',
       action='store_true',
@@ -105,6 +110,7 @@ def AddBaseArgs(parser):
       action='store_true',
       help=('Clear the list of external networks that are allowed to connect '
             'to the instance.'))
+  flags.AddAvailabilityType(parser)
   backups_group = parser.add_mutually_exclusive_group()
   flags.AddBackupStartTime(backups_group)
   backups_group.add_argument(
@@ -125,11 +131,10 @@ def AddBaseArgs(parser):
       '--diff',
       action='store_true',
       help='Show what changed as a result of the update.')
-  flags.AddEnableBinLog(parser)
+  flags.AddEnableBinLog(parser, show_negated_in_help=True)
   parser.add_argument(
       '--enable-database-replication',
-      action='store_true',
-      default=None,  # Tri-valued: None => don't change the setting.
+      action=arg_parsers.StoreTrueFalseAction,
       help=('Enable database replication. Applicable only for read replica '
             'instance(s). WARNING: Instance will be restarted.'))
   parser.add_argument(
@@ -165,8 +170,7 @@ def AddBaseArgs(parser):
   flags.AddReplication(parser)
   parser.add_argument(
       '--require-ssl',
-      action='store_true',
-      default=None,  # Tri-valued: None => don't change the setting.
+      action=arg_parsers.StoreTrueFalseAction,
       help=('mysqld should default to \'REQUIRE X509\' for users connecting '
             'over IP.'))
   flags.AddStorageAutoIncrease(parser)
@@ -183,26 +187,24 @@ def AddBaseArgs(parser):
             'Instance will be restarted.'))
 
 
-def RunBasePatchCommand(args):
+def RunBasePatchCommand(args, release_track):
   """Updates settings of a Cloud SQL instance using the patch api method.
 
   Args:
     args: argparse.Namespace, The arguments that this command was invoked
         with.
+    release_track: base.ReleaseTrack, the release track that this was run under.
 
   Returns:
     A dict object representing the operations resource describing the patch
     operation if the patch was successful.
   Raises:
-    HttpException: A http error response was received while executing api
-        request.
-    ToolException: An error other than http error occured while executing the
-        command.
+    CancelledError: The user chose not to continue.
   """
   if args.diff and not args.IsSpecified('format'):
     args.format = 'diff(old, new)'
 
-  client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
+  client = common_api_util.SqlClient(common_api_util.API_VERSION_DEFAULT)
   sql_client = client.sql_client
   sql_messages = client.sql_messages
 
@@ -215,14 +217,18 @@ def RunBasePatchCommand(args):
   # If --authorized-networks is used, confirm that the user knows the networks
   # will get overwritten.
   if args.authorized_networks:
-    instances.InstancesV1Beta4.PrintAndConfirmAuthorizedNetworksOverwrite()
+    api_util.InstancesV1Beta4.PrintAndConfirmAuthorizedNetworksOverwrite()
 
   original_instance_resource = sql_client.instances.Get(
       sql_messages.SqlInstancesGetRequest(
           project=instance_ref.project, instance=instance_ref.instance))
 
-  patch_instance = instances.InstancesV1Beta4.ConstructInstanceFromArgs(
-      sql_messages, args, original=original_instance_resource)
+  patch_instance = (
+      command_util.InstancesV1Beta4.ConstructPatchInstanceFromArgs(
+          sql_messages,
+          args,
+          original=original_instance_resource,
+          release_track=release_track))
   patch_instance.project = instance_ref.project
   patch_instance.name = instance_ref.instance
 
@@ -264,7 +270,7 @@ class Patch(base.UpdateCommand):
   """Updates the settings of a Cloud SQL instance."""
 
   def Run(self, args):
-    return RunBasePatchCommand(args)
+    return RunBasePatchCommand(args, self.ReleaseTrack())
 
   @staticmethod
   def Args(parser):
@@ -278,19 +284,11 @@ class PatchBeta(base.UpdateCommand):
 
   def Run(self, args):
     # Validate labels flags
-    if args.clear_labels and (args.update_labels or args.remove_labels):
-      conflict = '--update-labels' if args.update_labels else '--remove-labels'
-      raise exceptions.ConflictingArgumentsException('--clear-labels', conflict)
-    return RunBasePatchCommand(args)
+    return RunBasePatchCommand(args, self.ReleaseTrack())
 
   @staticmethod
   def Args(parser):
     """Args is called by calliope to gather arguments for this command."""
     AddBaseArgs(parser)
     flags.AddInstanceResizeLimit(parser)
-    labels_util.AddUpdateLabelsFlags(parser)
-    parser.add_argument(
-        '--clear-labels',
-        required=False,
-        action='store_true',
-        help=('Remove all labels, if any are set.'))
+    labels_util.AddUpdateLabelsFlags(parser, enable_clear=True)

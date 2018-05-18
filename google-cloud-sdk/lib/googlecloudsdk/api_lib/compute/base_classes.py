@@ -14,31 +14,34 @@
 
 """Base classes for abstracting away common logic."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import abc
-import collections
+import argparse  # pylint: disable=unused-import
 import json
 import textwrap
 
+from apitools.base.py import base_api  # pylint: disable=unused-import
 import enum
 from googlecloudsdk.api_lib.compute import base_classes_resource_registry as resource_registry
 from googlecloudsdk.api_lib.compute import client_adapter
 from googlecloudsdk.api_lib.compute import constants
 from googlecloudsdk.api_lib.compute import lister
-from googlecloudsdk.api_lib.compute import managed_instance_groups_utils
 from googlecloudsdk.api_lib.compute import property_selector
 from googlecloudsdk.api_lib.compute import request_helper
 from googlecloudsdk.api_lib.compute import resource_specs
 from googlecloudsdk.api_lib.compute import scope_prompter
 from googlecloudsdk.api_lib.compute import utils
-from googlecloudsdk.api_lib.util import apis as core_apis
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
 from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.util import text
-import yaml
+import six
+from typing import Any, Generator  # pylint: disable=unused-import
 
 
 class ComputeApiHolder(object):
@@ -52,7 +55,7 @@ class ComputeApiHolder(object):
     else:
       self._api_version = 'v1'
     self._client = None
-    self._resources = None
+    self._resources = None  # type: resources.Registry
 
   @property
   def client(self):
@@ -70,34 +73,6 @@ class ComputeApiHolder(object):
     return self._resources
 
 
-class ComputeUserAccountsApiHolder(object):
-  """Convenience class to hold lazy initialized client and resources."""
-
-  def __init__(self, release_track):
-    if release_track == base.ReleaseTrack.ALPHA:
-      self._api_version = 'alpha'
-    else:
-      self._api_version = 'beta'
-    self._client = None
-    self._resources = None
-
-  @property
-  def client(self):
-    """Specifies the compute client."""
-    if self._client is None:
-      self._client = core_apis.GetClientInstance(
-          'clouduseraccounts', self._api_version)
-    return self._client
-
-  @property
-  def resources(self):
-    """Specifies the resources parser for compute resources."""
-    if self._resources is None:
-      self._resources = resources.REGISTRY.Clone()
-      self._resources.RegisterApiByName('clouduseraccounts', self._api_version)
-    return self._resources
-
-
 class BaseCommand(base.Command, scope_prompter.ScopePrompter):
   """Base class for all compute subcommands."""
 
@@ -105,10 +80,8 @@ class BaseCommand(base.Command, scope_prompter.ScopePrompter):
     super(BaseCommand, self).__init__(*args, **kwargs)
 
     self.__resource_spec = None
-    self._project = properties.VALUES.core.project.Get(required=True)
+    self._project = properties.VALUES.core.project.Get(required=True)  # type: str
     self._compute_holder = ComputeApiHolder(self.ReleaseTrack())
-    self._user_accounts_holder = ComputeUserAccountsApiHolder(
-        self.ReleaseTrack())
 
   @property
   def _resource_spec(self):
@@ -141,7 +114,7 @@ class BaseCommand(base.Command, scope_prompter.ScopePrompter):
   @property
   def project(self):
     """Specifies the user's project."""
-    return self._project
+    return self._project  # pytype: disable=attribute-error
 
   @property
   def batch_url(self):
@@ -161,15 +134,7 @@ class BaseCommand(base.Command, scope_prompter.ScopePrompter):
   @property
   def resources(self):
     """Specifies the resources parser for compute resources."""
-    return self._compute_holder.resources
-
-  @property
-  def clouduseraccounts(self):
-    return self._user_accounts_holder.client
-
-  @property
-  def clouduseraccounts_resources(self):
-    return self._user_accounts_holder.resources
+    return self._compute_holder.resources   # pytype: disable=attribute-error
 
   @property
   def messages(self):
@@ -184,6 +149,12 @@ class BaseCommand(base.Command, scope_prompter.ScopePrompter):
 class BaseLister(base.ListCommand, BaseCommand):
   """Base class for the list subcommands."""
 
+  # Define class attributes for pytype
+  self_links = None  # type: set
+  names = None  # type: set
+  resource_refs = None  # type: list
+  service = None  # type: base_api.BaseApiService
+
   @staticmethod
   def Args(parser):
     parser.add_argument(
@@ -191,7 +162,7 @@ class BaseLister(base.ListCommand, BaseCommand):
         metavar='NAME',
         nargs='*',
         default=[],
-        completer=completers.DeprecatedInstancesCompleter,
+        completer=completers.InstancesCompleter,
         help=('If provided, show details for the specified names and/or URIs '
               'of resources.'))
 
@@ -242,6 +213,7 @@ class BaseLister(base.ListCommand, BaseCommand):
       self.names.add(name)
 
   def FilterResults(self, args, items):
+    # type: (Any, list[dict[str, str]]) -> Generator[dict[str,str], Any, Any]
     """Filters the list results by name and URI."""
     for item in items:
       # If no positional arguments were given, do no filtering.
@@ -286,7 +258,8 @@ class BaseLister(base.ListCommand, BaseCommand):
     errors = []
 
     self.PopulateResourceFilteringStructures(args)
-    items = self.FilterResults(args, self.GetResources(args, errors))
+    items = self.FilterResults(
+        args, self.GetResources(args, errors))  # pytype: disable=wrong-arg-types
     items = lister.ProcessResults(
         resources=items,
         field_selector=field_selector)
@@ -314,21 +287,29 @@ class GlobalLister(BaseLister):
 
 def GetGlobalListerHelp(resource):
   """Returns the detailed help dict for a global list command."""
-  return {
+  detailed_help = {
       'brief': 'List Google Compute Engine ' + resource,
       'DESCRIPTION': """\
-          *{{command}}* displays all Google Compute Engine {0} in a project.
-          """.format(resource),
+*{{command}}* displays all Google Compute Engine {0} in a project.
+""".format(resource),
       'EXAMPLES': """\
-          To list all {0} in a project in table form, run:
+To list all {0} in a project in table form, run:
 
-            $ {{command}}
+  $ {{command}}
 
-          To list the URIs of all {0} in a project, run:
+To list the URIs of all {0} in a project, run:
 
-            $ {{command}} --uri
-            """.format(resource)
+  $ {{command}} --uri
+""".format(resource)
   }
+  if resource == 'images':
+    detailed_help['EXAMPLES'] += """
+To list the names of {0} older than one year from oldest to newest
+(`-P1Y` is an [ISO8601 duration](https://en.wikipedia.org/wiki/ISO_8601)):
+
+  $ {{command}} --format="value(NAME)" --filter="creationTimestamp < -P1Y"
+""".format(resource)
+  return detailed_help
 
 
 class RegionalLister(BaseLister):
@@ -364,25 +345,25 @@ def GetRegionalListerHelp(resource):
   return {
       'brief': 'List Google Compute Engine ' + resource,
       'DESCRIPTION': """\
-          *{{command}}* displays all Google Compute Engine {0} in a project.
+*{{command}}* displays all Google Compute Engine {0} in a project.
 
-          By default, {0} from all regions are listed. The results can be
-          narrowed down by providing the ``--regions'' flag.
-          """.format(resource),
+By default, {0} from all regions are listed. The results can be
+narrowed down using a filter: `--filter="region:( REGION ... )"`.
+""".format(resource),
       'EXAMPLES': """\
-          To list all {0} in a project in table form, run:
+To list all {0} in a project in table form, run:
 
-            $ {{command}}
+  $ {{command}}
 
-          To list the URIs of all {0} in a project, run:
+To list the URIs of all {0} in a project, run:
 
-            $ {{command}} --uri
+  $ {{command}} --uri
 
-          To list all {0} in the ``us-central1'' and ``europe-west1'' regions,
-          run:
+To list all {0} in the ``us-central1'' and ``europe-west1'' regions,
+run:
 
-            $ {{command}} --regions us-central1 europe-west1
-            """.format(resource)
+  $ {{command}} --filter="region( us-central1 europe-west1 )"
+""".format(resource)
   }
 
 
@@ -419,25 +400,25 @@ def GetZonalListerHelp(resource):
   return {
       'brief': 'List Google Compute Engine ' + resource,
       'DESCRIPTION': """\
-          *{{command}}* displays all Google Compute Engine {0} in a project.
+*{{command}}* displays all Google Compute Engine {0} in a project.
 
-          By default, {0} from all zones are listed. The results can be narrowed
-          down by providing the ``--zones'' flag.
-          """.format(resource),
+By default, {0} from all zones are listed. The results can be narrowed
+down using a filter: `--filter="zone:( ZONE ... )"`.
+""".format(resource),
       'EXAMPLES': """\
-          To list all {0} in a project in table form, run:
+To list all {0} in a project in table form, run:
 
-            $ {{command}}
+  $ {{command}}
 
-          To list the URIs of all {0} in a project, run:
+To list the URIs of all {0} in a project, run:
 
-            $ {{command}} --uri
+  $ {{command}} --uri
 
-          To list all {0} in the ``us-central1-b'' and ``europe-west1-d'' zones,
-          run:
+To list all {0} in the ``us-central1-b'' and ``europe-west1-d'' zones,
+run:
 
-            $ {{command}} --zones us-central1-b europe-west1-d
-            """.format(resource)
+  $ {{command}} --filter="zone:( us-central1-b europe-west1-d )"
+""".format(resource)
   }
 
 
@@ -497,7 +478,7 @@ class MultiScopeLister(BaseLister):
     """The service used to get aggregated list of resources."""
 
   def GetResources(self, args, errors):
-    """Yields zonal, regional and/or global resources.
+    """Returns zonal, regional and/or global resources.
 
     Args:
       args: argparse.Namespace, Parsed arguments
@@ -583,24 +564,24 @@ def GetMultiScopeListerHelp(resource, scopes):
 
   zone_example_text = """\
 
-          To list all {0} in zones ``us-central1-b'' and ``europe-west1-d'',
-          run:
+To list all {0} in zones ``us-central1-b''
+and ``europe-west1-d'', given they are zonal resources, run:
 
-            $ {{command}} --zones us-central1,europe-west1
-  """
+  $ {{command}} --filter="zone:( europe-west1-d us-central1-b )"
+"""
   region_example_text = """\
 
-          To list all {0} in the ``us-central1'' and ``europe-west1'' regions,
-          run:
+To list all {0} in the ``us-central1'' and ``europe-west1'' regions,
+given they are regional resources, run:
 
-            $ {{command}} --regions us-central1,europe-west1
-  """
+  $ {{command}} --filter="region:( europe-west1 us-central1 )"
+"""
   global_example_text = """\
 
-          To list all global {0} in a project, run:
+To list all global {0} in a project, run:
 
-            $ {{command}} --global
-  """
+  $ {{command}} --global
+"""
 
   allowed_flags = []
   default_result = []
@@ -622,21 +603,22 @@ def GetMultiScopeListerHelp(resource, scopes):
   return {
       'brief': 'List Google Compute Engine ' + resource,
       'DESCRIPTION': """\
-          *{{command}}* displays all Google Compute Engine {0} in a project.
+*{{command}}* displays all Google Compute Engine {0} in a project.
 
-          By default, {1} are listed. The results can be narrowed down by
-          providing the {2} flag.
-          """.format(resource, default_result_text, allowed_flags_text),
+By default, {1} are listed. The results can be narrowed down by
+providing the {2} flag.
+""".format(resource, default_result_text, allowed_flags_text),
       'EXAMPLES': ("""\
-          To list all {0} in a project in table form, run:
+To list all {0} in a project in table form, run:
 
-            $ {{command}}
+  $ {{command}}
 
-          To list the URIs of all {0} in a project, run:
+To list the URIs of all {0} in a project, run:
 
-            $ {{command}} --uri
-          """ + (global_example_text
-                 if ScopeType.global_scope in scopes else '')
+  $ {{command}} --uri
+"""
+                   + (global_example_text
+                      if ScopeType.global_scope in scopes else '')
                    + (region_example_text
                       if ScopeType.regional_scope in scopes else '')
                    + (zone_example_text
@@ -669,6 +651,9 @@ def GetGlobalRegionalListerHelp(resource):
 class BaseDescriber(base.DescribeCommand, BaseCommand):
   """Base class for the describe subcommands."""
 
+  # Define class attributes for pytype
+  service = None  # type: base_api.BaseApiService
+
   @staticmethod
   def Args(parser, resource=None):
     BaseDescriber.AddArgs(parser, resource)
@@ -692,6 +677,7 @@ class BaseDescriber(base.DescribeCommand, BaseCommand):
     pass
 
   def SetNameField(self, ref, request):
+    # type: (resources.Resource, Any) -> None
     """Sets the field in the request that corresponds to the object name."""
     name_field = self.service.GetMethodConfig(self.method).ordered_params[-1]
     setattr(request, name_field, ref.Name())
@@ -703,7 +689,7 @@ class BaseDescriber(base.DescribeCommand, BaseCommand):
 
   def Run(self, args):
     """Yields JSON-serializable dicts of resources."""
-    ref = self.CreateReference(args)
+    ref = self.CreateReference(args)  # type: resources.Resource
 
     get_request_class = self.service.GetRequestType(self.method)
 
@@ -743,125 +729,39 @@ def GetMultiScopeDescriberHelp(resource, scopes):
   article = text.GetArticle(resource)
   zone_example_text = """\
 
-          To get details about a zonal {0} in the ``us-central1-b'' zone, run:
+To get details about a zonal {0} in the ``us-central1-b'' zone, run:
 
-            $ {{command}} --zone us-central1-b
-  """
+  $ {{command}} --zone us-central1-b
+"""
   region_example_text = """\
 
-          To get details about a regional {0} in the ``us-central1'' regions,
-          run:
+To get details about a regional {0} in the ``us-central1'' regions,
+run:
 
-            $ {{command}} --region us-central1
-  """
+  $ {{command}} --region us-central1
+"""
   global_example_text = """\
 
-          To get details about a global {0}, run:
+To get details about a global {0}, run:
 
-            $ {{command}} --global
-  """
+  $ {{command}} --global
+"""
   return {
       'brief': ('Display detailed information about {0} {1}'
                 .format(article, resource)),
       'DESCRIPTION': """\
-          *{{command}}* displays all data associated with {0} {1} in a project.
-          """.format(article, resource),
+*{{command}}* displays all data associated with {0} {1} in a project.
+""".format(article, resource),
       'EXAMPLES': ("""\
-          """ + (global_example_text
-                 if ScopeType.global_scope in scopes else '')
+"""
+                   + (global_example_text
+                      if ScopeType.global_scope in scopes else '')
                    + (region_example_text
                       if ScopeType.regional_scope in scopes else '')
                    + (zone_example_text
                       if ScopeType.zonal_scope in scopes else ''))
                   .format(resource),
   }
-
-
-# TODO(b/37764090) - Remove this mixin with refactoring of instance-groups
-# managed list command away from base_classes.BaseLister.
-class InstanceGroupManagerDynamicProperiesMixin(object):
-  """Mixin class to compute dynamic information for instance groups."""
-
-  def ComputeDynamicProperties(self, args, items):
-    """Add Autoscaler information if Autoscaler is defined for the item."""
-    _ = args
-    # Items are expected to be IGMs.
-    items = list(items)
-    for mig in managed_instance_groups_utils.AddAutoscalersToMigs(
-        migs_iterator=self.ComputeInstanceGroupSize(items=items),
-        client=self.compute_client,
-        resources=self.resources,
-        fail_when_api_not_supported=False):
-      if 'autoscaler' in mig and mig['autoscaler'] is not None:
-        # status is present in autoscaler iff Autoscaler message has embedded
-        # StatusValueValuesEnum defined.
-        if (getattr(mig['autoscaler'], 'status', False) and mig['autoscaler']
-            .status == self.messages.Autoscaler.StatusValueValuesEnum.ERROR):
-          mig['autoscaled'] = 'yes (*)'
-          self._had_errors = True
-        else:
-          mig['autoscaled'] = 'yes'
-      else:
-        mig['autoscaled'] = 'no'
-      yield mig
-
-  def ComputeInstanceGroupSize(self, items):
-    """Add information about Instance Group size."""
-    errors = []
-    items = list(items)
-    zone_refs = [
-        self.resources.Parse(
-            mig['zone'],
-            params={'project': properties.VALUES.core.project.GetOrFail},
-            collection='compute.zones')
-        for mig in items if 'zone' in mig
-    ]
-    region_refs = [
-        self.resources.Parse(
-            mig['region'],
-            params={'project': properties.VALUES.core.project.GetOrFail},
-            collection='compute.regions')
-        for mig in items if 'region' in mig
-    ]
-    group_by_project = managed_instance_groups_utils.GroupByProject
-
-    zonal_instance_groups = []
-    for project, zone_refs in group_by_project(zone_refs).iteritems():
-      zonal_instance_groups.extend(lister.GetZonalResources(
-          service=self.compute.instanceGroups,
-          project=project,
-          requested_zones=set([zone.zone for zone in zone_refs]),
-          filter_expr=None,
-          http=self.http,
-          batch_url=self.batch_url,
-          errors=errors))
-
-    regional_instance_groups = []
-    if getattr(self.compute, 'regionInstanceGroups', None):
-      for project, region_refs in group_by_project(region_refs).iteritems():
-        regional_instance_groups.extend(lister.GetRegionalResources(
-            service=self.compute.regionInstanceGroups,
-            project=project,
-            requested_regions=set([region.region for region in region_refs]),
-            filter_expr=None,
-            http=self.http,
-            batch_url=self.batch_url,
-            errors=errors))
-
-    instance_groups = zonal_instance_groups + regional_instance_groups
-    instance_group_uri_to_size = {ig.selfLink: ig.size
-                                  for ig in instance_groups}
-
-    if errors:
-      utils.RaiseToolException(errors)
-
-    for item in items:
-      self_link = item['selfLink']
-      gm_self_link = self_link.replace(
-          '/instanceGroupManagers/', '/instanceGroups/')
-
-      item['size'] = str(instance_group_uri_to_size.get(gm_self_link, ''))
-      yield item
 
 
 HELP = textwrap.dedent("""\
@@ -883,21 +783,11 @@ HELP = textwrap.dedent("""\
 def SerializeDict(value, fmt):
   """Serializes value to either JSON or YAML."""
   if fmt == 'json':
-    return json.dumps(
-        value,
-        indent=2,
-        sort_keys=True,
-        separators=(',', ': '))
+    return six.text_type(
+        json.dumps(
+            value, indent=2, sort_keys=True, separators=(str(','), str(': '))))
   else:
-    yaml.add_representer(
-        collections.OrderedDict,
-        yaml.dumper.SafeRepresenter.represent_dict,
-        Dumper=yaml.dumper.SafeDumper)
-    return yaml.safe_dump(
-        value,
-        indent=2,
-        default_flow_style=False,
-        width=70)
+    return six.text_type(yaml.dump(value))
 
 
 def DeserializeValue(value, fmt):

@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Common arguments for `gcloud source repos` commands."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import arg_parsers
 
 REPO_NAME_VALIDATOR = arg_parsers.RegexpValidator(
-    '[A-Za-z0-9_][-_A-Za-z0-9]{0,127}',
+    '[A-Za-z0-9_][-_A-Za-z0-9/]{0,127}',
     'repostory name may contain between 1 and 128 (inclusive) letters, digits, '
-    'hyphens, and underscores.')
+    'hyphens, underscores and slashes.')

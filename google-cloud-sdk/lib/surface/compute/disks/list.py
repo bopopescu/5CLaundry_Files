@@ -17,10 +17,11 @@ from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import lister
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.command_lib.compute.disks import flags
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class List(base.ListCommand):
   """List Google Compute Engine persistent disks."""
 
@@ -29,6 +30,7 @@ class List(base.ListCommand):
     parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
     parser.display_info.AddUriFunc(utils.MakeGetUriFunc())
     lister.AddZonalListerArgs(parser)
+    parser.display_info.AddCacheUpdater(completers.DisksCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
@@ -42,51 +44,62 @@ class List(base.ListCommand):
     return lister.Invoke(request_data, list_implementation)
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class ListAlpha(base_classes.MultiScopeLister):
+@base.ReleaseTracks(base.ReleaseTrack.BETA)
+class ListBeta(base.ListCommand):
   """List Google Compute Engine persistent disks."""
 
   @staticmethod
   def Args(parser):
-    base_classes.MultiScopeLister.AddScopeArgs(
-        parser,
-        scopes=[base_classes.ScopeType.zonal_scope,
-                base_classes.ScopeType.regional_scope])
-    parser.display_info.AddFormat("""
-        table(name,
-              location(),
-              location_scope(),
-              sizeGb,
-              type.basename(),
-              status)
-    """)
+    parser.display_info.AddFormat(flags.MULTISCOPE_LIST_FORMAT)
+    parser.display_info.AddUriFunc(utils.MakeGetUriFunc())
+    lister.AddMultiScopeListerFlags(parser, zonal=True, regional=True)
+    parser.display_info.AddCacheUpdater(completers.DisksCompleter)
 
-  def Collection(self):
-    """Override the default collection from the base class."""
-    return None
+  def Run(self, args):
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
 
-  @property
-  def global_service(self):
-    """The service used to list global resources."""
-    raise NotImplementedError()
+    request_data = lister.ParseMultiScopeFlags(args, holder.resources)
 
-  @property
-  def regional_service(self):
-    """The service used to list regional resources."""
-    return self.compute.regionDisks
+    list_implementation = lister.MultiScopeLister(
+        client,
+        zonal_service=client.apitools_client.disks,
+        regional_service=client.apitools_client.regionDisks,
+        aggregation_service=client.apitools_client.disks)
 
-  @property
-  def zonal_service(self):
-    """The service used to list regional resources."""
-    return self.compute.disks
+    return lister.Invoke(request_data, list_implementation)
 
-  @property
-  def aggregation_service(self):
-    """The service used to get aggregated list of resources."""
-    return self.zonal_service
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class ListAlpha(base.ListCommand):
+  """List Google Compute Engine persistent disks."""
+
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat(flags.MULTISCOPE_LIST_FORMAT)
+    lister.AddMultiScopeListerFlags(parser, zonal=True, regional=True)
+    parser.display_info.AddCacheUpdater(completers.DisksCompleter)
+
+  def Run(self, args):
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
+
+    request_data = lister.ParseMultiScopeFlags(args, holder.resources)
+
+    list_implementation = lister.MultiScopeLister(
+        client,
+        zonal_service=client.apitools_client.disks,
+        regional_service=client.apitools_client.regionDisks,
+        aggregation_service=client.apitools_client.disks)
+
+    return lister.Invoke(request_data, list_implementation)
 
 
 List.detailed_help = base_classes.GetZonalListerHelp('disks')
+ListBeta.detailed_help = base_classes.GetMultiScopeListerHelp(
+    'disks',
+    scopes=[base_classes.ScopeType.zonal_scope,
+            base_classes.ScopeType.regional_scope])
 ListAlpha.detailed_help = base_classes.GetMultiScopeListerHelp(
     'disks',
     scopes=[base_classes.ScopeType.zonal_scope,

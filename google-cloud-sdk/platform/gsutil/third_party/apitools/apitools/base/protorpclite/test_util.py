@@ -579,11 +579,16 @@ class ProtoConformanceTestBase(object):
         self.assertTrue(isinstance(self.PROTOLIB.CONTENT_TYPE, str))
 
     def testDecodeInvalidEnumType(self):
-        self.assertRaisesWithRegexpMatch(messages.DecodeError,
-                                         'Invalid enum value ',
-                                         self.PROTOLIB.decode_message,
-                                         OptionalMessage,
-                                         self.encoded_invalid_enum)
+        # Since protos need to be able to add new enums, a message should be
+        # successfully decoded even if the enum value is invalid. Encoding the
+        # decoded message should result in equivalence with the original
+        # encoded message containing an invalid enum.
+        decoded = self.PROTOLIB.decode_message(OptionalMessage,
+                                               self.encoded_invalid_enum)
+        message = OptionalMessage()
+        self.assertEqual(message, decoded)
+        encoded = self.PROTOLIB.encode_message(decoded)
+        self.assertEqual(self.encoded_invalid_enum, encoded)
 
     def testDateTimeNoTimeZone(self):
         """Test that DateTimeFields are encoded/decoded correctly."""
@@ -641,5 +646,4 @@ def get_module_name(module_attribute):
         module_file = inspect.getfile(module_attribute)
         default = os.path.basename(module_file).split('.')[0]
         return default
-    else:
-        return module_attribute.__module__
+    return module_attribute.__module__

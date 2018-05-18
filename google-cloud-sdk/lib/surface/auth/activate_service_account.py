@@ -14,6 +14,9 @@
 
 """A simple auth command to bootstrap authentication with oauth2."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import getpass
 import json
 
@@ -22,39 +25,53 @@ from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.credentials import store as c_store
-from googlecloudsdk.core.util import files
+from googlecloudsdk.core.util import encoding
 
 
 class ActivateServiceAccount(base.SilentCommand):
-  """Authorize access to Google Cloud Platform using a service account.
+  r"""Authorize access to Google Cloud Platform with a service account.
 
-  Adds service account credentials from a file that contains
-  a private authorization key to the existing set of credentials managed
-  and used by gcloud.
+  To allow `gcloud` (and other tools in Cloud SDK) to use service account
+  credentials to make requests, use this command to import these credentials
+  from a file that contains a private authorization key, and activate them for
+  use in `gcloud`. {command} serves the same function as `gcloud auth login`
+  but uses a service account rather than Google user credentials.
 
-  The key file for this command can be obtained using either:
-    * the [Cloud Platform console](https://console.cloud.google.com) or
-    * $ gcloud iam service-accounts keys create.
+  For more information on authorization and credential types, see:
+  [](https://cloud.google.com/sdk/docs/authorizing).
 
-  The key file can be .json (preferred) or .p12 (legacy) format.
-  For legacy .p12 files, a separate password might be required. This password
-  is displayed in the console when you create the key.
+  _Key File_
 
-  The credentials will also be activated, which is same as running
-  $ gcloud config set account ACCOUNT_NAME.
+  To obtain the key file for this command, use either the [Google Cloud
+  Platform Console](https://console.cloud.google.com) or `gcloud iam
+  service-accounts keys create`. The key file can be .json (preferred) or
+  .p12 (legacy) format. In the case of legacy .p12 files, a separate password
+  might be required and is displayed in the Console when you create the key.
 
-  If you specify a project using the `--project` flag, the project is set in
-  your active configuration, which is same as running
-  $ gcloud config set project PROJECT_NAME.
+  _Credentials_
 
-  Any previously active credentials will still be retained, and can be seen by
-  running $ gcloud auth list. They will just no longer be the active/default
-  credentials.
+  Credentials will also be activated (similar to running
+  `gcloud config set account [ACCOUNT_NAME]`).
 
-  If you want to delete previous credentials see `gcloud auth revoke` command.
+  If a project is specified using the `--project` flag, the project is set in
+  active configuration, which is the same as running
+  `gcloud config set project [PROJECT_NAME]`. Any previously active credentials,
+  will be retained (though no longer default) and can be
+  displayed by running `gcloud auth list`.
 
-  Note: Service accounts use client quotas for tracking usage.
+  If you want to delete previous credentials, see `gcloud auth revoke`.
+
+  _Note:_ Service accounts use client quotas for tracking usage.
+
+  ## EXAMPLES
+
+  To authorize `gcloud` to access Google Cloud Platform using an existing
+  service account while also specifying a project, run:
+
+            $ {command} test-service-account@google.com \
+                --key-file=/path/key.json --project=testproject
   """
 
   @staticmethod
@@ -124,9 +141,9 @@ class ActivateServiceAccount(base.SilentCommand):
 
 def _IsJsonFile(filename):
   """Check and validate if given filename is proper json file."""
-  content = files.GetFileOrStdinContents(filename, binary=True)
+  content = console_io.ReadFromFileOrStdin(filename, binary=True)
   try:
-    return json.loads(content), True
+    return json.loads(encoding.Decode(content)), True
   except ValueError as e:
     if filename.endswith('.json'):
       raise auth_service_account.BadCredentialFileException(

@@ -11,14 +11,28 @@ from apitools.base.protorpclite import messages as _messages
 package = 'deploymentmanager'
 
 
+class AsyncOptions(_messages.Message):
+  r"""Async options that determine when a resource should finish.
+
+  Fields:
+    methodMatch: Method regex where this policy will apply.
+    pollingOptions: Deployment manager will poll instances for this API
+      resource setting a RUNNING state, and blocking until polling conditions
+      tell whether the resource is completed or failed.
+  """
+
+  methodMatch = _messages.StringField(1)
+  pollingOptions = _messages.MessageField('PollingOptions', 2)
+
+
 class AuditConfig(_messages.Message):
-  """Specifies the audit configuration for a service. The configuration
+  r"""Specifies the audit configuration for a service. The configuration
   determines which permission types are logged, and what identities, if any,
   are exempted from logging. An AuditConfig must have one or more
   AuditLogConfigs.  If there are AuditConfigs for both `allServices` and a
   specific service, the union of the two AuditConfigs is used for that
   service: the log_types specified in each AuditConfig are enabled, and the
-  exempted_members in each AuditConfig are exempted.  Example Policy with
+  exempted_members in each AuditLogConfig are exempted.  Example Policy with
   multiple AuditConfigs:  { "audit_configs": [ { "service": "allServices"
   "audit_log_configs": [ { "log_type": "DATA_READ", "exempted_members": [
   "user:foo@gmail.com" ] }, { "log_type": "DATA_WRITE", }, { "log_type":
@@ -43,8 +57,8 @@ class AuditConfig(_messages.Message):
 
 
 class AuditLogConfig(_messages.Message):
-  """Provides the configuration for logging a type of permissions. Example:  {
-  "audit_log_configs": [ { "log_type": "DATA_READ", "exempted_members": [
+  r"""Provides the configuration for logging a type of permissions. Example:
+  { "audit_log_configs": [ { "log_type": "DATA_READ", "exempted_members": [
   "user:foo@gmail.com" ] }, { "log_type": "DATA_WRITE", } ] }  This enables
   'DATA_READ' and 'DATA_WRITE' logging, while exempting foo@gmail.com from
   DATA_READ logging.
@@ -60,7 +74,7 @@ class AuditLogConfig(_messages.Message):
 
 
 class AuthorizationLoggingOptions(_messages.Message):
-  """Authorization-related information used by Cloud Audit Logging.
+  r"""Authorization-related information used by Cloud Audit Logging.
 
   Fields:
     permissionType: The type of the permission that was checked.
@@ -70,7 +84,7 @@ class AuthorizationLoggingOptions(_messages.Message):
 
 
 class BaseType(_messages.Message):
-  """BaseType that describes a service-backed Type.
+  r"""BaseType that describes a service-backed Type.
 
   Fields:
     collectionOverrides: Allows resource handling overrides for specific
@@ -87,7 +101,7 @@ class BaseType(_messages.Message):
 
 
 class BasicAuth(_messages.Message):
-  """Basic Auth used as a credential.
+  r"""Basic Auth used as a credential.
 
   Fields:
     password: A string attribute.
@@ -99,26 +113,27 @@ class BasicAuth(_messages.Message):
 
 
 class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+  r"""Associates `members` with a `role`.
 
   Fields:
     condition: The condition that is associated with this binding. NOTE: an
       unsatisfied condition will not allow user access via current binding.
       Different bindings, including their conditions, are examined
-      independently. This field is GOOGLE_INTERNAL.
+      independently. This field is only visible as GOOGLE_INTERNAL or
+      CONDITION_TRUSTED_TESTER.
     members: Specifies the identities requesting access for a Cloud Platform
       resource. `members` can have the following values:  * `allUsers`: A
       special identifier that represents anyone who is on the internet; with
       or without a Google account.  * `allAuthenticatedUsers`: A special
       identifier that represents anyone who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
-      represents a specific Google account. For example, `alice@gmail.com` or
-      `joe@example.com`.    * `serviceAccount:{emailid}`: An email address
-      that represents a service account. For example, `my-other-
-      app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
-      that represents a Google group. For example, `admins@example.com`.    *
-      `domain:{domain}`: A Google Apps domain name that represents all the
-      users of that domain. For example, `google.com` or `example.com`.
+      represents a specific Google account. For example, `alice@gmail.com` .
+      * `serviceAccount:{emailid}`: An email address that represents a service
+      account. For example, `my-other-app@appspot.gserviceaccount.com`.  *
+      `group:{emailid}`: An email address that represents a Google group. For
+      example, `admins@example.com`.    * `domain:{domain}`: A Google Apps
+      domain name that represents all the users of that domain. For example,
+      `google.com` or `example.com`.
     role: Role that is assigned to `members`. For example, `roles/viewer`,
       `roles/editor`, or `roles/owner`.
   """
@@ -129,7 +144,7 @@ class Binding(_messages.Message):
 
 
 class CollectionOverride(_messages.Message):
-  """CollectionOverride allows resource handling overrides for specific
+  r"""CollectionOverride allows resource handling overrides for specific
   resources within a BaseType
 
   Fields:
@@ -143,25 +158,26 @@ class CollectionOverride(_messages.Message):
 
 
 class CompositeType(_messages.Message):
-  """Holds the composite type.
+  r"""Holds the composite type.
 
   Fields:
     description: An optional textual description of the resource; provided by
       the client when the resource is created.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    insertTime: [Output Only] Timestamp when the composite type was created,
-      in RFC3339 text format.
+    insertTime: Output only. Timestamp when the composite type was created, in
+      RFC3339 text format.
     labels: Map of labels; provided by the client when the resource is created
       or updated. Specifically: Label keys must be between 1 and 63 characters
       long and must conform to the following regular expression:
       [a-z]([-a-z0-9]*[a-z0-9])? Label values must be between 0 and 63
       characters long and must conform to the regular expression
       ([a-z]([-a-z0-9]*[a-z0-9])?)?
-    name: Name of the composite type.
-    operation: [Output Only] The Operation that most recently ran, or is
+    name: Name of the composite type, must follow the expression:
+      [a-z]([-a-z0-9_.]{0,61}[a-z0-9])?.
+    operation: Output only. The Operation that most recently ran, or is
       currently running, on this composite type.
-    selfLink: [Output Only] Self link for the type provider.
+    selfLink: Output only. Self link for the type provider.
     status: A string attribute.
     templateContents: Files for the template type.
   """
@@ -178,7 +194,7 @@ class CompositeType(_messages.Message):
 
 
 class CompositeTypeLabelEntry(_messages.Message):
-  """A CompositeTypeLabelEntry object.
+  r"""A CompositeTypeLabelEntry object.
 
   Fields:
     key: A string attribute.
@@ -190,11 +206,11 @@ class CompositeTypeLabelEntry(_messages.Message):
 
 
 class CompositeTypesListResponse(_messages.Message):
-  """A response that returns all Composite Types supported by Deployment
+  r"""A response that returns all Composite Types supported by Deployment
   Manager
 
   Fields:
-    compositeTypes: [Output Only] A list of resource composite types supported
+    compositeTypes: Output only. A list of resource composite types supported
       by Deployment Manager.
     nextPageToken: A token used to continue a truncated list request.
   """
@@ -204,7 +220,7 @@ class CompositeTypesListResponse(_messages.Message):
 
 
 class Condition(_messages.Message):
-  """A condition to be met.
+  r"""A condition to be met.
 
   Fields:
     iam: Trusted attributes supplied by the IAM system.
@@ -226,7 +242,7 @@ class Condition(_messages.Message):
 
 
 class ConfigFile(_messages.Message):
-  """ConfigFile message type.
+  r"""ConfigFile message type.
 
   Fields:
     content: The contents of the file.
@@ -236,17 +252,23 @@ class ConfigFile(_messages.Message):
 
 
 class Credential(_messages.Message):
-  """Credential used by ConfigurableResourceTypes.
+  r"""The credential used by Deployment Manager and TypeProvider. Only one of
+  the options is permitted.
 
   Fields:
-    basicAuth: Basic Auth Credentials for this Type.
+    basicAuth: Basic Auth Credential, only used by TypeProvider.
+    serviceAccount: Service Account Credential, only used by Deployment.
+    useProjectDefault: Specify to use the project default credential, only
+      supported by Deployment.
   """
 
   basicAuth = _messages.MessageField('BasicAuth', 1)
+  serviceAccount = _messages.MessageField('ServiceAccount', 2)
+  useProjectDefault = _messages.BooleanField(3)
 
 
 class Deployment(_messages.Message):
-  """Deployment message type.
+  r"""Deployment message type.
 
   Fields:
     description: An optional user-provided description of the deployment.
@@ -258,9 +280,9 @@ class Deployment(_messages.Message):
       happens at a time.  The fingerprint is initially generated by Deployment
       Manager and changes after every request to modify data. To get the
       latest fingerprint value, perform a get() request to a deployment.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    insertTime: [Output Only] Timestamp when the deployment was created, in
+    insertTime: Output only. Timestamp when the deployment was created, in
       RFC3339 text format .
     labels: Map of labels; provided by the client when the resource is created
       or updated. Specifically: Label keys must be between 1 and 63 characters
@@ -268,7 +290,7 @@ class Deployment(_messages.Message):
       [a-z]([-a-z0-9]*[a-z0-9])? Label values must be between 0 and 63
       characters long and must conform to the regular expression
       ([a-z]([-a-z0-9]*[a-z0-9])?)?
-    manifest: [Output Only] URL of the manifest representing the last manifest
+    manifest: Output only. URL of the manifest representing the last manifest
       that was successfully deployed.
     name: Name of the resource; provided by the client when the resource is
       created. The name must be 1-63 characters long, and comply with RFC1035.
@@ -277,12 +299,12 @@ class Deployment(_messages.Message):
       character must be a lowercase letter, and all following characters must
       be a dash, lowercase letter, or digit, except the last character, which
       cannot be a dash.
-    operation: [Output Only] The Operation that most recently ran, or is
+    operation: Output only. The Operation that most recently ran, or is
       currently running, on this deployment.
-    selfLink: [Output Only] Self link for the deployment.
+    selfLink: Output only. Self link for the deployment.
     target: [Input Only] The parameters that define your deployment, including
       the deployment configuration and relevant templates.
-    update: [Output Only] If Deployment Manager is currently updating or
+    update: Output only. If Deployment Manager is currently updating or
       previewing an update to this deployment, the updated configuration
       appears here.
   """
@@ -301,7 +323,7 @@ class Deployment(_messages.Message):
 
 
 class DeploymentLabelEntry(_messages.Message):
-  """A DeploymentLabelEntry object.
+  r"""A DeploymentLabelEntry object.
 
   Fields:
     key: A string attribute.
@@ -313,18 +335,18 @@ class DeploymentLabelEntry(_messages.Message):
 
 
 class DeploymentUpdate(_messages.Message):
-  """DeploymentUpdate message type.
+  r"""DeploymentUpdate message type.
 
   Fields:
-    description: [Output Only] An optional user-provided description of the
+    description: Output only. An optional user-provided description of the
       deployment after the current update has been applied.
-    labels: [Output Only] Map of labels; provided by the client when the
+    labels: Output only. Map of labels; provided by the client when the
       resource is created or updated. Specifically: Label keys must be between
       1 and 63 characters long and must conform to the following regular
       expression: [a-z]([-a-z0-9]*[a-z0-9])? Label values must be between 0
       and 63 characters long and must conform to the regular expression
       ([a-z]([-a-z0-9]*[a-z0-9])?)?
-    manifest: [Output Only] URL of the manifest representing the update
+    manifest: Output only. URL of the manifest representing the update
       configuration of this deployment.
   """
 
@@ -334,7 +356,7 @@ class DeploymentUpdate(_messages.Message):
 
 
 class DeploymentUpdateLabelEntry(_messages.Message):
-  """A DeploymentUpdateLabelEntry object.
+  r"""A DeploymentUpdateLabelEntry object.
 
   Fields:
     key: A string attribute.
@@ -346,7 +368,7 @@ class DeploymentUpdateLabelEntry(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesDeleteRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesDeleteRequest object.
+  r"""A DeploymentmanagerCompositeTypesDeleteRequest object.
 
   Fields:
     compositeType: The name of the type for this request.
@@ -358,7 +380,7 @@ class DeploymentmanagerCompositeTypesDeleteRequest(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesGetRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesGetRequest object.
+  r"""A DeploymentmanagerCompositeTypesGetRequest object.
 
   Fields:
     compositeType: The name of the composite type for this request.
@@ -370,7 +392,7 @@ class DeploymentmanagerCompositeTypesGetRequest(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesInsertRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesInsertRequest object.
+  r"""A DeploymentmanagerCompositeTypesInsertRequest object.
 
   Fields:
     compositeType: A CompositeType resource to be passed as the request body.
@@ -382,28 +404,25 @@ class DeploymentmanagerCompositeTypesInsertRequest(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesListRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesListRequest object.
+  r"""A DeploymentmanagerCompositeTypesListRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -431,7 +450,7 @@ class DeploymentmanagerCompositeTypesListRequest(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesPatchRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesPatchRequest object.
+  r"""A DeploymentmanagerCompositeTypesPatchRequest object.
 
   Fields:
     compositeType: The name of the composite type for this request.
@@ -446,7 +465,7 @@ class DeploymentmanagerCompositeTypesPatchRequest(_messages.Message):
 
 
 class DeploymentmanagerCompositeTypesUpdateRequest(_messages.Message):
-  """A DeploymentmanagerCompositeTypesUpdateRequest object.
+  r"""A DeploymentmanagerCompositeTypesUpdateRequest object.
 
   Fields:
     compositeType: The name of the composite type for this request.
@@ -461,7 +480,7 @@ class DeploymentmanagerCompositeTypesUpdateRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsCancelPreviewRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsCancelPreviewRequest object.
+  r"""A DeploymentmanagerDeploymentsCancelPreviewRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
@@ -476,7 +495,7 @@ class DeploymentmanagerDeploymentsCancelPreviewRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsDeleteRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsDeleteRequest object.
+  r"""A DeploymentmanagerDeploymentsDeleteRequest object.
 
   Enums:
     DeletePolicyValueValuesEnum: Sets the policy to use for deleting
@@ -489,7 +508,7 @@ class DeploymentmanagerDeploymentsDeleteRequest(_messages.Message):
   """
 
   class DeletePolicyValueValuesEnum(_messages.Enum):
-    """Sets the policy to use for deleting resources.
+    r"""Sets the policy to use for deleting resources.
 
     Values:
       ABANDON: <no description>
@@ -504,7 +523,7 @@ class DeploymentmanagerDeploymentsDeleteRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsGetIamPolicyRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsGetIamPolicyRequest object.
+  r"""A DeploymentmanagerDeploymentsGetIamPolicyRequest object.
 
   Fields:
     project: Project ID for this request.
@@ -516,7 +535,7 @@ class DeploymentmanagerDeploymentsGetIamPolicyRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsGetRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsGetRequest object.
+  r"""A DeploymentmanagerDeploymentsGetRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
@@ -528,9 +547,14 @@ class DeploymentmanagerDeploymentsGetRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsInsertRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsInsertRequest object.
+  r"""A DeploymentmanagerDeploymentsInsertRequest object.
+
+  Enums:
+    CreatePolicyValueValuesEnum: Sets the policy to use for creating new
+      resources.
 
   Fields:
+    createPolicy: Sets the policy to use for creating new resources.
     deployment: A Deployment resource to be passed as the request body.
     preview: If set to true, creates a deployment and creates "shell"
       resources but does not actually instantiate these resources. This allows
@@ -543,34 +567,44 @@ class DeploymentmanagerDeploymentsInsertRequest(_messages.Message):
     project: The project ID for this request.
   """
 
-  deployment = _messages.MessageField('Deployment', 1)
-  preview = _messages.BooleanField(2)
-  project = _messages.StringField(3, required=True)
+  class CreatePolicyValueValuesEnum(_messages.Enum):
+    r"""Sets the policy to use for creating new resources.
+
+    Values:
+      ACQUIRE: <no description>
+      CREATE: <no description>
+      CREATE_OR_ACQUIRE: <no description>
+    """
+    ACQUIRE = 0
+    CREATE = 1
+    CREATE_OR_ACQUIRE = 2
+
+  createPolicy = _messages.EnumField('CreatePolicyValueValuesEnum', 1, default=u'CREATE_OR_ACQUIRE')
+  deployment = _messages.MessageField('Deployment', 2)
+  preview = _messages.BooleanField(3)
+  project = _messages.StringField(4, required=True)
 
 
 class DeploymentmanagerDeploymentsListRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsListRequest object.
+  r"""A DeploymentmanagerDeploymentsListRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -598,7 +632,7 @@ class DeploymentmanagerDeploymentsListRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsPatchRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsPatchRequest object.
+  r"""A DeploymentmanagerDeploymentsPatchRequest object.
 
   Enums:
     CreatePolicyValueValuesEnum: Sets the policy to use for creating new
@@ -626,17 +660,19 @@ class DeploymentmanagerDeploymentsPatchRequest(_messages.Message):
   """
 
   class CreatePolicyValueValuesEnum(_messages.Enum):
-    """Sets the policy to use for creating new resources.
+    r"""Sets the policy to use for creating new resources.
 
     Values:
       ACQUIRE: <no description>
+      CREATE: <no description>
       CREATE_OR_ACQUIRE: <no description>
     """
     ACQUIRE = 0
-    CREATE_OR_ACQUIRE = 1
+    CREATE = 1
+    CREATE_OR_ACQUIRE = 2
 
   class DeletePolicyValueValuesEnum(_messages.Enum):
-    """Sets the policy to use for deleting resources.
+    r"""Sets the policy to use for deleting resources.
 
     Values:
       ABANDON: <no description>
@@ -654,21 +690,22 @@ class DeploymentmanagerDeploymentsPatchRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsSetIamPolicyRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsSetIamPolicyRequest object.
+  r"""A DeploymentmanagerDeploymentsSetIamPolicyRequest object.
 
   Fields:
-    policy: A Policy resource to be passed as the request body.
+    globalSetPolicyRequest: A GlobalSetPolicyRequest resource to be passed as
+      the request body.
     project: Project ID for this request.
     resource: Name of the resource for this request.
   """
 
-  policy = _messages.MessageField('Policy', 1)
+  globalSetPolicyRequest = _messages.MessageField('GlobalSetPolicyRequest', 1)
   project = _messages.StringField(2, required=True)
   resource = _messages.StringField(3, required=True)
 
 
 class DeploymentmanagerDeploymentsStopRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsStopRequest object.
+  r"""A DeploymentmanagerDeploymentsStopRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
@@ -683,7 +720,7 @@ class DeploymentmanagerDeploymentsStopRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsTestIamPermissionsRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsTestIamPermissionsRequest object.
+  r"""A DeploymentmanagerDeploymentsTestIamPermissionsRequest object.
 
   Fields:
     project: Project ID for this request.
@@ -698,7 +735,7 @@ class DeploymentmanagerDeploymentsTestIamPermissionsRequest(_messages.Message):
 
 
 class DeploymentmanagerDeploymentsUpdateRequest(_messages.Message):
-  """A DeploymentmanagerDeploymentsUpdateRequest object.
+  r"""A DeploymentmanagerDeploymentsUpdateRequest object.
 
   Enums:
     CreatePolicyValueValuesEnum: Sets the policy to use for creating new
@@ -726,17 +763,19 @@ class DeploymentmanagerDeploymentsUpdateRequest(_messages.Message):
   """
 
   class CreatePolicyValueValuesEnum(_messages.Enum):
-    """Sets the policy to use for creating new resources.
+    r"""Sets the policy to use for creating new resources.
 
     Values:
       ACQUIRE: <no description>
+      CREATE: <no description>
       CREATE_OR_ACQUIRE: <no description>
     """
     ACQUIRE = 0
-    CREATE_OR_ACQUIRE = 1
+    CREATE = 1
+    CREATE_OR_ACQUIRE = 2
 
   class DeletePolicyValueValuesEnum(_messages.Enum):
-    """Sets the policy to use for deleting resources.
+    r"""Sets the policy to use for deleting resources.
 
     Values:
       ABANDON: <no description>
@@ -754,7 +793,7 @@ class DeploymentmanagerDeploymentsUpdateRequest(_messages.Message):
 
 
 class DeploymentmanagerManifestsGetRequest(_messages.Message):
-  """A DeploymentmanagerManifestsGetRequest object.
+  r"""A DeploymentmanagerManifestsGetRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
@@ -768,29 +807,26 @@ class DeploymentmanagerManifestsGetRequest(_messages.Message):
 
 
 class DeploymentmanagerManifestsListRequest(_messages.Message):
-  """A DeploymentmanagerManifestsListRequest object.
+  r"""A DeploymentmanagerManifestsListRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -819,7 +855,7 @@ class DeploymentmanagerManifestsListRequest(_messages.Message):
 
 
 class DeploymentmanagerOperationsGetRequest(_messages.Message):
-  """A DeploymentmanagerOperationsGetRequest object.
+  r"""A DeploymentmanagerOperationsGetRequest object.
 
   Fields:
     operation: The name of the operation for this request.
@@ -831,28 +867,25 @@ class DeploymentmanagerOperationsGetRequest(_messages.Message):
 
 
 class DeploymentmanagerOperationsListRequest(_messages.Message):
-  """A DeploymentmanagerOperationsListRequest object.
+  r"""A DeploymentmanagerOperationsListRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -880,7 +913,7 @@ class DeploymentmanagerOperationsListRequest(_messages.Message):
 
 
 class DeploymentmanagerResourcesGetRequest(_messages.Message):
-  """A DeploymentmanagerResourcesGetRequest object.
+  r"""A DeploymentmanagerResourcesGetRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
@@ -894,29 +927,26 @@ class DeploymentmanagerResourcesGetRequest(_messages.Message):
 
 
 class DeploymentmanagerResourcesListRequest(_messages.Message):
-  """A DeploymentmanagerResourcesListRequest object.
+  r"""A DeploymentmanagerResourcesListRequest object.
 
   Fields:
     deployment: The name of the deployment for this request.
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -945,7 +975,7 @@ class DeploymentmanagerResourcesListRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersDeleteRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersDeleteRequest object.
+  r"""A DeploymentmanagerTypeProvidersDeleteRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -957,7 +987,7 @@ class DeploymentmanagerTypeProvidersDeleteRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersGetRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersGetRequest object.
+  r"""A DeploymentmanagerTypeProvidersGetRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -969,7 +999,7 @@ class DeploymentmanagerTypeProvidersGetRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersGetTypeRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersGetTypeRequest object.
+  r"""A DeploymentmanagerTypeProvidersGetTypeRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -983,7 +1013,7 @@ class DeploymentmanagerTypeProvidersGetTypeRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersInsertRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersInsertRequest object.
+  r"""A DeploymentmanagerTypeProvidersInsertRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -995,28 +1025,25 @@ class DeploymentmanagerTypeProvidersInsertRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersListRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersListRequest object.
+  r"""A DeploymentmanagerTypeProvidersListRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -1044,28 +1071,25 @@ class DeploymentmanagerTypeProvidersListRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersListTypesRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersListTypesRequest object.
+  r"""A DeploymentmanagerTypeProvidersListTypesRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -1095,7 +1119,7 @@ class DeploymentmanagerTypeProvidersListTypesRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersPatchRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersPatchRequest object.
+  r"""A DeploymentmanagerTypeProvidersPatchRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -1110,7 +1134,7 @@ class DeploymentmanagerTypeProvidersPatchRequest(_messages.Message):
 
 
 class DeploymentmanagerTypeProvidersUpdateRequest(_messages.Message):
-  """A DeploymentmanagerTypeProvidersUpdateRequest object.
+  r"""A DeploymentmanagerTypeProvidersUpdateRequest object.
 
   Fields:
     project: The project ID for this request.
@@ -1125,28 +1149,25 @@ class DeploymentmanagerTypeProvidersUpdateRequest(_messages.Message):
 
 
 class DeploymentmanagerTypesListRequest(_messages.Message):
-  """A DeploymentmanagerTypesListRequest object.
+  r"""A DeploymentmanagerTypesListRequest object.
 
   Fields:
-    filter: Sets a filter {expression} for filtering listed resources. Your
-      {expression} must be in the format: field_name comparison_string
-      literal_string.  The field_name is the name of the field you want to
-      compare. Only atomic field types are supported (string, number,
-      boolean). The comparison_string must be either eq (equals) or ne (not
-      equals). The literal_string is the string value to filter to. The
-      literal value must be valid for the type of field you are filtering by
-      (string, number, boolean). For string fields, the literal value is
-      interpreted as a regular expression using RE2 syntax. The literal value
-      must match the entire field.  For example, to filter for instances that
-      do not have a name of example-instance, you would use name ne example-
-      instance.  You can filter on nested fields. For example, you could
-      filter on instances that have set the scheduling.automaticRestart field
-      to true. Use filtering on nested fields to take advantage of labels to
-      organize and search for results based on label values.  To filter on
-      multiple expressions, provide each separate expression within
-      parentheses. For example, (scheduling.automaticRestart eq true) (zone eq
-      us-central1-f). Multiple expressions are treated as AND expressions,
-      meaning that resources must match all expressions to pass the filters.
+    filter: A filter expression that filters resources listed in the response.
+      The expression must specify the field name, a comparison operator, and
+      the value that you want to use for filtering. The value must be a
+      string, a number, or a boolean. The comparison operator must be either
+      =, !=, >, or <.  For example, if you are filtering Compute Engine
+      instances, you can exclude instances named example-instance by
+      specifying name != example-instance.  You can also filter nested fields.
+      For example, you could specify scheduling.automaticRestart = false to
+      include instances only if they are not scheduled for automatic restarts.
+      You can use filtering on nested fields to filter based on resource
+      labels.  To filter on multiple expressions, provide each separate
+      expression within parentheses. For example, (scheduling.automaticRestart
+      = true) (cpuPlatform = "Intel Skylake"). By default, each expression is
+      an AND expression. However, you can include AND and OR expressions
+      explicitly. For example, (cpuPlatform = "Intel Skylake") OR (cpuPlatform
+      = "Intel Broadwell") AND (scheduling.automaticRestart = true).
     maxResults: The maximum number of results per page that should be
       returned. If the number of available results is larger than maxResults,
       Compute Engine returns a nextPageToken that can be used to get the next
@@ -1174,7 +1195,7 @@ class DeploymentmanagerTypesListRequest(_messages.Message):
 
 
 class DeploymentsCancelPreviewRequest(_messages.Message):
-  """DeploymentsCancelPreviewRequest message type.
+  r"""DeploymentsCancelPreviewRequest message type.
 
   Fields:
     fingerprint: Specifies a fingerprint for cancelPreview() requests. A
@@ -1192,12 +1213,12 @@ class DeploymentsCancelPreviewRequest(_messages.Message):
 
 
 class DeploymentsListResponse(_messages.Message):
-  """A response containing a partial list of deployments and a page token used
-  to build the next request if the request has been truncated.
+  r"""A response containing a partial list of deployments and a page token
+  used to build the next request if the request has been truncated.
 
   Fields:
-    deployments: [Output Only] The deployments contained in this response.
-    nextPageToken: [Output Only] A token used to continue a truncated list
+    deployments: Output only. The deployments contained in this response.
+    nextPageToken: Output only. A token used to continue a truncated list
       request.
   """
 
@@ -1206,7 +1227,7 @@ class DeploymentsListResponse(_messages.Message):
 
 
 class DeploymentsStopRequest(_messages.Message):
-  """DeploymentsStopRequest message type.
+  r"""DeploymentsStopRequest message type.
 
   Fields:
     fingerprint: Specifies a fingerprint for stop() requests. A fingerprint is
@@ -1223,8 +1244,21 @@ class DeploymentsStopRequest(_messages.Message):
   fingerprint = _messages.BytesField(1)
 
 
+class Diagnostic(_messages.Message):
+  r"""Diagnostic message type.
+
+  Fields:
+    field: JsonPath expression on the resource that if non empty, indicates
+      that this field needs to be extracted as a diagnostic.
+    level: Level to record this diagnostic.
+  """
+
+  field = _messages.StringField(1)
+  level = _messages.StringField(2)
+
+
 class Expr(_messages.Message):
-  """Represents an expression text. Example:  title: "User account presence"
+  r"""Represents an expression text. Example:  title: "User account presence"
   description: "Determines whether the request has a user account" expression:
   "size(request.user) > 0"
 
@@ -1247,8 +1281,27 @@ class Expr(_messages.Message):
   title = _messages.StringField(4)
 
 
+class GlobalSetPolicyRequest(_messages.Message):
+  r"""A GlobalSetPolicyRequest object.
+
+  Fields:
+    bindings: Flatten Policy to create a backwacd compatible wire-format.
+      Deprecated. Use 'policy' to specify bindings.
+    etag: Flatten Policy to create a backward compatible wire-format.
+      Deprecated. Use 'policy' to specify the etag.
+    policy: REQUIRED: The complete policy to be applied to the 'resource'. The
+      size of the policy is limited to a few 10s of KB. An empty policy is in
+      general a valid policy but certain services (like Projects) might reject
+      them.
+  """
+
+  bindings = _messages.MessageField('Binding', 1, repeated=True)
+  etag = _messages.BytesField(2)
+  policy = _messages.MessageField('Policy', 3)
+
+
 class ImportFile(_messages.Message):
-  """ImportFile message type.
+  r"""ImportFile message type.
 
   Fields:
     content: The contents of the file.
@@ -1260,7 +1313,7 @@ class ImportFile(_messages.Message):
 
 
 class InputMapping(_messages.Message):
-  """InputMapping creates a 'virtual' property that will be injected into the
+  r"""InputMapping creates a 'virtual' property that will be injected into the
   properties before sending the request to the underlying API.
 
   Fields:
@@ -1277,19 +1330,21 @@ class InputMapping(_messages.Message):
 
 
 class LogConfig(_messages.Message):
-  """Specifies what kind of log the caller must write
+  r"""Specifies what kind of log the caller must write
 
   Fields:
     cloudAudit: Cloud audit options.
     counter: Counter options.
+    dataAccess: Data access options.
   """
 
   cloudAudit = _messages.MessageField('LogConfigCloudAuditOptions', 1)
   counter = _messages.MessageField('LogConfigCounterOptions', 2)
+  dataAccess = _messages.MessageField('LogConfigDataAccessOptions', 3)
 
 
 class LogConfigCloudAuditOptions(_messages.Message):
-  """Write a Cloud Audit log
+  r"""Write a Cloud Audit log
 
   Fields:
     authorizationLoggingOptions: Information used by the Cloud Audit Logging
@@ -1302,7 +1357,19 @@ class LogConfigCloudAuditOptions(_messages.Message):
 
 
 class LogConfigCounterOptions(_messages.Message):
-  """Options for counters
+  r"""Increment a streamz counter with the specified metric and field names.
+  Metric names should start with a '/', generally be lowercase-only, and end
+  in "_count". Field names should not contain an initial slash. The actual
+  exported metric names will have "/iam/policy" prepended.  Field names
+  correspond to IAM request parameters and field values are their respective
+  values.  At present the only supported field names are - "iam_principal",
+  corresponding to IAMContext.principal; - "" (empty string), resulting in one
+  aggretated counter with no field.  Examples: counter { metric:
+  "/debug_access_count" field: "iam_principal" } ==> increment counter
+  /iam/policy/backend_debug_access_count {iam_principal=[value of
+  IAMContext.principal]}  At this time we do not support: * multiple field
+  names (though this may be supported in the future) * decrementing the
+  counter * incrementing it by anything other than 1
 
   Fields:
     field: The field value to attribute.
@@ -1313,21 +1380,32 @@ class LogConfigCounterOptions(_messages.Message):
   metric = _messages.StringField(2)
 
 
-class Manifest(_messages.Message):
-  """Manifest message type.
+class LogConfigDataAccessOptions(_messages.Message):
+  r"""Write a Data Access (Gin) log
 
   Fields:
-    config: [Output Only] The YAML configuration for this manifest.
-    expandedConfig: [Output Only] The fully-expanded configuration file,
+    logMode: Whether Gin logging should happen in a fail-closed manner at the
+      caller. This is relevant only in the LocalIAM implementation, for now.
+  """
+
+  logMode = _messages.StringField(1)
+
+
+class Manifest(_messages.Message):
+  r"""Manifest message type.
+
+  Fields:
+    config: Output only. The YAML configuration for this manifest.
+    expandedConfig: Output only. The fully-expanded configuration file,
       including any templates and references.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    imports: [Output Only] The imported files for this manifest.
-    insertTime: [Output Only] Timestamp when the manifest was created, in
+    imports: Output only. The imported files for this manifest.
+    insertTime: Output only. Timestamp when the manifest was created, in
       RFC3339 text format.
-    layout: [Output Only] The YAML layout for this manifest.
-    name: [Output Only] The name of the manifest.
-    selfLink: [Output Only] Self link for the manifest.
+    layout: Output only. The YAML layout for this manifest.
+    name: Output only.  The name of the manifest.
+    selfLink: Output only. Self link for the manifest.
   """
 
   config = _messages.MessageField('ConfigFile', 1)
@@ -1341,12 +1419,12 @@ class Manifest(_messages.Message):
 
 
 class ManifestsListResponse(_messages.Message):
-  """A response containing a partial list of manifests and a page token used
+  r"""A response containing a partial list of manifests and a page token used
   to build the next request if the request has been truncated.
 
   Fields:
-    manifests: [Output Only] Manifests contained in this list response.
-    nextPageToken: [Output Only] A token used to continue a truncated list
+    manifests: Output only. Manifests contained in this list response.
+    nextPageToken: Output only. A token used to continue a truncated list
       request.
   """
 
@@ -1355,7 +1433,11 @@ class ManifestsListResponse(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """An Operation resource, used to manage asynchronous API requests.
+  r"""An Operation resource, used to manage asynchronous API requests. (==
+  resource_for v1.globalOperations ==) (== resource_for beta.globalOperations
+  ==) (== resource_for v1.regionOperations ==) (== resource_for
+  beta.regionOperations ==) (== resource_for v1.zoneOperations ==) (==
+  resource_for beta.zoneOperations ==)
 
   Messages:
     ErrorValue: [Output Only] If errors are generated during processing of the
@@ -1363,7 +1445,8 @@ class Operation(_messages.Message):
     WarningsValueListEntry: A WarningsValueListEntry object.
 
   Fields:
-    clientOperationId: [Output Only] Reserved for future use.
+    clientOperationId: [Output Only] The value of `requestId` if you provided
+      it in the request. Not present otherwise.
     creationTimestamp: [Deprecated] This field is deprecated.
     description: [Output Only] A textual description of the operation, which
       is set when the operation is created.
@@ -1391,7 +1474,9 @@ class Operation(_messages.Message):
       operation will be complete. This number should monotonically increase as
       the operation progresses.
     region: [Output Only] The URL of the region where the operation resides.
-      Only available when performing regional operations.
+      Only available when performing regional operations. You must specify
+      this field as part of the HTTP request URL. It is not settable as a
+      field in the request body.
     selfLink: [Output Only] Server-defined URL for the resource.
     startTime: [Output Only] The time that this operation was started by the
       server. This value is in RFC3339 text format.
@@ -1409,11 +1494,13 @@ class Operation(_messages.Message):
     warnings: [Output Only] If warning messages are generated during
       processing of the operation, this field will be populated.
     zone: [Output Only] The URL of the zone where the operation resides. Only
-      available when performing per-zone operations.
+      available when performing per-zone operations. You must specify this
+      field as part of the HTTP request URL. It is not settable as a field in
+      the request body.
   """
 
   class ErrorValue(_messages.Message):
-    """[Output Only] If errors are generated during processing of the
+    r"""[Output Only] If errors are generated during processing of the
     operation, this field will be populated.
 
     Messages:
@@ -1425,7 +1512,7 @@ class Operation(_messages.Message):
     """
 
     class ErrorsValueListEntry(_messages.Message):
-      """A ErrorsValueListEntry object.
+      r"""A ErrorsValueListEntry object.
 
       Fields:
         code: [Output Only] The error type identifier for this error.
@@ -1441,7 +1528,7 @@ class Operation(_messages.Message):
     errors = _messages.MessageField('ErrorsValueListEntry', 1, repeated=True)
 
   class WarningsValueListEntry(_messages.Message):
-    """A WarningsValueListEntry object.
+    r"""A WarningsValueListEntry object.
 
     Messages:
       DataValueListEntry: A DataValueListEntry object.
@@ -1456,7 +1543,7 @@ class Operation(_messages.Message):
     """
 
     class DataValueListEntry(_messages.Message):
-      """A DataValueListEntry object.
+      r"""A DataValueListEntry object.
 
       Fields:
         key: [Output Only] A key that provides more detail on the warning
@@ -1503,13 +1590,13 @@ class Operation(_messages.Message):
 
 
 class OperationsListResponse(_messages.Message):
-  """A response containing a partial list of operations and a page token used
+  r"""A response containing a partial list of operations and a page token used
   to build the next request if the request has been truncated.
 
   Fields:
-    nextPageToken: [Output Only] A token used to continue a truncated list
+    nextPageToken: Output only. A token used to continue a truncated list
       request.
-    operations: [Output Only] Operations contained in this list response.
+    operations: Output only. Operations contained in this list response.
   """
 
   nextPageToken = _messages.StringField(1)
@@ -1517,9 +1604,10 @@ class OperationsListResponse(_messages.Message):
 
 
 class Options(_messages.Message):
-  """Options allows customized resource handling by Deployment Manager.
+  r"""Options allows customized resource handling by Deployment Manager.
 
   Fields:
+    asyncOptions: Options regarding how to thread async requests.
     inputMappings: The mappings that apply for requests.
     validationOptions: Options for how to validate and process properties on a
       resource.
@@ -1532,23 +1620,28 @@ class Options(_messages.Message):
       InputMappings. ex: field1: type: string field2: type: number
   """
 
-  inputMappings = _messages.MessageField('InputMapping', 1, repeated=True)
-  validationOptions = _messages.MessageField('ValidationOptions', 2)
-  virtualProperties = _messages.StringField(3)
+  asyncOptions = _messages.MessageField('AsyncOptions', 1, repeated=True)
+  inputMappings = _messages.MessageField('InputMapping', 2, repeated=True)
+  validationOptions = _messages.MessageField('ValidationOptions', 3)
+  virtualProperties = _messages.StringField(4)
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.    A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**  { "bindings": [ { "role": "roles/owner",
+  defined by IAM.  **JSON Example**  { "bindings": [ { "role": "roles/owner",
   "members": [ "user:mike@example.com", "group:admins@example.com",
   "domain:google.com", "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com", ] }, { "role": "roles/viewer", "members":
-  ["user:sean@example.com"] } ] }  For a description of IAM and its features,
-  see the [IAM developer's guide](https://cloud.google.com/iam).
+  app@appspot.gserviceaccount.com" ] }, { "role": "roles/viewer", "members":
+  ["user:sean@example.com"] } ] }  **YAML Example**  bindings: - members: -
+  user:mike@example.com - group:admins@example.com - domain:google.com -
+  serviceAccount:my-other-app@appspot.gserviceaccount.com role: roles/owner -
+  members: - user:sean@example.com role: roles/viewer    For a description of
+  IAM and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     auditConfigs: Specifies cloud audit logging configuration for this policy.
@@ -1571,7 +1664,7 @@ class Policy(_messages.Message):
       any ALLOW/ALLOW_WITH_LOG rule matches, permission is granted. Logging
       will be applied if one or more matching rule requires logging. -
       Otherwise, if no rule applies, permission is denied.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   auditConfigs = _messages.MessageField('AuditConfig', 1, repeated=True)
@@ -1582,40 +1675,62 @@ class Policy(_messages.Message):
   version = _messages.IntegerField(6, variant=_messages.Variant.INT32)
 
 
+class PollingOptions(_messages.Message):
+  r"""PollingOptions message type.
+
+  Fields:
+    diagnostics: An array of diagnostics to be collected by Deployment
+      Manager, these diagnostics will be displayed to the user.
+    failCondition: JsonPath expression that determines if the request failed.
+    finishCondition: JsonPath expression that determines if the request is
+      completed.
+    pollingLink: JsonPath expression that evaluates to string, it indicates
+      where to poll.
+    targetLink: JsonPath expression, after polling is completed, indicates
+      where to fetch the resource.
+  """
+
+  diagnostics = _messages.MessageField('Diagnostic', 1, repeated=True)
+  failCondition = _messages.StringField(2)
+  finishCondition = _messages.StringField(3)
+  pollingLink = _messages.StringField(4)
+  targetLink = _messages.StringField(5)
+
+
 class Resource(_messages.Message):
-  """Resource message type.
+  r"""Resource message type.
 
   Messages:
     WarningsValueListEntry: A WarningsValueListEntry object.
 
   Fields:
     accessControl: The Access Control Policy set on this resource.
-    finalProperties: [Output Only] The evaluated properties of the resource
+    finalProperties: Output only. The evaluated properties of the resource
       with references expanded. Returned as serialized YAML.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    insertTime: [Output Only] Timestamp when the resource was created or
+    insertTime: Output only. Timestamp when the resource was created or
       acquired, in RFC3339 text format .
-    manifest: [Output Only] URL of the manifest representing the current
+    manifest: Output only. URL of the manifest representing the current
       configuration of this resource.
-    name: [Output Only] The name of the resource as it appears in the YAML
+    name: Output only. The name of the resource as it appears in the YAML
       config.
-    properties: [Output Only] The current properties of the resource before
-      any references have been filled in. Returned as serialized YAML.
-    type: [Output Only] The type of the resource, for example
+    properties: Output only. The current properties of the resource before any
+      references have been filled in. Returned as serialized YAML.
+    type: Output only. The type of the resource, for example
       compute.v1.instance, or cloudfunctions.v1beta1.function.
-    update: [Output Only] If Deployment Manager is currently updating or
+    update: Output only. If Deployment Manager is currently updating or
       previewing an update to this resource, the updated configuration appears
       here.
-    updateTime: [Output Only] Timestamp when the resource was updated, in
+    updateTime: Output only. Timestamp when the resource was updated, in
       RFC3339 text format .
-    url: [Output Only] The URL of the actual resource.
-    warnings: [Output Only] If warning messages are generated during
-      processing of this resource, this field will be populated.
+    url: Output only. The URL of the actual resource.
+    warnings: Output only. If warning messages are generated during processing
+      of this resource, this field will be populated.
   """
 
   class WarningsValueListEntry(_messages.Message):
-    """A WarningsValueListEntry object.
+    r"""A WarningsValueListEntry object.
 
     Messages:
       DataValueListEntry: A DataValueListEntry object.
@@ -1630,7 +1745,7 @@ class Resource(_messages.Message):
     """
 
     class DataValueListEntry(_messages.Message):
-      """A DataValueListEntry object.
+      r"""A DataValueListEntry object.
 
       Fields:
         key: [Output Only] A key that provides more detail on the warning
@@ -1666,7 +1781,7 @@ class Resource(_messages.Message):
 
 
 class ResourceAccessControl(_messages.Message):
-  """The access controls set on the resource.
+  r"""The access controls set on the resource.
 
   Fields:
     gcpIamPolicy: The GCP IAM Policy to set on the resource.
@@ -1676,33 +1791,33 @@ class ResourceAccessControl(_messages.Message):
 
 
 class ResourceUpdate(_messages.Message):
-  """ResourceUpdate message type.
+  r"""ResourceUpdate message type.
 
   Messages:
-    ErrorValue: [Output Only] If errors are generated during update of the
+    ErrorValue: Output only. If errors are generated during update of the
       resource, this field will be populated.
     WarningsValueListEntry: A WarningsValueListEntry object.
 
   Fields:
     accessControl: The Access Control Policy to set on this resource after
       updating the resource itself.
-    error: [Output Only] If errors are generated during update of the
-      resource, this field will be populated.
-    finalProperties: [Output Only] The expanded properties of the resource
-      with reference values expanded. Returned as serialized YAML.
-    intent: [Output Only] The intent of the resource: PREVIEW, UPDATE, or
+    error: Output only. If errors are generated during update of the resource,
+      this field will be populated.
+    finalProperties: Output only. The expanded properties of the resource with
+      reference values expanded. Returned as serialized YAML.
+    intent: Output only. The intent of the resource: PREVIEW, UPDATE, or
       CANCEL.
-    manifest: [Output Only] URL of the manifest representing the update
+    manifest: Output only. URL of the manifest representing the update
       configuration of this resource.
-    properties: [Output Only] The set of updated properties for this resource,
+    properties: Output only. The set of updated properties for this resource,
       before references are expanded. Returned as serialized YAML.
-    state: [Output Only] The state of the resource.
-    warnings: [Output Only] If warning messages are generated during
-      processing of this resource, this field will be populated.
+    state: Output only. The state of the resource.
+    warnings: Output only. If warning messages are generated during processing
+      of this resource, this field will be populated.
   """
 
   class ErrorValue(_messages.Message):
-    """[Output Only] If errors are generated during update of the resource,
+    r"""Output only. If errors are generated during update of the resource,
     this field will be populated.
 
     Messages:
@@ -1714,7 +1829,7 @@ class ResourceUpdate(_messages.Message):
     """
 
     class ErrorsValueListEntry(_messages.Message):
-      """A ErrorsValueListEntry object.
+      r"""A ErrorsValueListEntry object.
 
       Fields:
         code: [Output Only] The error type identifier for this error.
@@ -1730,7 +1845,7 @@ class ResourceUpdate(_messages.Message):
     errors = _messages.MessageField('ErrorsValueListEntry', 1, repeated=True)
 
   class WarningsValueListEntry(_messages.Message):
-    """A WarningsValueListEntry object.
+    r"""A WarningsValueListEntry object.
 
     Messages:
       DataValueListEntry: A DataValueListEntry object.
@@ -1745,7 +1860,7 @@ class ResourceUpdate(_messages.Message):
     """
 
     class DataValueListEntry(_messages.Message):
-      """A DataValueListEntry object.
+      r"""A DataValueListEntry object.
 
       Fields:
         key: [Output Only] A key that provides more detail on the warning
@@ -1777,7 +1892,7 @@ class ResourceUpdate(_messages.Message):
 
 
 class ResourcesListResponse(_messages.Message):
-  """A response containing a partial list of resources and a page token used
+  r"""A response containing a partial list of resources and a page token used
   to build the next request if the request has been truncated.
 
   Fields:
@@ -1790,11 +1905,12 @@ class ResourcesListResponse(_messages.Message):
 
 
 class Rule(_messages.Message):
-  """A rule to be applied in a Policy.
+  r"""A rule to be applied in a Policy.
 
   Fields:
     action: Required
-    conditions: Additional restrictions that must be met
+    conditions: Additional restrictions that must be met. All conditions must
+      pass for the rule to match.
     description: Human-readable description of the rule.
     ins: If one or more 'in' clauses are specified, the rule matches if the
       PRINCIPAL/AUTHORITY_SELECTOR is in at least one of these entries.
@@ -1816,8 +1932,19 @@ class Rule(_messages.Message):
   permissions = _messages.StringField(7, repeated=True)
 
 
+class ServiceAccount(_messages.Message):
+  r"""Service Account used as a credential.
+
+  Fields:
+    email: The IAM service account email address like
+      test@myproject.iam.gserviceaccount.com
+  """
+
+  email = _messages.StringField(1)
+
+
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     AltValueValuesEnum: Data format for the response.
@@ -1830,17 +1957,15 @@ class StandardQueryParameters(_messages.Message):
       token.
     oauth_token: OAuth 2.0 token for the current user.
     prettyPrint: Returns response with indentations and line breaks.
-    quotaUser: Available to use for quota purposes for server-side
-      applications. Can be any arbitrary string assigned to a user, but should
-      not exceed 40 characters. Overrides userIp if both are provided.
+    quotaUser: An opaque string that represents a user for quota purposes.
+      Must not exceed 40 characters.
     trace: A tracing token of the form "token:<tokenid>" to include in api
       requests.
-    userIp: IP address of the site where the request originates. Use this if
-      you want to enforce per-user limits.
+    userIp: Deprecated. Please use quotaUser instead.
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for the response.
+    r"""Data format for the response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1858,7 +1983,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class TargetConfiguration(_messages.Message):
-  """TargetConfiguration message type.
+  r"""TargetConfiguration message type.
 
   Fields:
     config: The configuration to use for this deployment.
@@ -1872,24 +1997,26 @@ class TargetConfiguration(_messages.Message):
 
 
 class TemplateContents(_messages.Message):
-  """Files that make up the template contents of a template type.
+  r"""Files that make up the template contents of a template type.
 
   Fields:
     imports: Import files referenced by the main template.
     interpreter: Which interpreter (python or jinja) should be used during
       expansion.
+    mainTemplate: The filename of the mainTemplate
     schema: The contents of the template schema.
     template: The contents of the main template file.
   """
 
   imports = _messages.MessageField('ImportFile', 1, repeated=True)
   interpreter = _messages.StringField(2)
-  schema = _messages.StringField(3)
-  template = _messages.StringField(4)
+  mainTemplate = _messages.StringField(3)
+  schema = _messages.StringField(4)
+  template = _messages.StringField(5)
 
 
 class TestPermissionsRequest(_messages.Message):
-  """A TestPermissionsRequest object.
+  r"""A TestPermissionsRequest object.
 
   Fields:
     permissions: The set of permissions to check for the 'resource'.
@@ -1900,7 +2027,7 @@ class TestPermissionsRequest(_messages.Message):
 
 
 class TestPermissionsResponse(_messages.Message):
-  """A TestPermissionsResponse object.
+  r"""A TestPermissionsResponse object.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -1911,15 +2038,15 @@ class TestPermissionsResponse(_messages.Message):
 
 
 class Type(_messages.Message):
-  """A resource type supported by Deployment Manager.
+  r"""A resource type supported by Deployment Manager.
 
   Fields:
     base: Base Type (configurable service) that backs this Type.
     description: An optional textual description of the resource; provided by
       the client when the resource is created.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    insertTime: [Output Only] Timestamp when the type was created, in RFC3339
+    insertTime: Output only. Timestamp when the type was created, in RFC3339
       text format.
     labels: Map of labels; provided by the client when the resource is created
       or updated. Specifically: Label keys must be between 1 and 63 characters
@@ -1928,9 +2055,9 @@ class Type(_messages.Message):
       characters long and must conform to the regular expression
       ([a-z]([-a-z0-9]*[a-z0-9])?)?
     name: Name of the type.
-    operation: [Output Only] The Operation that most recently ran, or is
+    operation: Output only. The Operation that most recently ran, or is
       currently running, on this type.
-    selfLink: [Output Only] Self link for the type.
+    selfLink: Output only. Self link for the type.
   """
 
   base = _messages.MessageField('BaseType', 1)
@@ -1944,19 +2071,19 @@ class Type(_messages.Message):
 
 
 class TypeInfo(_messages.Message):
-  """Contains detailed information about a composite type, base type, or base
+  r"""Contains detailed information about a composite type, base type, or base
   type with specific collection.
 
   Fields:
     description: The description of the type.
     documentationLink: For swagger 2.0 externalDocs field will be used. For
       swagger 1.2 this field will be empty.
-    kind: [Output Only] Type of the output. Always deploymentManager#TypeInfo
+    kind: Output only. Type of the output. Always deploymentManager#TypeInfo
       for TypeInfo.
     name: The base type or composite type name.
     schema: For base types with a collection, we return a schema and
       documentation link For template types, we return only a schema
-    selfLink: [Output Only] Server-defined URL for the resource.
+    selfLink: Output only. Server-defined URL for the resource.
     title: The title on the API descriptor URL provided.
   """
 
@@ -1970,7 +2097,7 @@ class TypeInfo(_messages.Message):
 
 
 class TypeInfoSchemaInfo(_messages.Message):
-  """TypeInfoSchemaInfo message type.
+  r"""TypeInfoSchemaInfo message type.
 
   Fields:
     input: The properties that this composite type or base type collection
@@ -1986,7 +2113,7 @@ class TypeInfoSchemaInfo(_messages.Message):
 
 
 class TypeLabelEntry(_messages.Message):
-  """A TypeLabelEntry object.
+  r"""A TypeLabelEntry object.
 
   Fields:
     key: A string attribute.
@@ -1998,7 +2125,7 @@ class TypeLabelEntry(_messages.Message):
 
 
 class TypeProvider(_messages.Message):
-  """A type provider that describes a service-backed Type.
+  r"""A type provider that describes a service-backed Type.
 
   Fields:
     collectionOverrides: Allows resource handling overrides for specific
@@ -2007,9 +2134,9 @@ class TypeProvider(_messages.Message):
     description: An optional textual description of the resource; provided by
       the client when the resource is created.
     descriptorUrl: Descriptor Url for the this type provider.
-    id: [Output Only] Unique identifier for the resource; defined by the
+    id: Output only. Unique identifier for the resource; defined by the
       server.
-    insertTime: [Output Only] Timestamp when the type provider was created, in
+    insertTime: Output only. Timestamp when the type provider was created, in
       RFC3339 text format.
     labels: Map of labels; provided by the client when the resource is created
       or updated. Specifically: Label keys must be between 1 and 63 characters
@@ -2017,11 +2144,17 @@ class TypeProvider(_messages.Message):
       [a-z]([-a-z0-9]*[a-z0-9])? Label values must be between 0 and 63
       characters long and must conform to the regular expression
       ([a-z]([-a-z0-9]*[a-z0-9])?)?
-    name: Name of the type provider.
-    operation: [Output Only] The Operation that most recently ran, or is
+    name: Name of the resource; provided by the client when the resource is
+      created. The name must be 1-63 characters long, and comply with RFC1035.
+      Specifically, the name must be 1-63 characters long and match the
+      regular expression [a-z]([-a-z0-9]*[a-z0-9])? which means the first
+      character must be a lowercase letter, and all following characters must
+      be a dash, lowercase letter, or digit, except the last character, which
+      cannot be a dash.
+    operation: Output only. The Operation that most recently ran, or is
       currently running, on this type provider.
     options: Options to apply when handling any resources in this service.
-    selfLink: [Output Only] Self link for the type provider.
+    selfLink: Output only. Self link for the type provider.
   """
 
   collectionOverrides = _messages.MessageField('CollectionOverride', 1, repeated=True)
@@ -2038,7 +2171,7 @@ class TypeProvider(_messages.Message):
 
 
 class TypeProviderLabelEntry(_messages.Message):
-  """A TypeProviderLabelEntry object.
+  r"""A TypeProviderLabelEntry object.
 
   Fields:
     key: A string attribute.
@@ -2050,13 +2183,13 @@ class TypeProviderLabelEntry(_messages.Message):
 
 
 class TypeProvidersListResponse(_messages.Message):
-  """A response that returns all Type Providers supported by Deployment
+  r"""A response that returns all Type Providers supported by Deployment
   Manager
 
   Fields:
     nextPageToken: A token used to continue a truncated list request.
-    typeProviders: [Output Only] A list of resource type providers supported
-      by Deployment Manager.
+    typeProviders: Output only. A list of resource type providers supported by
+      Deployment Manager.
   """
 
   nextPageToken = _messages.StringField(1)
@@ -2064,11 +2197,11 @@ class TypeProvidersListResponse(_messages.Message):
 
 
 class TypeProvidersListTypesResponse(_messages.Message):
-  """TypeProvidersListTypesResponse message type.
+  r"""TypeProvidersListTypesResponse message type.
 
   Fields:
     nextPageToken: A token used to continue a truncated list request.
-    types: [Output Only] A list of resource type info.
+    types: Output only. A list of resource type info.
   """
 
   nextPageToken = _messages.StringField(1)
@@ -2076,11 +2209,11 @@ class TypeProvidersListTypesResponse(_messages.Message):
 
 
 class TypesListResponse(_messages.Message):
-  """A response that returns all Types supported by Deployment Manager
+  r"""A response that returns all Types supported by Deployment Manager
 
   Fields:
     nextPageToken: A token used to continue a truncated list request.
-    types: [Output Only] A list of resource types supported by Deployment
+    types: Output only. A list of resource types supported by Deployment
       Manager.
   """
 
@@ -2089,7 +2222,7 @@ class TypesListResponse(_messages.Message):
 
 
 class ValidationOptions(_messages.Message):
-  """Options for how to validate and process properties on a resource.
+  r"""Options for how to validate and process properties on a resource.
 
   Fields:
     schemaValidation: Customize how deployment manager will validate the

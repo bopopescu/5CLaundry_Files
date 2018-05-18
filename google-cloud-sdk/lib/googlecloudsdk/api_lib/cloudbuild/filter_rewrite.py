@@ -14,6 +14,8 @@
 
 """container builds resource filter expression rewrite backend."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.core.resource import resource_expr_rewrite
 from googlecloudsdk.core.resource import resource_property
 from googlecloudsdk.core.util import times
@@ -52,7 +54,8 @@ _TIME_FIELDS = {
 class Backend(resource_expr_rewrite.Backend):
   """Container builds resource filter expression rewrite backend."""
 
-  def __init__(self, ongoing=False):
+  def __init__(self, ongoing=False, **kwargs):
+    super(Backend, self).__init__(**kwargs)
     self._ongoing = ongoing
 
   def _RewriteStrings(self, key, op, operand):
@@ -88,8 +91,9 @@ class Backend(resource_expr_rewrite.Backend):
         server_expression = ongoing
     return client_expression, server_expression
 
-  def RewriteTerm(self, key, op, operand):
+  def RewriteTerm(self, key, op, operand, key_type):
     """Rewrites <key op operand>."""
+    del key_type  # unused in RewriteTerm
     if op == ':':
       op = '='
     elif op not in ['<', '<=', '=', '!=', '>=', '>']:

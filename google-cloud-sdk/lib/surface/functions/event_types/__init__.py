@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The event-types command subgroup for Google Cloud Functions."""
+"""List types of events that can be a trigger for a Google Cloud Function."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 
 from googlecloudsdk.api_lib.util import apis
@@ -22,4 +24,4 @@ from googlecloudsdk.core import properties
 
 
 class EventTypes(base.Group):
-  """Provides information about Google Cloud Functions Event Types."""
+  """List types of events that can be a trigger for a Google Cloud Function."""

@@ -14,15 +14,25 @@
 
 """A library that is used to support logging commands."""
 
+from apitools.base.py import encoding
 from apitools.base.py import extra_types
 
 from googlecloudsdk.api_lib.resource_manager import folders
 from googlecloudsdk.api_lib.util import apis as core_apis
-from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.resource_manager import completers
+from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log as sdk_log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
+from googlecloudsdk.core import yaml
+
+
+class Error(exceptions.Error):
+  """Base error for this module."""
+
+
+class InvalidJSONValueError(Error):
+  """Invalid JSON value error."""
 
 
 def GetClient():
@@ -68,7 +78,7 @@ def ConvertToJsonObject(json_string):
   try:
     return extra_types.JsonProtoDecoder(json_string)
   except Exception as e:
-    raise exceptions.ToolException('Invalid JSON value: %s' % e.message)
+    raise InvalidJSONValueError('Invalid JSON value: %s' % e.message)
 
 
 def AddNonProjectArgs(parser, help_string):
@@ -247,3 +257,55 @@ def PrintPermissionInstructions(destination, writer_identity):
                          'Publisher role to the topic.'.format(grantee))
   sdk_log.status.Print('More information about sinks can be found at https://'
                        'cloud.google.com/logging/docs/export/configure_export')
+
+
+def CreateLogMetric(metric_name, description=None, log_filter=None, data=None):
+  """Returns a LogMetric message based on a data stream or a description/filter.
+
+  Args:
+    metric_name: str, the name of the metric.
+    description: str, a description.
+    log_filter: str, the filter for the metric's filter field.
+    data: str, a stream of data read from a config file.
+
+  Returns:
+    LogMetric, the message representing the new metric.
+  """
+  messages = GetMessages()
+  if data:
+    contents = yaml.load(data)
+    metric_msg = encoding.DictToMessage(contents,
+                                        messages.LogMetric)
+    metric_msg.name = metric_name
+  else:
+    metric_msg = messages.LogMetric(name=metric_name,
+                                    description=description,
+                                    filter=log_filter)
+  return metric_msg
+
+
+def UpdateLogMetric(metric, description=None, log_filter=None, data=None):
+  """Updates a LogMetric message given description, filter, and/or data.
+
+  Args:
+    metric: LogMetric, the original metric.
+    description: str, updated description if any.
+    log_filter: str, updated filter for the metric's filter field if any.
+    data: str, a stream of data read from a config file if any.
+
+  Returns:
+    LogMetric, the message representing the updated metric.
+  """
+  messages = GetMessages()
+  if description:
+    metric.description = description
+  if log_filter:
+    metric.filter = log_filter
+  if data:
+    # Update the top-level fields only.
+    update_data = yaml.load(data)
+    metric_diff = encoding.DictToMessage(update_data, messages.LogMetric)
+    for field_name in update_data:
+      setattr(metric, field_name, getattr(metric_diff, field_name))
+  return metric
+

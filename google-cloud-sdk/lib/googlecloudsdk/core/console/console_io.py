@@ -14,21 +14,31 @@
 
 """General console printing utilities used by the Cloud SDK."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import contextlib
 import os
 import re
 import subprocess
 import sys
 import textwrap
+import threading
 
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.console import console_pager
+from googlecloudsdk.core.console import prompt_completer
+from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import files
+from googlecloudsdk.core.util import platforms
 
-FLOAT_COMPARE_EPSILON = 1e-6
+import six
+from six.moves import input  # pylint: disable=redefined-builtin
+from six.moves import map  # pylint: disable=redefined-builtin
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class Error(exceptions.Error):
@@ -97,11 +107,53 @@ def _RawInput(prompt=None):
   """
   if prompt:
     sys.stderr.write(_DoWrap(prompt))
+  return _GetInput()
 
+
+def _GetInput():
   try:
-    return raw_input()
+    return input()
   except EOFError:
     return None
+
+
+def ReadFromFileOrStdin(path, binary):
+  """Returns the contents of the specified file or stdin if path is '-'.
+
+  Args:
+    path: str, The path of the file to read.
+    binary: bool, True to open the file in binary mode.
+
+  Raises:
+    Error: If the file cannot be read or is larger than max_bytes.
+
+  Returns:
+    The contents of the file.
+  """
+  if path == '-':
+    return ReadStdin(binary=binary)
+  return files.GetFileContents(path, binary=binary)
+
+
+def ReadStdin(binary=False):
+  """Reads data from stdin, correctly accounting for encoding.
+
+  Anything that needs to read sys.stdin must go through this method.
+
+  Args:
+    binary: bool, True to read raw bytes, False to read text.
+
+  Returns:
+    A text string if binary is False, otherwise a byte string.
+  """
+  if binary:
+    return files.ReadStdinBytes()
+  else:
+    data = sys.stdin.read()
+    if six.PY2:
+      # On Python 2, stdin comes in a a byte string. Convert it to text.
+      data = console_attr.Decode(data)
+    return data
 
 
 def IsInteractive(output=False, error=False, heuristic=False):
@@ -124,6 +176,7 @@ def IsInteractive(output=False, error=False, heuristic=False):
     return False
   if error and not sys.stderr.isatty():
     return False
+
   if heuristic:
     # Check the home path. Most startup scripts for example are executed by
     # users that don't have a home path set. Home is OS dependent though, so
@@ -140,6 +193,15 @@ def IsInteractive(output=False, error=False, heuristic=False):
     if not homepath and (not home or home == '/'):
       return False
   return True
+
+
+def IsRunFromShellScript():
+  """Check if command is being run from command line or a script."""
+  # Commands run from a shell script typically have getppid() == getpgrp()
+  if platforms.OperatingSystem.Current() != platforms.OperatingSystem.WINDOWS:
+    if os.getppid() == os.getpgrp():
+      return True
+  return False
 
 
 def CanPrompt():
@@ -232,22 +294,25 @@ def PromptContinue(message=None, prompt_string=None, default=True,
   return answer
 
 
-def PromptResponse(message):
+def PromptResponse(message=None, choices=None):
   """Prompts the user for a string.
 
   Args:
     message: str, The prompt to print before the question.
+    choices: callable or list, A callable with no arguments that returns the
+      list of all choices, or the list of choices.
 
   Returns:
     str, The string entered by the user, or None if prompts are disabled.
   """
   if properties.VALUES.core.disable_prompts.GetBool():
     return None
-  response = _RawInput(message)
-  return response
+  if choices and IsInteractive(error=True):
+    return prompt_completer.PromptCompleter(message, choices=choices).Input()
+  return _RawInput(message)
 
 
-def PromptWithDefault(message, default=None):
+def PromptWithDefault(message=None, default=None, choices=None):
   """Prompts the user for a string, allowing a default.
 
   Unlike PromptResponse, this also appends a ':  ' to the prompt.  If 'default'
@@ -261,21 +326,21 @@ def PromptWithDefault(message, default=None):
   Args:
     message: str, The prompt to print before the question.
     default: str, The default value (if any).
+    choices: callable or list, A callable with no arguments that returns the
+      list of all choices, or the list of choices.
 
   Returns:
     str, The string entered by the user, or the default if no value was
     entered or prompts are disabled.
   """
-  if properties.VALUES.core.disable_prompts.GetBool():
-    return default
+  message = message or ''
   if default:
-    message += ' ({default}):  '.format(default=default)
+    if message:
+      message += ' '
+    message += '({default}):  '.format(default=default)
   else:
     message += ':  '
-  response = _RawInput(message)
-  if not response:
-    response = default
-  return response
+  return PromptResponse(message, choices=choices) or default
 
 
 def _ParseAnswer(answer, options, allow_freeform):
@@ -308,7 +373,7 @@ def _ParseAnswer(answer, options, allow_freeform):
     return None
 
   try:
-    return map(str, options).index(answer) + 1
+    return list(map(str, options)).index(answer) + 1
   except ValueError:
     # Answer not an entry in the options list
     pass
@@ -471,6 +536,37 @@ def PromptChoice(options, default=None, message=None,
                        .format(maximum=maximum))
 
 
+def PromptWithValidator(validator, error_message, prompt_string,
+                        message=None):
+  """Prompts the user for a string that must pass a validator.
+
+  Args:
+    validator: function, A validation function that accepts a string and returns
+      a boolean value indicating whether or not the user input is valid.
+    error_message: str, Error message to display when user input does not pass
+      in a valid string.
+    prompt_string: str, A string to print when prompting the user to enter a
+      choice.  If not given, a default prompt is used.
+    message: str, An optional message to print before prompting.
+
+  Returns:
+    str, The string entered by the user, or the default if no value was
+    entered or prompts are disabled.
+  """
+  if properties.VALUES.core.disable_prompts.GetBool():
+    return None
+
+  if message:
+    sys.stderr.write(_DoWrap(message) + '\n')
+
+  while True:
+    answer = _RawInput(prompt_string)
+    if validator(answer):
+      return answer
+    else:
+      sys.stderr.write(_DoWrap(error_message) + '\n')
+
+
 def LazyFormat(s, **kwargs):
   """Expands {key} => value for key, value in kwargs.
 
@@ -528,7 +624,84 @@ def FormatRequiredUserAction(s):
     return '\n==> ' + '\n==> '.join(wrapper.wrap(s)) + '\n'
 
 
-class ProgressBar(object):
+def ProgressBar(label, stream=log.status, total_ticks=60, first=True,
+                last=True):
+  """A simple progress bar for tracking completion of an action.
+
+  This progress bar works without having to use any control characters.  It
+  prints the action that is being done, and then fills a progress bar below it.
+  You should not print anything else on the output stream during this time as it
+  will cause the progress bar to break on lines.
+
+  Progress bars can be stacked into a group. first=True marks the first bar in
+  the group and last=True marks the last bar in the group. The default assumes
+  a singleton bar with first=True and last=True.
+
+  This class can also be used in a context manager.
+
+  Args:
+    label: str, The action that is being performed.
+    stream: The output stream to write to, stderr by default.
+    total_ticks: int, The number of ticks wide to make the progress bar.
+    first: bool, True if this is the first bar in a stacked group.
+    last: bool, True if this is the last bar in a stacked group.
+
+  Returns:
+    The progress bar.
+  """
+  style = properties.VALUES.core.interactive_ux_style.Get()
+  if style == properties.VALUES.core.InteractiveUXStyles.OFF.name:
+    return NoOpProgressBar()
+  elif style == properties.VALUES.core.InteractiveUXStyles.TESTING.name:
+    return _StubProgressBar(label, stream)
+  else:
+    return _NormalProgressBar(label, stream, total_ticks, first, last)
+
+
+def SplitProgressBar(original_callback, weights):
+  """Splits a progress bar into logical sections.
+
+  Wraps the original callback so that each of the subsections can use the full
+  range of 0 to 1 to indicate its progress.  The overall progress bar will
+  display total progress based on the weights of the tasks.
+
+  Args:
+    original_callback: f(float), The original callback for the progress bar.
+    weights: [float], The weights of the tasks to create.  These can be any
+      numbers you want and the split will be based on their proportions to
+      each other.
+
+  Raises:
+    ValueError: If the weights don't add up to 1.
+
+  Returns:
+    (f(float), ), A tuple of callback functions, in order, for the subtasks.
+  """
+  if (original_callback is None or
+      original_callback == DefaultProgressBarCallback):
+    return tuple([DefaultProgressBarCallback for _ in range(len(weights))])
+
+  def MakeCallback(already_done, weight):
+    def Callback(done_fraction):
+      original_callback(already_done + (done_fraction * weight))
+    return Callback
+
+  total = sum(weights)
+  callbacks = []
+  already_done = 0
+  for weight in weights:
+    normalized_weight = weight / total
+    callbacks.append(MakeCallback(already_done, normalized_weight))
+    already_done += normalized_weight
+
+  return tuple(callbacks)
+
+
+def DefaultProgressBarCallback(progress_factor):
+  del progress_factor
+
+
+class _NormalProgressBar(object):
   """A simple progress bar for tracking completion of an action.
 
   This progress bar works without having to use any control characters.  It
@@ -543,53 +716,7 @@ class ProgressBar(object):
   This class can also be used in a context manager.
   """
 
-  @staticmethod
-  def _DefaultCallback(progress_factor):
-    pass
-
-  DEFAULT_CALLBACK = _DefaultCallback
-
-  @staticmethod
-  def SplitProgressBar(original_callback, weights):
-    """Splits a progress bar into logical sections.
-
-    Wraps the original callback so that each of the subsections can use the full
-    range of 0 to 1 to indicate its progress.  The overall progress bar will
-    display total progress based on the weights of the tasks.
-
-    Args:
-      original_callback: f(float), The original callback for the progress bar.
-      weights: [float], The weights of the tasks to create.  These can be any
-        numbers you want and the split will be based on their proportions to
-        each other.
-
-    Raises:
-      ValueError: If the weights don't add up to 1.
-
-    Returns:
-      (f(float), ), A tuple of callback functions, in order, for the subtasks.
-    """
-    if (original_callback is None or
-        original_callback == ProgressBar.DEFAULT_CALLBACK):
-      return tuple([ProgressBar.DEFAULT_CALLBACK for _ in range(len(weights))])
-
-    def MakeCallback(already_done, weight):
-      def Callback(done_fraction):
-        original_callback(already_done + (done_fraction * weight))
-      return Callback
-
-    total = float(sum(weights))
-    callbacks = []
-    already_done = 0
-    for weight in weights:
-      normalized_weight = weight / total
-      callbacks.append(MakeCallback(already_done, normalized_weight))
-      already_done += normalized_weight
-
-    return tuple(callbacks)
-
-  def __init__(self, label, stream=log.status, total_ticks=60, first=True,
-               last=True):
+  def __init__(self, label, stream, total_ticks, first, last):
     """Creates a progress bar for the given action.
 
     Args:
@@ -599,12 +726,13 @@ class ProgressBar(object):
       first: bool, True if this is the first bar in a stacked group.
       last: bool, True if this is the last bar in a stacked group.
     """
+    self._raw_label = label
     self._stream = stream
     self._ticks_written = 0
     self._total_ticks = total_ticks
     self._first = first
     self._last = last
-    attr = console_attr.ConsoleAttr(out=stream)
+    attr = console_attr.ConsoleAttr()
     self._box = attr.GetBoxLineCharacters()
     self._redraw = (self._box.d_dr != self._box.d_vr or
                     self._box.d_dl != self._box.d_vl)
@@ -625,15 +753,15 @@ class ProgressBar(object):
       label += ' ' * diff
     left = self._box.d_vr + self._box.d_h
     right = self._box.d_h + self._box.d_vl
-    self._label = u'{left} {label} {right}'.format(left=left, label=label,
-                                                   right=right)
+    self._label = '{left} {label} {right}'.format(
+        left=left, label=label, right=right)
 
   def Start(self):
     """Starts the progress bar by writing the top rule and label."""
     if self._first or self._redraw:
       left = self._box.d_dr if self._first else self._box.d_vr
       right = self._box.d_dl if self._first else self._box.d_vl
-      rule = u'{left}{middle}{right}\n'.format(
+      rule = '{left}{middle}{right}\n'.format(
           left=left, middle=self._box.d_h * self._total_ticks, right=right)
       self._Write(rule)
     self._Write(self._label + '\n')
@@ -677,6 +805,60 @@ class ProgressBar(object):
     self.Finish()
 
 
+class NoOpProgressBar(object):
+  """A progress bar that outputs nothing at all."""
+
+  def __init__(self):
+    pass
+
+  def Start(self):
+    pass
+
+  def SetProgress(self, progress_factor):
+    pass
+
+  def Finish(self):
+    """Mark the progress as done."""
+    self.SetProgress(1)
+
+  def __enter__(self):
+    self.Start()
+    return self
+
+  def __exit__(self, *args):
+    self.Finish()
+
+
+class _StubProgressBar(object):
+  """A progress bar that only prints deterministic start and end points.
+
+  No UX about progress should be exposed here. This is strictly for being able
+  to tell that the progress bar was invoked, not what it actually looks like.
+  """
+
+  def __init__(self, label, stream):
+    self._raw_label = label
+    self._stream = stream
+
+  def Start(self):
+    self._stream.write('<START PROGRESS BAR>' + self._raw_label + '\n')
+
+  def SetProgress(self, progress_factor):
+    pass
+
+  def Finish(self):
+    """Mark the progress as done."""
+    self.SetProgress(1)
+    self._stream.write('<END PROGRESS BAR>\n')
+
+  def __enter__(self):
+    self.Start()
+    return self
+
+  def __exit__(self, *args):
+    self.Finish()
+
+
 def More(contents, out=None, prompt=None, check_pager=True):
   """Run a user specified pager or fall back to the internal pager.
 
@@ -697,7 +879,7 @@ def More(contents, out=None, prompt=None, check_pager=True):
     # Paging shenanigans to stdout.
     out = sys.stdout
   if check_pager:
-    pager = os.environ.get('PAGER', None)
+    pager = encoding.GetEncodedValue(os.environ, 'PAGER', None)
     if pager == '-':
       # Use the fallback Pager.
       pager = None
@@ -708,27 +890,28 @@ def More(contents, out=None, prompt=None, check_pager=True):
           pager = command
           break
     if pager:
-      less = os.environ.get('LESS', None)
+      less = encoding.GetEncodedValue(os.environ, 'LESS', None)
       if less is None:
-        os.environ['LESS'] = '-R'
+        encoding.SetEncodedValue(os.environ, 'LESS', '-R')
       p = subprocess.Popen(pager, stdin=subprocess.PIPE, shell=True)
-      encoding = console_attr.GetConsoleAttr().GetEncoding()
-      p.communicate(input=contents.encode(encoding))
+      enc = console_attr.GetConsoleAttr().GetEncoding()
+      p.communicate(input=contents.encode(enc))
       p.wait()
       if less is None:
-        os.environ.pop('LESS')
+        encoding.SetEncodedValue(os.environ, 'LESS', None)
       return
   # Fall back to the internal pager.
   console_pager.Pager(contents, out, prompt).Run()
 
 
 class TickableProgressBar(object):
-  """A progress bar with a discrete number of tasks."""
+  """A thread safe progress bar with a discrete number of tasks."""
 
   def __init__(self, total, *args, **kwargs):
     self.completed = 0
     self.total = total
     self._progress_bar = ProgressBar(*args, **kwargs)
+    self._lock = threading.Lock()
 
   def __enter__(self):
     self._progress_bar.__enter__()
@@ -738,5 +921,6 @@ class TickableProgressBar(object):
     self._progress_bar.__exit__(exc_type, exc_value, traceback)
 
   def Tick(self):
-    self.completed += 1
-    self._progress_bar.SetProgress(float(self.completed) / self.total)
+    with self._lock:
+      self.completed += 1
+      self._progress_bar.SetProgress(self.completed / self.total)

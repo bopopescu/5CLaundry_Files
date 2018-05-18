@@ -49,6 +49,7 @@ class SetPassword(base.CreateCommand):
     flags.AddPassword(password_group)
     flags.AddPromptForPassword(password_group)
     base.ASYNC_FLAG.AddToParser(parser)
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     """Changes a user's password in a given instance.
@@ -59,11 +60,6 @@ class SetPassword(base.CreateCommand):
 
     Returns:
       SQL user resource iterator.
-    Raises:
-      HttpException: An http error response was received while executing api
-          request.
-      ToolException: An error other than an http error occured while executing
-          the command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client

@@ -11,12 +11,25 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub subscription modify command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+from googlecloudsdk.api_lib.pubsub import subscriptions
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.pubsub import util
+from googlecloudsdk.command_lib.pubsub import flags
+from googlecloudsdk.command_lib.pubsub import resource_args
+from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
 
 
+@base.Deprecate(
+    is_removed=False,
+    warning='This command has been renamed. Please use '
+            '`modify-message-ack-deadline` instead.')
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
 class ModifyAckDeadline(base.Command):
   """Modifies the ACK deadline for a specific Cloud Pub/Sub message.
 
@@ -27,18 +40,9 @@ class ModifyAckDeadline(base.Command):
 
   @staticmethod
   def Args(parser):
-    """Registers flags for this command."""
-
-    parser.add_argument('subscription',
-                        help='Name of the subscription messages belong to.')
-    parser.add_argument('ackid', nargs='+',
-                        help=('One or more ACK_ID that identify the messages'
-                              ' to modify the deadline for.'))
-    parser.add_argument(
-        '--ack-deadline', type=int, required=True,
-        help=('The number of seconds the system will wait for a subscriber to'
-              ' acknowledge receiving a message before re-attempting'
-              ' delivery.'))
+    resource_args.AddSubscriptionResourceArg(parser, 'messages belong to.')
+    flags.AddAckIdFlag(parser, 'modify the deadline for.', add_deprecated=True)
+    flags.AddAckDeadlineFlag(parser, required=True)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -51,17 +55,22 @@ class ModifyAckDeadline(base.Command):
       Display dictionary with information about the new ACK deadline seconds
       for the given subscription and ackId.
     """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
+    client = subscriptions.SubscriptionsClient()
 
-    subscription = util.SubscriptionFormat(args.subscription)
-    mod_req = msgs.PubsubProjectsSubscriptionsModifyAckDeadlineRequest(
-        modifyAckDeadlineRequest=msgs.ModifyAckDeadlineRequest(
-            ackDeadlineSeconds=args.ack_deadline,
-            ackIds=args.ackid),
-        subscription=subscription)
+    subscription_ref = args.CONCEPTS.subscription.Parse()
+    ack_ids = flags.ParseAckIdsArgs(args)
+    result = client.ModifyAckDeadline(
+        subscription_ref, ack_ids, args.ack_deadline)
 
-    pubsub.projects_subscriptions.ModifyAckDeadline(mod_req)
-    return {'subscriptionId': subscription,
-            'ackId': args.ackid,
-            'ackDeadlineSeconds': args.ack_deadline}
+    log.status.Print('Set ackDeadlineSeconds to [{0}] for messages with ackId '
+                     '[{1}]] for subscription [{2}]'.format(
+                         args.ack_deadline, ','.join(ack_ids),
+                         subscription_ref.RelativeName()))
+
+    legacy_output = properties.VALUES.pubsub.legacy_output.GetBool()
+    if legacy_output:
+      return {'subscriptionId': subscription_ref.RelativeName(),
+              'ackId': ack_ids,
+              'ackDeadlineSeconds': args.ack_deadline}
+    else:
+      return result

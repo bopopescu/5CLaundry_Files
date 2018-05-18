@@ -14,6 +14,8 @@
 
 """Upgrade cluster command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.container import api_adapter
@@ -85,9 +87,15 @@ def _Args(parser):
       help="""\
 The Kubernetes release version to which to upgrade the cluster's nodes.
 
-If provided, the --cluster-version must be no greater than the cluster
-master's minor version (x.*X*.x), and must be a latest patch version
-(x.x.*X*).
+When upgrading nodes, the minor version (*X.Y*.Z) must be no greater than the
+cluster master's minor version (i.e. if the master's version is 1.2.34, the
+nodes cannot be upgraded to 1.3.45). For any minor version, only the latest
+patch version (X.Y.*Z*) is allowed (i.e. if there exists a version 1.2.34, the
+nodes cannot be upgraded to 1.2.33). Omit to upgrade to the same version as the
+master.
+
+When upgrading master, the only valid value is the latest supported version.
+Omit to have the server automatically select the latest version.
 
 You can find the list of allowed versions for upgrades by running:
 
@@ -99,11 +107,13 @@ You can find the list of allowed versions for upgrades by running:
   parser.add_argument(
       '--master',
       help='Upgrade the cluster\'s master to the latest version of Kubernetes'
-      ' supported on Container Engine. Nodes cannot be upgraded at the same'
+      ' supported on Kubernetes Engine. Nodes cannot be upgraded at the same'
       ' time as the master.',
       action='store_true')
   flags.AddAsyncFlag(parser)
   flags.AddImageTypeFlag(parser, 'cluster/node pool')
+  flags.AddImageFlag(parser, hidden=True)
+  flags.AddImageProjectFlag(parser, hidden=True)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA)
@@ -127,8 +137,8 @@ class Upgrade(base.Command):
     adapter = self.context['api_adapter']
     location_get = self.context['location_get']
     location = location_get(args)
-
     cluster_ref = adapter.ParseCluster(args.name, location)
+    concurrent_node_count = getattr(args, 'concurrent_node_count', None)
 
     # Make sure it exists (will raise appropriate error if not)
     cluster = adapter.GetCluster(cluster_ref)
@@ -138,13 +148,17 @@ class Upgrade(base.Command):
         update_master=args.master,
         update_nodes=(not args.master),
         node_pool=args.node_pool,
-        image_type=args.image_type)
+        image_type=args.image_type,
+        image=args.image,
+        image_project=args.image_project,
+        concurrent_node_count=concurrent_node_count)
 
     upgrade_message = container_command_util.ClusterUpgradeMessage(
         cluster,
         master=args.master,
         node_pool=args.node_pool,
-        new_version=options.version)
+        new_version=options.version,
+        concurrent_node_count=concurrent_node_count)
 
     console_io.PromptContinue(
         message=upgrade_message,
@@ -166,9 +180,13 @@ Upgrade.detailed_help = {
     'DESCRIPTION': """\
       Upgrades the Kubernetes version of an existing container cluster.
 
-      This command upgrades the Kubernetes version of the *nodes* of a cluster.
-      The Kubernetes version of the cluster's *master* is periodically upgraded
-      automatically as new releases are available.
+      This command upgrades the Kubernetes version of the *nodes* or *master* of
+      a cluster. Note that the Kubernetes version of the cluster's *master* is
+      also periodically upgraded automatically as new releases are available.
+
+      If desired cluster version is omitted, *node* upgrades default to the
+      current *master* version and *master* upgrades default to the latest
+      supported version.
 
       *By running this command, all of the cluster's nodes will be deleted and*
       *recreated one at a time.* While persistent Kubernetes resources, such as
@@ -187,10 +205,14 @@ Upgrade.detailed_help = {
 
         $ {command} <cluster>
 
-      Upgrade the nodes of <cluster> to Kubernetes version x.y.z.
+      Upgrade the nodes of <cluster> to Kubernetes version x.y.z:
 
         $ {command} <cluster> --cluster-version "x.y.z"
-    """,
+
+      Upgrade the master of <cluster> to the latest supported version:
+
+        $ {command} <cluster> --master"
+""",
 }
 
 
@@ -210,3 +232,4 @@ class UpgradeAlpha(Upgrade):
   @staticmethod
   def Args(parser):
     _Args(parser)
+    flags.AddConcurrentNodeCountFlag(parser)

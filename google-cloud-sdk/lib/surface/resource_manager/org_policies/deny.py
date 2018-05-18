@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command to add denied values to an Organization Policy list policy."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.resource_manager import exceptions
 from googlecloudsdk.api_lib.resource_manager import org_policies
 from googlecloudsdk.calliope import base
@@ -41,8 +43,13 @@ class Deny(base.Command):
     flags.AddIdArgToParser(parser)
     flags.AddResourceFlagsToParser(parser)
     base.Argument(
-        'denied_value', metavar='DENIED_VALUE', nargs='+').AddToParser(parser)
+        'denied_value',
+        metavar='DENIED_VALUE',
+        nargs='+',
+        help='The values to add to the denied_values list policy.',
+    ).AddToParser(parser)
 
+  # TODO(b/73831954):consider refactoring
   def Run(self, args):
     flags.CheckResourceFlags(args)
     messages = org_policies.OrgPoliciesMessages()
@@ -50,15 +57,18 @@ class Deny(base.Command):
 
     policy = service.GetOrgPolicy(org_policies_base.GetOrgPolicyRequest(args))
 
-    if policy.booleanPolicy or (
-        policy.listPolicy and
-        (policy.listPolicy.allowedValues or policy.listPolicy.allValues)):
+    if policy.booleanPolicy or (policy.listPolicy and
+                                policy.listPolicy.allowedValues):
       raise exceptions.ResourceManagerError(
           'Cannot add values to a non-denied_values list policy.')
 
+    if policy.listPolicy and policy.listPolicy.allValues:
+      raise exceptions.ResourceManagerError(
+          'Cannot add values if all_values is already specified.')
+
     if policy.listPolicy and policy.listPolicy.deniedValues:
       for value in args.denied_value:
-        policy.listPolicy.deniedValues.append(unicode(value))
+        policy.listPolicy.deniedValues.append(str(value))
     else:
       policy.listPolicy = messages.ListPolicy(deniedValues=args.denied_value)
 

@@ -13,12 +13,13 @@
 # limitations under the License.
 """Surface for listing all SSL certificates for an App Engine app."""
 
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.app.api import appengine_ssl_api_client as api_client
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
-class ListBeta(base.ListCommand):
+@base.ReleaseTracks(base.ReleaseTrack.GA)
+class List(base.ListCommand):
   """Lists the SSL certificates."""
 
   detailed_help = {
@@ -53,13 +54,8 @@ class ListBeta(base.ListCommand):
         """)
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class ListAlpha(ListBeta):
-  """Lists the SSL certificates for Alpha version."""
-
-  def Run(self, args):
-    return api_client.GetApiClientForTrack(
-        self.ReleaseTrack()).ListSslCertificates()
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
+class ListBeta(List):
 
   @staticmethod
   def Args(parser):

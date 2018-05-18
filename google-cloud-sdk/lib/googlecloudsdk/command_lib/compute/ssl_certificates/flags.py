@@ -13,6 +13,8 @@
 # limitations under the License.
 """Flags and helpers for the compute ssl-certificates commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
@@ -20,6 +22,16 @@ DEFAULT_LIST_FORMAT = """\
     table(
       name,
       creationTimestamp
+    )"""
+
+ALPHA_LIST_FORMAT = """\
+    table(
+      name,
+      type,
+      creationTimestamp,
+      expiryTime,
+      managed.status:label=MANAGED_STATUS,
+      managed.domainStatus:format="yaml"
     )"""
 
 
@@ -39,24 +51,6 @@ def SslCertificateArgument(required=True, plural=False):
       plural=plural,
       required=required,
       global_collection='compute.sslCertificates')
-
-
-# TODO(b/37253214): remove this argument when it's fully deprecated.
-def SslCertificateArgumentForOtherResource(resource, required=True):
-  return compute_flags.ResourceArgument(
-      name='--ssl-certificate',
-      resource_name='ssl certificate',
-      completer=SslCertificatesCompleter,
-      plural=False,
-      required=required,
-      global_collection='compute.sslCertificates',
-      short_help=('A reference to an SSL certificate resource that is used for '
-                  'server-side authentication.'),
-      detailed_help="""\
-        A reference to an SSL certificate resource that is used for
-        server-side authentication. The SSL certificate must exist and cannot
-        be deleted while referenced by a {0}.
-        """.format(resource))
 
 
 def SslCertificatesArgumentForOtherResource(resource, required=True):

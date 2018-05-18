@@ -14,39 +14,15 @@
 
 """service-management disable command."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
-from googlecloudsdk.core import properties
+from googlecloudsdk.command_lib.services import common_flags
 
 
-_DETAILED_HELP = {
-    'DESCRIPTION': """\
-        This command disables a previously-enabled service for consumption.
-
-        To see a list of the enabled services for a project, run:
-
-          $ {parent_command} list --enabled
-
-        More information on listing services can be found at:
-        https://cloud.google.com/service-management/list-services and on
-        disabling a service at:
-        https://cloud.google.com/service-management/enable-disable#disabling_services
-        """,
-    'EXAMPLES': """\
-        To disable a service called `my-consumed-service` for the active
-        project, run:
-
-          $ {command} my-consumed-service
-
-        To run the same command asynchronously (non-blocking), run:
-
-          $ {command} my-consumed-service --async
-        """,
-}
+_ERROR = ('The `service-management disable` command has been '
+          'replaced by `services disable`.')
 
 
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Disable(base.SilentCommand):
   """Disables a service for consumption for a project."""
 
@@ -63,26 +39,10 @@ class Disable(base.SilentCommand):
     base.ASYNC_FLAG.AddToParser(parser)
 
   def Run(self, args):
-    """Run 'service-management disable'.
+    """Stubs 'service-management disable'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the consumer settings API call.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    project = properties.VALUES.core.project.Get(required=True)
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-    request = messages.ServicemanagementServicesDisableRequest(
-        serviceName=service,
-        disableServiceRequest=messages.DisableServiceRequest(
-            consumerId='project:' + project))
-    operation = client.services.Disable(request)
-    return services_util.ProcessOperationResult(operation, args.async)
-
-
-Disable.detailed_help = _DETAILED_HELP
+    pass

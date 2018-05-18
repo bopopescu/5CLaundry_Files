@@ -11,38 +11,46 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """`gcloud iot devices create` command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import devices
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iot import flags
+from googlecloudsdk.command_lib.iot import resource_args
 from googlecloudsdk.command_lib.iot import util
 from googlecloudsdk.core import log
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class Create(base.CreateCommand):
   """Create a new device."""
 
   @staticmethod
   def Args(parser):
-    flags.AddRegistryResourceFlags(parser, 'in which to create the device',
-                                   positional=False)
-    flags.GetIdFlag('device', 'to create').AddToParser(parser)
-    for flag in flags.GetDeviceFlags():
-      flag.AddToParser(parser)
+    resource_args.AddDeviceResourceArg(parser, 'to create')
+    flags.AddDeviceFlagsToParser(parser)
     flags.AddDeviceCredentialFlagsToParser(parser)
 
   def Run(self, args):
     client = devices.DevicesClient()
 
-    registry_ref = util.ParseRegistry(args.registry, region=args.region)
-    enabled_state = util.ParseEnableDevice(args.enable_device, client=client)
+    device_ref = args.CONCEPTS.device.Parse()
+    registry_ref = device_ref.Parent()
+
     credentials = util.ParseCredentials(args.public_keys,
                                         messages=client.messages)
+    metadata = util.ParseMetadata(args.metadata, args.metadata_from_file,
+                                  client.messages)
 
     response = client.Create(
-        registry_ref, args.id,
-        enabled_state=enabled_state,
-        credentials=credentials
+        registry_ref, device_ref.devicesId,
+        blocked=args.blocked,
+        credentials=credentials,
+        metadata=metadata
     )
-    log.CreatedResource(args.id, 'device')
+    log.CreatedResource(device_ref.devicesId, 'device')
     return response

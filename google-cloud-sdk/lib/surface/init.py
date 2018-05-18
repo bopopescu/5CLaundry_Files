@@ -14,7 +14,9 @@
 
 """Workflow to set up gcloud environment."""
 
-import argparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import os
 
 from googlecloudsdk.calliope import base
@@ -25,13 +27,15 @@ from googlecloudsdk.core import config
 from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.configurations import named_configs
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.credentials import store as c_store
 from googlecloudsdk.core.diagnostics import network_diagnostics
 from googlecloudsdk.core.resource import resource_projector
 from googlecloudsdk.core.util import platforms
-import yaml
+
+import six
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
@@ -52,7 +56,7 @@ class Init(base.Command):
   reinitialize gcloud configurations. More information can be found by
   running `gcloud topic configurations`.
 
-  Properties set by {command} are local and persistend, and are not affected by
+  Properties set by {command} are local and persistent, and are not affected by
   remote changes to the project. For example, the default Compute Engine zone in
   your configuration remains stable, even if you or another user changes the
   project-level default zone in the Cloud Platform Console.
@@ -65,7 +69,8 @@ class Init(base.Command):
     parser.add_argument(
         'obsolete_project_arg',
         nargs='?',
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
     parser.add_argument(
         '--console-only',
         action='store_true',
@@ -78,7 +83,6 @@ class Init(base.Command):
 
   def Run(self, args):
     """Allows user to select configuration, and initialize it."""
-
     if args.obsolete_project_arg:
       raise c_exc.InvalidArgumentException(
           args.obsolete_project_arg,
@@ -114,6 +118,12 @@ class Init(base.Command):
                            'command:\n')
           log.status.write('  gcloud info --run-diagnostics\n\n')
           return
+
+    # User project quota is now the global default, but this command calls
+    # legacy APIs where it should be disabled. It must happen after the config
+    # settings are persisted so this temporary value doesn't get persisted as
+    # well.
+    base.DisableUserProjectQuota()
 
     if not self._PickAccount(args.console_only, preselected=args.account):
       return
@@ -227,8 +237,7 @@ class Init(base.Command):
     log.status.write('Settings from your current configuration [{0}] are:\n'
                      .format(active_config.name))
     log.status.flush()
-    log.status.write(yaml.dump(properties.VALUES.AllValues(),
-                               default_flow_style=False))
+    log.status.write(yaml.dump(properties.VALUES.AllValues()))
     log.out.flush()
     log.status.write('\n')
     log.status.flush()
@@ -236,7 +245,7 @@ class Init(base.Command):
         'Re-initialize this configuration [{0}] with new settings '.format(
             active_config.name))
     choices.append('Create a new configuration')
-    config_choices = [name for name, c in sorted(configs.iteritems())
+    config_choices = [name for name, c in sorted(six.iteritems(configs))
                       if not c.is_active]
     choices.extend('Switch to and re-initialize '
                    'existing configuration: [{0}]'.format(name)
@@ -272,7 +281,9 @@ class Init(base.Command):
   def _PickDefaultRegionAndZone(self):
     """Pulls metadata properties for region and zone and sets them in gcloud."""
     try:
-      project_info = self._RunCmd(['compute', 'project-info', 'describe'])
+      # Use --quiet flag to skip the enable api prompt.
+      project_info = self._RunCmd(['compute', 'project-info', 'describe'],
+                                  params=['--quiet'])
     except Exception:  # pylint:disable=broad-except
       log.status.write("""\
 Not setting default zone/region (this feature makes it easier to use
@@ -302,8 +313,8 @@ https://console.developers.google.com/apis page.
     # zone and/or region ask user if he/she wants to do this.
     if not default_zone:
       answer = console_io.PromptContinue(
-          prompt_string=('Do you want to configure Google Compute Engine '
-                         '(https://cloud.google.com/compute) settings'))
+          prompt_string=('Do you want to configure a default Compute '
+                         'Region and Zone?'))
       if not answer:
         return
 

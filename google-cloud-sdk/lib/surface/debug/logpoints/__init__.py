@@ -14,6 +14,8 @@
 
 """The targets command group for the gcloud debug command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.debug import flags
 
@@ -69,7 +71,7 @@ class Logpoints(base.Group):
 
           $ log_query=$({command} create product.py:123 \
               "No description for {product.name}" --format="value(logQuery)")
-          $ gcloud beta logging read "$log_query"
+          $ gcloud logging read "$log_query"
       """
   }
 

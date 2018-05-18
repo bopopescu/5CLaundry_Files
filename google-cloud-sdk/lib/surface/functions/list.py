@@ -12,44 +12,66 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""'functions list' command."""
+"""Lists Google Cloud Functions."""
 
-import sys
-from apitools.base.py import exceptions
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from apitools.base.py import exceptions as api_exceptions
 from apitools.base.py import list_pager
 
 from googlecloudsdk.api_lib.functions import util
+from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as base_exceptions
-from googlecloudsdk.command_lib.functions import flags
+from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 
 
 class List(base.ListCommand):
-  """Lists all the functions in a given region."""
+  """List Google Cloud Functions."""
 
   @staticmethod
   def Args(parser):
-    flags.AddRegionFlag(parser)
+    parser.add_argument(
+        '--regions',
+        metavar='REGION',
+        help=('Regions containing functions to list. By default, functions '
+              'from the region configured in [functions/region] property are '
+              'listed.'),
+        type=arg_parsers.ArgList(min_length=1),
+        default=[])
     parser.display_info.AddFormat(
-        'table(name.basename(), status, trigger():label=TRIGGER)')
+        'table(name.basename(), status, trigger():label=TRIGGER, '
+        'name.scope("locations").segment(0):label=REGION)')
 
   def Run(self, args):
-    """This is what gets called when the user runs this command.
-
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
-
-    Yields:
-      Objects representing user functions.
-    """
     client = util.GetApiClientInstance()
+    messages = util.GetApiMessagesModule()
+    if args.regions:
+      locations = args.regions
+    else:
+      locations = ['-']
+    project = properties.VALUES.core.project.GetOrFail()
+    limit = args.limit
+
+    return self._YieldFromLocations(locations, project, limit, messages, client)
+
+  def _YieldFromLocations(self, locations, project, limit, messages, client):
+    for location in locations:
+      location_ref = resources.REGISTRY.Parse(
+          location,
+          params={'projectsId': project},
+          collection='cloudfunctions.projects.locations')
+      for function in self._YieldFromLocation(
+          location_ref, limit, messages, client):
+        yield function
+
+  def _YieldFromLocation(self, location_ref, limit, messages, client):
     list_generator = list_pager.YieldFromList(
         service=client.projects_locations_functions,
-        request=self.BuildRequest(args),
-        limit=args.limit, field='functions',
+        request=self.BuildRequest(location_ref, messages),
+        limit=limit, field='functions',
         batch_size_attribute='pageSize')
     # Decorators (e.g. util.CatchHTTPErrorRaiseHTTPException) don't work
     # for generators. We have to catch the exception above the iteration loop,
@@ -57,26 +79,10 @@ class List(base.ListCommand):
     try:
       for item in list_generator:
         yield item
-    except exceptions.HttpError as error:
+    except api_exceptions.HttpError as error:
       msg = util.GetHttpErrorMessage(error)
-      unused_type, unused_value, traceback = sys.exc_info()
-      raise base_exceptions.HttpException, msg, traceback
+      exceptions.reraise(base_exceptions.HttpException(msg))
 
-  def BuildRequest(self, args):
-    """This method creates a ListRequest message to be send to GCF.
-
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
-
-    Returns:
-      A ListRequest message.
-    """
-    messages = util.GetApiMessagesModule()
-    project = properties.VALUES.core.project.GetOrFail()
-    location_ref = resources.REGISTRY.Parse(
-        properties.VALUES.functions.region.Get(),
-        params={'projectsId': project},
-        collection='cloudfunctions.projects.locations')
+  def BuildRequest(self, location_ref, messages):
     return messages.CloudfunctionsProjectsLocationsFunctionsListRequest(
-        location=location_ref.RelativeName())
+        parent=location_ref.RelativeName())

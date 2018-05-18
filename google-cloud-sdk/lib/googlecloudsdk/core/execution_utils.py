@@ -14,6 +14,9 @@
 
 """Functions to help with shelling out to other commands."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import contextlib
 import errno
 import os
@@ -28,9 +31,10 @@ from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.configurations import named_configs
-from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import platforms
+
+import six
 
 
 class PermissionError(exceptions.Error):
@@ -52,7 +56,7 @@ class InvalidCommandError(exceptions.Error):
 
 def GetPythonExecutable():
   """Gets the path to the Python interpreter that should be used."""
-  cloudsdk_python = os.environ.get('CLOUDSDK_PYTHON')
+  cloudsdk_python = encoding.GetEncodedValue(os.environ, 'CLOUDSDK_PYTHON')
   if cloudsdk_python:
     return cloudsdk_python
   python_bin = sys.executable
@@ -130,7 +134,7 @@ def _GetToolEnv(env=None):
   """
   if env is None:
     env = dict(os.environ)
-  env['CLOUDSDK_WRAPPER'] = '1'
+  encoding.SetEncodedValue(env, 'CLOUDSDK_WRAPPER', '1')
 
   # Flags can set properties which override the properties file and the existing
   # env vars.  We need to propagate them to children processes through the
@@ -169,7 +173,8 @@ def ArgsForPythonTool(executable_path, *args, **kwargs):
     raise TypeError(("ArgsForPythonTool() got unexpected keyword arguments "
                      "'[{0}]'").format(', '.join(unexpected_arguments)))
   python_executable = kwargs.get('python') or GetPythonExecutable()
-  python_args_str = os.environ.get('CLOUDSDK_PYTHON_ARGS', '')
+  python_args_str = encoding.GetEncodedValue(
+      os.environ, 'CLOUDSDK_PYTHON_ARGS', '')
   python_args = python_args_str.split()
   return _GetToolArgs(
       python_executable, python_args, executable_path, *args)
@@ -258,7 +263,7 @@ def Exec(args,
       process. This can be e.g. log.file_only_logger.debug or log.out.write.
     err_func: str->None, a function to call with the stderr of the executed
       process. This can be e.g. log.file_only_logger.debug or log.err.write.
-    in_str: str, input to send to the subprocess' stdin.
+    in_str: bytes or str, input to send to the subprocess' stdin.
     **extra_popen_kwargs: Any additional kwargs will be passed through directly
       to subprocess.Popen
 
@@ -277,7 +282,7 @@ def Exec(args,
   # started and the original is killed.  When running in a shell, the prompt
   # returns as soon as the parent is killed even though the child is still
   # running.  subprocess waits for the new process to finish before returning.
-  env = _GetToolEnv(env=env)
+  env = encoding.EncodeEnv(_GetToolEnv(env=env))
 
   process_holder = _ProcessHolder()
   with _ReplaceSignal(signal.SIGTERM, process_holder.Handler):
@@ -289,11 +294,12 @@ def Exec(args,
       if in_str:
         extra_popen_kwargs['stdin'] = subprocess.PIPE
       try:
-        # popen is silly when it comes to non-ascii args. The executable has to
-        # be _unencoded_, while the rest of the args have to be _encoded_.
         if args and isinstance(args, list):
-          args = args[0:1] + [
-              console_attr.EncodeForConsole(a) for a in args[1:]]
+          # On Python 2.x on Windows, the first arg can't be unicode. We encode
+          # encode it anyway because there is really nothing else we can do if
+          # that happens.
+          # https://bugs.python.org/issue19264
+          args = [encoding.Encode(a) for a in args]
         p = subprocess.Popen(args, env=env, **extra_popen_kwargs)
       except OSError as err:
         if err.errno == errno.EACCES:
@@ -302,7 +308,11 @@ def Exec(args,
           raise InvalidCommandError(args[0])
         raise
       process_holder.process = p
-      stdout, stderr = p.communicate(input=in_str)
+
+      if isinstance(in_str, six.text_type):
+        in_str = in_str.encode('utf-8')
+      stdout, stderr = map(encoding.Decode, p.communicate(input=in_str))
+
       if out_func:
         out_func(stdout)
       if err_func:
@@ -486,10 +496,8 @@ def _KillPID(pid):
     # No luck, just force kill it.
     os.kill(pid, signal.SIGKILL)
   except OSError as error:
-    # Raise original stack trace.
     if 'No such process' not in error.strerror:
-      (_, i, st) = sys.exc_info()
-      raise i, None, st
+      exceptions.reraise(sys.exc_info()[1])
 
 
 def _IsStillRunning(pid):
@@ -506,8 +514,6 @@ def _IsStillRunning(pid):
     if (actual_pid, code) == (0, 0):
       return True
   except OSError as error:
-    # Raise original stack trace.
     if 'No child processes' not in error.strerror:
-      (_, i, st) = sys.exc_info()
-      raise i, None, st
+      exceptions.reraise(sys.exc_info()[1])
   return False

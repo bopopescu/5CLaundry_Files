@@ -49,6 +49,7 @@ disable =
     cyclic-import,
     fixme,
     import-error,
+    inconsistent-return-statements,
     locally-disabled,
     locally-enabled,
     no-member,
@@ -237,9 +238,6 @@ bad-names=
 # List of builtins function names that should not be used, separated by a comma
 # <http://go/python-style#Deprecated_Language_Features>
 bad-functions=input,apply,reduce
-
-# TEMPORARY
-no-docstring-rgx=.*
 
 
 [TYPECHECK]

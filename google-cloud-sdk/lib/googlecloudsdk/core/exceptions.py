@@ -14,9 +14,15 @@
 
 """Base exceptions for the Cloud SDK."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import os
+import sys
 
 from googlecloudsdk.core.util import platforms
+
+import six
 
 
 class _Error(Exception):
@@ -70,8 +76,8 @@ class RequiresAdminRightsError(Error):
 
   def __init__(self, sdk_root):
     message = (
-        u'You cannot perform this action because you do not have permission '
-        u'to modify the Google Cloud SDK installation directory [{root}].\n\n'
+        'You cannot perform this action because you do not have permission '
+        'to modify the Google Cloud SDK installation directory [{root}].\n\n'
         .format(root=sdk_root))
     if (platforms.OperatingSystem.Current() ==
         platforms.OperatingSystem.WINDOWS):
@@ -84,7 +90,7 @@ class RequiresAdminRightsError(Error):
       # respect the user's $PATH settings.
       gcloud_path = os.path.join(sdk_root, 'bin', 'gcloud')
       message += (
-          u'Re-run the command with sudo: sudo {0} ...'.format(gcloud_path))
+          'Re-run the command with sudo: sudo {0} ...'.format(gcloud_path))
     super(RequiresAdminRightsError, self).__init__(message)
 
 
@@ -97,3 +103,9 @@ class NetworkIssueError(Error):
         'This may be due to network connectivity issues. Please check your '
         'network settings, and the status of the service you are trying to '
         'reach.'.format(message=message))
+
+
+def reraise(exc_value, tb=None):
+  """Adds tb or the most recent traceback to exc_value and reraises."""
+  tb = tb or sys.exc_info()[2]
+  six.reraise(type(exc_value), exc_value, tb)

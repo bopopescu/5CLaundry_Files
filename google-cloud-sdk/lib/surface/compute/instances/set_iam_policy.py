@@ -25,22 +25,18 @@ from googlecloudsdk.command_lib.iam import iam_util
 class SetIamPolicy(base.Command):
   """Set the IAM Policy for a Google Compute Engine instance.
 
-  *{command}* sets the Iam Policy associated with a Google Compute Engine
+  *{command}* sets the IAM Policy associated with a Google Compute Engine
   instance in a project.
   """
+
+  detailed_help = iam_util.GetDetailedHelpForSetIamPolicy(
+      'instance', 'my-instance', use_an=True)
 
   @staticmethod
   def Args(parser):
     flags.INSTANCE_ARG.AddArgument(
         parser, operation_type='set the IAM policy of')
-
-    parser.add_argument(
-        'policy_file',
-        metavar='POLICY_FILE',
-        help="""\
-        Path to a local JSON or YAML formatted file containing a valid policy.
-        """)
-    # TODO(b/36050881): fill in detailed help.
+    compute_flags.AddPolicyFileFlag(parser)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
@@ -53,6 +49,11 @@ class SetIamPolicy(base.Command):
         holder.resources,
         scope_lister=compute_flags.GetDefaultScopeLister(client))
 
+    # TODO(b/78371568): Construct the ZoneSetPolicyRequest directly
+    # out of the parsed policy instead of setting 'bindings' and 'etags'.
+    # This current form is required so gcloud won't break while Compute
+    # roll outs the breaking change to SetIamPolicy (b/75971480)
+
     # TODO(b/36053578): determine how this output should look when empty.
 
     # SetIamPolicy always returns either an error or the newly set policy.
@@ -62,7 +63,9 @@ class SetIamPolicy(base.Command):
     return client.MakeRequests(
         [(client.apitools_client.instances, 'SetIamPolicy',
           client.messages.ComputeInstancesSetIamPolicyRequest(
-              policy=policy,
+              zoneSetPolicyRequest=client.messages.ZoneSetPolicyRequest(
+                  bindings=policy.bindings,
+                  etag=policy.etag),
               project=instance_ref.project,
               resource=instance_ref.instance,
               zone=instance_ref.zone))])[0]

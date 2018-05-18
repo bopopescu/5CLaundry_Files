@@ -16,7 +16,12 @@
 
 See the persistent_cache module for a detailed description.
 """
+# Pytype fails to analyze this file.
+# type: ignore
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import errno
 import os
 
@@ -24,6 +29,8 @@ from googlecloudsdk.core.cache import exceptions
 from googlecloudsdk.core.cache import metadata_table
 from googlecloudsdk.core.cache import persistent_cache_base
 
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 import sqlite3
 
 
@@ -57,12 +64,12 @@ def _Where(row_template=None):
       term = row_template[index]
       if term is None:
         continue
-      if isinstance(term, basestring):
+      if isinstance(term, six.string_types):
         pattern = term.replace('*', '%').replace('.', '_').replace('"', '""')
-        terms.append(u'{field} LIKE "{pattern}"'.format(
+        terms.append('{field} LIKE "{pattern}"'.format(
             field=_FieldRef(index), pattern=pattern))
       else:
-        terms.append(u'{field} = {term}'.format(
+        terms.append('{field} = {term}'.format(
             field=_FieldRef(index), term=term))
   if not terms:
     return ''
@@ -103,6 +110,7 @@ class _Table(persistent_cache_base.Table):
     self._cache.cursor.execute(
         'DROP TABLE "{table}"'.format(table=self.name))
     # pylint: disable=protected-access
+    self._cache._db.commit()
     self._cache._metadata.DeleteRows([(self.name,)])
     self.deleted = True
 
@@ -134,6 +142,7 @@ class _Table(persistent_cache_base.Table):
         format(
             table=self.name, fields=self._fields, values=self._values),
         rows)
+    self._cache._db.commit()  # pylint: disable=protected-access
 
   def DeleteRows(self, row_templates=None):
     """Deletes each row in the table matching any of the row_templates."""
@@ -146,8 +155,10 @@ class _Table(persistent_cache_base.Table):
     else:
       self._cache.cursor.execute(
           'DELETE FROM "{table}" WHERE 1'.format(table=self.name))
+    self._cache._db.commit()  # pylint: disable=protected-access
 
   def Select(self, row_template=None, ignore_expiration=False):
+    # type: (...) -> list[tuple]
     """Returns the list of rows that match row_template, None for all."""
     if row_template is not None:
       self._CheckRowTemplates([row_template])
@@ -156,7 +167,7 @@ class _Table(persistent_cache_base.Table):
           '[{}] cache table [{}] has expired.'.format(
               self._cache.name, self.name))
     self._cache.cursor.execute(
-        u'SELECT {fields} FROM "{table}"{where}'.format(
+        'SELECT {fields} FROM "{table}"{where}'.format(
             fields=self._fields, table=self.name, where=_Where(row_template)))
     return self._cache.cursor.fetchall()
 
@@ -176,10 +187,10 @@ class Cache(metadata_table.CacheUsingMetadataTable):
     _persistent: True if the persistent object has been committed at least once.
     _restricted: The set of restricted table names.
     _start: The cache instance start time.
-    _tables: The list of open table objects.
+    _tables: The map of open table objects.
   """
 
-  _EXPECTED_MAGIC = 'SQLite format 3'
+  _EXPECTED_MAGIC = b'SQLite format 3'
 
   def __init__(self, name, create=True, timeout=None, version=None):
     super(Cache, self).__init__(
@@ -189,7 +200,7 @@ class Cache(metadata_table.CacheUsingMetadataTable):
     # Surprise, we have to do the heavy lifting.
     # That stops here.
     try:
-      with open(name, 'r') as f:
+      with open(name, 'rb') as f:
         actual_magic = f.read(len(self._EXPECTED_MAGIC))
         if actual_magic != self._EXPECTED_MAGIC:
           raise exceptions.CacheInvalid(
@@ -217,14 +228,18 @@ class Cache(metadata_table.CacheUsingMetadataTable):
       self.Close(commit=False)
       raise
 
-  def Delete(self):
-    """Permanently deletes the persistent cache."""
-    self.Close(commit=False)
+  def _DeleteCacheFile(self):
+    """Permanently deletes the persistent cache file."""
     try:
       os.remove(self.name)
     except OSError as e:
       if e.errno not in (errno.ENOENT, errno.EISDIR):
         raise
+
+  def Delete(self):
+    """Closes and permanently deletes the persistent cache."""
+    self.Close(commit=False)
+    self._DeleteCacheFile()
 
   def Commit(self):
     """Commits all operations up to this point."""
@@ -237,7 +252,7 @@ class Cache(metadata_table.CacheUsingMetadataTable):
     self._persistent = True
 
   def Close(self, commit=True):
-    """Closes the cache, optionally comitting any changes.
+    """Closes the cache, optionally committing any changes.
 
     Args:
       commit: Commits any changes before closing if True.
@@ -245,13 +260,14 @@ class Cache(metadata_table.CacheUsingMetadataTable):
     if self._db:
       if commit:
         self.Commit()
+      del self.cursor
       self._db.close()
       self._db = None
       self._tables = None
       if not commit and not self._persistent:
         # Need this because sqlite3 creates a filesystem artifact even if there
         # were no commits.
-        self.Delete()
+        self._DeleteCacheFile()
 
   def _ImplementationCreateTable(self, name, columns, keys):
     """sqlite3 implementation specific _CreateTable."""

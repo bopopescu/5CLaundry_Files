@@ -35,15 +35,18 @@ management tasks, including:
 """
 
 requires = [
-    'argcomplete>=1.8.2',
-    'boto==2.47.0',
+    'argcomplete>=1.9.4',
+    'boto==2.48.0',
     'crcmod>=1.7',
-    'gcs-oauth2-boto-plugin>=1.14',
-    'google-apitools==0.5.3',
-    'httplib2>=0.8',
+    'fasteners>=0.14.1',
+    'gcs-oauth2-boto-plugin>=2.1',
+    'google-apitools>=0.5.22',
+    'httplib2>=0.11.3',
+    'google-reauth>=0.1.0',
     # TODO: Sync submodule with tag referenced here once #339 is fixed in mock.
     'mock==2.0.0',
-    'oauth2client==2.2.0',
+    'monotonic>=1.4',
+    'oauth2client==4.1.2',
     'pyOpenSSL>=0.13',
     'python-gflags>=2.0',
     'retry_decorator>=1.0.0',
@@ -57,7 +60,7 @@ dependency_links = [
     # Note: this commit ID should be kept in sync with the 'third_party/boto'
     # entry in 'git submodule status'.
     # pylint: disable=line-too-long
-    'https://github.com/boto/boto/archive/af045f93d70fbb4cdac2a8e57d040ce59935d45b.tar.gz#egg=boto-2.47.0',
+    'https://github.com/boto/boto/archive/6c5b98861d726fdd5e05702972b14692e73e84f4.tar.gz#egg=boto-2.48.0',
     # pylint: enable=line-too-long
 ]
 

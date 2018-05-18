@@ -20,6 +20,14 @@ from containerregistry.tools import patched_
 setattr(x, 'patched', patched_)
 
 
+from containerregistry.tools import logging_setup_
+setattr(x, 'logging_setup', logging_setup_)
+
+
+from containerregistry.tools import docker_appender_
+setattr(x, 'docker_appender', docker_appender_)
+
+
 from containerregistry.tools import docker_puller_
 setattr(x, 'docker_puller', docker_puller_)
 
@@ -30,6 +38,10 @@ setattr(x, 'docker_pusher', docker_pusher_)
 
 from containerregistry.tools import fast_puller_
 setattr(x, 'fast_puller', fast_puller_)
+
+
+from containerregistry.tools import fast_flatten_
+setattr(x, 'fast_flatten', fast_flatten_)
 
 
 from containerregistry.tools import fast_importer_

@@ -19,6 +19,7 @@ Ideally gcloud would use the logging API for this information but that is not
 yet available.
 """
 
+from __future__ import absolute_import
 import calendar
 import datetime
 import re
@@ -27,6 +28,7 @@ import time
 
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class Error(exceptions.Error):
@@ -144,7 +146,7 @@ class LogsRequester(object):
       finally:
         of.flush()
         if of is not log.out:
-          of.close()
+          of.close()  # pytype: disable=attribute-error
     finally:
       tf.close()
     log.info('Copied %d records.', line_count)
@@ -251,7 +253,7 @@ def CopyReversedLines(instream, outstream, blocksize=2 ** 16):
   instream.seek(0, 2)  # To EOF
   last_block = instream.tell() // blocksize
   spillover = ''
-  for iblock in xrange(last_block + 1, -1, -1):
+  for iblock in range(last_block + 1, -1, -1):
     instream.seek(iblock * blocksize)
     data = instream.read(blocksize)
     lines = data.splitlines(True)

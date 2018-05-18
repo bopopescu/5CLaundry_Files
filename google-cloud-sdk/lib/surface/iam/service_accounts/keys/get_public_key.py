@@ -13,14 +13,15 @@
 # limitations under the License.
 """Command for listing service account keys."""
 
+from googlecloudsdk.api_lib.iam import util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.iam import base_classes
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.core import log
+from googlecloudsdk.core import resources
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
-class GetPublicKey(base_classes.BaseIamCommand, base.Command):
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
+class GetPublicKey(base.Command):
   """Get the public key for a service account key pair.
 
   Get the public key for a service account key pair in pem or raw format.
@@ -56,10 +57,22 @@ class GetPublicKey(base_classes.BaseIamCommand, base.Command):
     parser.display_info.AddFormat(iam_util.SERVICE_ACCOUNT_KEY_FORMAT)
 
   def Run(self, args):
-    result = self.iam_client.projects_serviceAccounts_keys.Get(
-        self.messages.IamProjectsServiceAccountsKeysGetRequest(
-            name=iam_util.EmailAndKeyToResourceName(args.iam_account, args.key),
+    key_ref = resources.REGISTRY.Parse(
+        args.key,
+        collection='iam.projects.serviceAccounts.keys',
+        params={
+            'serviceAccountsId': args.iam_account,
+            'projectsId': '-'
+        })
+    key = key_ref.keysId
+
+    client, messages = util.GetClientAndMessages()
+    result = client.projects_serviceAccounts_keys.Get(
+        messages.IamProjectsServiceAccountsKeysGetRequest(
+            name=key_ref.RelativeName(),
             publicKeyType=iam_util.PublicKeyTypeFromString(args.type)))
-    self.WriteFile(args.output_file, result.publicKeyData)
+    log.WriteToFileOrStdout(
+        args.output_file, content=result.publicKeyData, binary=True)
+
     log.status.Print('written key [{0}] for [{2}] as [{1}]'.format(
-        args.key, args.output_file, args.iam_account))
+        key, args.output_file, args.iam_account))

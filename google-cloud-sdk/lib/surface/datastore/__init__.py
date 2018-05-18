@@ -13,10 +13,12 @@
 # limitations under the License.
 
 """The gcloud datastore group."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.GA)
+@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
 class Datastore(base.Group):
   """Manage your Cloud Datastore indexes.
 
@@ -42,3 +44,7 @@ class Datastore(base.Group):
 
     $ {command} cleanup-indexes index.yaml
   """
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

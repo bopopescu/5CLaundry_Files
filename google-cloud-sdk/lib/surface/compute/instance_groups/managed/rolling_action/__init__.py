@@ -13,10 +13,12 @@
 # limitations under the License.
 """Commands for reading and manipulating managed instance groups."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class ManagedInstanceGroupsRollingAction(base.Group):
   """Read and manipulate Google Compute Engine managed instance groups."""
 

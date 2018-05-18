@@ -24,6 +24,7 @@ from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.core import log
+from googlecloudsdk.core.docker import client_lib as docker_client_utils
 from googlecloudsdk.core.docker import constants
 from googlecloudsdk.core.docker import docker
 
@@ -31,10 +32,21 @@ from googlecloudsdk.core.docker import docker
 # By default, we'll set up authentication for these registries.
 # If the user changes the --server argument to something not in this list,
 # we'll just give them a warning that they're using an unexpected server.
-_DEFAULT_REGISTRIES = constants.ALL_SUPPORTED_REGISTRIES
+_DEFAULT_REGISTRIES = constants.DEFAULT_REGISTRIES_TO_AUTHENTICATE
+_DEPRECATION_WARNING = ('`gcloud docker` will not be supported for Docker '
+                        'client versions above 18.03. Please use `gcloud auth '
+                        'configure-docker` to configure `docker` to use '
+                        '`gcloud` as a credential helper, then use `docker` as '
+                        'you would for non-GCR registries, e.g. `docker pull '
+                        'gcr.io/project-id/my-image`. Add `--verbosity=error` '
+                        'to silence this warning, e.g. `gcloud docker '
+                        '--verbosity=error -- pull gcr.io/project-id/my-image`.'
+                        ' See: https://cloud.google.com/container-registry/'
+                        'docs/support/deprecation-notices#gcloud-docker')
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA)
+@base.Deprecate(is_removed=False, warning=_DEPRECATION_WARNING)
 class Docker(base.Command):
   """Provides the docker CLI access to the Google Container Registry.
 
@@ -110,10 +122,11 @@ class Docker(base.Command):
     Raises:
       exceptions.ExitCodeNoError: The docker command execution failed.
     """
+    base.DisableUserProjectQuota()
     force_refresh = True
     for server in args.server:
       if server not in _DEFAULT_REGISTRIES:
-        log.warn('Authenticating to a non-default server: {server}.'.format(
+        log.warning('Authenticating to a non-default server: {server}.'.format(
             server=server))
       docker.UpdateDockerCredentials(server, refresh=force_refresh)
       # Only force a refresh for the first server we authorize
@@ -132,7 +145,7 @@ class Docker(base.Command):
     docker_args = (docker_args if not args.docker_host else
                    ['-H', args.docker_host] + docker_args)
 
-    result = docker.Execute(docker_args)
+    result = docker_client_utils.Execute(docker_args)
     # Explicitly avoid displaying an error message that might
     # distract from the docker error message already displayed.
     if result:

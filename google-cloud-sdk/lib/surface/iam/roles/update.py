@@ -11,20 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command for updating a custom role."""
+
 import httplib
 
 from apitools.base.py import exceptions as apitools_exceptions
-from googlecloudsdk.api_lib.util import apis
+from googlecloudsdk.api_lib.iam import util
 from googlecloudsdk.api_lib.util import http_retry
+from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.iam import base_classes
 from googlecloudsdk.command_lib.iam import flags
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.core.console import console_io
 
 
-class Update(base_classes.BaseIamCommand):
+class Update(base.Command):
   """Update an IAM custom role.
 
   This command updates an IAM custom role.
@@ -43,7 +45,6 @@ class Update(base_classes.BaseIamCommand):
   @staticmethod
   def Args(parser):
     updated = parser.add_argument_group(
-        'Updated fields',
         'The following flags determine the fields need to be updated. '
         'You can update a role by specifying the following flags, or '
         'you can update a role from a Yaml file by specifying the file flag.')
@@ -73,8 +74,7 @@ class Update(base_classes.BaseIamCommand):
     flags.GetCustomRoleFlag('update').AddToParser(parser)
 
   def Run(self, args):
-    iam_client = apis.GetClientInstance('iam', 'v1')
-    messages = apis.GetMessagesModule('iam', 'v1')
+    client, messages = util.GetClientAndMessages()
     role_name = iam_util.GetRoleName(args.organization, args.project, args.role)
     role = messages.Role()
     if args.file:
@@ -91,77 +91,99 @@ class Update(base_classes.BaseIamCommand):
             message=msg,
             prompt_string='Replace existing role',
             cancel_on_no=True)
+      if not args.quiet:
+        self.WarnPermissions(client, messages, role.includedPermissions,
+                             args.project, args.organization)
       try:
-        res = iam_client.organizations_roles.Patch(
+        res = client.organizations_roles.Patch(
             messages.IamOrganizationsRolesPatchRequest(
                 name=role_name, role=role))
         iam_util.SetRoleStageIfAlpha(res)
         return res
+      except apitools_exceptions.HttpConflictError as e:
+        raise exceptions.HttpException(
+            e, error_format=('Stale "etag": '
+                             'Please use the etag from your latest describe '
+                             'response. Or new changes have been made since '
+                             'your latest describe operation. Please retry '
+                             'the whole describe-update process. Or you can '
+                             'leave the etag blank to overwrite concurrent '
+                             'role changes.'))
       except apitools_exceptions.HttpError as e:
-        exc = exceptions.HttpException(e)
-        if exc.payload.status_code == 409:
-          exc.error_format = ('Stale "etag": '
-                              'Please use the etag from your latest describe '
-                              'response. Or new changes have been made since '
-                              'your latest describe operation. Please retry '
-                              'the whole describe-update process. Or you can '
-                              'leave the etag blank to overwrite concurrent '
-                              'role changes.')
-      raise exc
+        raise exceptions.HttpException(e)
 
-    res = self.UpdateWithFlags(args, role_name, role, iam_client, messages)
+    res = self.UpdateWithFlags(args, role_name, role, client, messages)
     iam_util.SetRoleStageIfAlpha(res)
     return res
 
   @http_retry.RetryOnHttpStatus(httplib.CONFLICT)
   def UpdateWithFlags(self, args, role_name, role, iam_client, messages):
-    role, changed_fields = self.GetUpdatedRole(
-        role_name, role, args.description, args.title, args.stage,
-        args.permissions, args.add_permissions, args.remove_permissions,
-        iam_client, messages)
+    role, changed_fields = self.GetUpdatedRole(args, role_name, role,
+                                               iam_client, messages)
     return iam_client.organizations_roles.Patch(
         messages.IamOrganizationsRolesPatchRequest(
             name=role_name, role=role, updateMask=','.join(changed_fields)))
 
-  def GetUpdatedRole(self, role_name, role, description, title, stage,
-                     permissions, add_permissions, remove_permissions,
-                     iam_client, messages):
+  def GetUpdatedRole(self, args, role_name, role, iam_client, messages):
     """Gets the updated role from flags."""
     changed_fields = []
-    if description is not None:
+    if args.description is not None:
       changed_fields.append('description')
-      role.description = description
-    if title is not None:
+      role.description = args.description
+    if args.title is not None:
       changed_fields.append('title')
-      role.title = title
-    if stage:
+      role.title = args.title
+    if args.stage:
       changed_fields.append('stage')
-      role.stage = iam_util.StageTypeFromString(stage)
-    if permissions is not None and (add_permissions or remove_permissions):
+      role.stage = iam_util.StageTypeFromString(args.stage)
+    if args.permissions is not None and (args.add_permissions or
+                                         args.remove_permissions):
       raise exceptions.ConflictingArgumentsException(
           '--permissions', '-add-permissions or --remove-permissions')
-    if permissions is not None:
+    if args.permissions is not None:
       changed_fields.append('includedPermissions')
-      role.includedPermissions = permissions.split(',')
-      if not permissions:
+      role.includedPermissions = args.permissions.split(',')
+      if not args.permissions:
         role.includedPermissions = []
+      if not args.quiet:
+        self.WarnPermissions(iam_client, messages, role.includedPermissions,
+                             args.project, args.organization)
     origin_role = iam_client.organizations_roles.Get(
         messages.IamOrganizationsRolesGetRequest(name=role_name))
-    if add_permissions or remove_permissions:
+    if args.add_permissions or args.remove_permissions:
       permissions = set(origin_role.includedPermissions)
       changed = False
-      if add_permissions:
-        for permission in add_permissions.split(','):
+      newly_added_permissions = set()
+      if args.add_permissions:
+        for permission in args.add_permissions.split(','):
           if permission not in permissions:
             permissions.add(permission)
+            newly_added_permissions.add(permission)
             changed = True
-      if remove_permissions:
-        for permission in remove_permissions.split(','):
+      if args.remove_permissions:
+        for permission in args.remove_permissions.split(','):
           if permission in permissions:
             permissions.remove(permission)
             changed = True
+          if permission in newly_added_permissions:
+            newly_added_permissions.remove(permission)
       if changed:
         changed_fields.append('includedPermissions')
-      role.includedPermissions = list(permissions)
+      role.includedPermissions = list(sorted(permissions))
+      if not args.quiet:
+        self.WarnPermissions(iam_client, messages,
+                             list(newly_added_permissions), args.project,
+                             args.organization)
     role.etag = origin_role.etag
     return role, changed_fields
+
+  def WarnPermissions(self, iam_client, messages, permissions, project,
+                      organization):
+    permissions_helper = util.PermissionsHelper(iam_client, messages,
+                                                iam_util.GetResourceReference(
+                                                    project, organization),
+                                                permissions)
+    api_disabled_permissions = permissions_helper.GetApiDisabledPermissons()
+    iam_util.ApiDisabledPermissionsWarning(api_disabled_permissions)
+    testing_permissions = permissions_helper.GetTestingPermissions()
+    iam_util.TestingPermissionsWarning(testing_permissions)

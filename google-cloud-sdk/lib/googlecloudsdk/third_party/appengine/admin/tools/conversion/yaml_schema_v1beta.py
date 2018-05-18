@@ -24,6 +24,7 @@ SCHEMA = s.Message(
         secure=s.Value('security_level', converter=c.EnumConverter('SECURE')),
         auth_fail_action=s.Value(converter=c.EnumConverter('AUTH_FAIL_ACTION')),
         script=s.Value(converter=c.ToJsonString)),
+    api_version=s.Value('runtime_api_version', converter=c.ToJsonString),
     auto_id_policy=s.Value('beta_settings',
                            lambda val: {'auto_id_policy': val}),
     automatic_scaling=s.Message(
@@ -35,12 +36,10 @@ SCHEMA = s.Message(
             aggregation_window_length_sec=s.Value('aggregation_window_length',
                                                   converter=c.SecondsToDuration)
         ),
-        standard_scheduler_settings=s.Message(
-            max_instances=s.Value(converter=c.StringToInt()),
-            min_instances=s.Value(converter=c.StringToInt()),
-            target_cpu_utilization=s.Value(),
-            target_throughput_utilization=s.Value()
-        ),
+        max_instances=s.Value('max_instances'),
+        min_instances=s.Value('min_instances'),
+        target_cpu_utilization=s.Value('target_cpu_utilization'),
+        target_throughput_utilization=s.Value('target_throughput_utilization'),
         max_num_instances=s.Value('max_total_instances'),
         min_pending_latency=s.Value(converter=c.LatencyToDuration),
         min_idle_instances=s.Value(converter=
@@ -67,7 +66,14 @@ SCHEMA = s.Message(
         target_disk_read_ops_per_sec=s.Value(
             'target_read_ops_per_sec'),
         target_request_count_per_sec=s.Value(),
-        target_concurrent_requests=s.Value()),
+        target_concurrent_requests=s.Value(),
+        custom_metrics=s.RepeatedField(element=s.Message(
+            metric_name=s.Value(converter=c.ToJsonString),
+            target_type=s.Value(converter=c.ToJsonString),
+            target_utilization=s.Value('target_utilization'),
+            single_instance_assignment=s.Value('single_instance_assignment'),
+            filter=s.Value(converter=c.ToJsonString))),
+    ),
     basic_scaling=s.Message(
         idle_timeout=s.Value(converter=c.IdleTimeoutToDuration),
         max_instances=s.Value(converter=c.StringToInt())),
@@ -75,6 +81,8 @@ SCHEMA = s.Message(
     default_expiration=s.Value(converter=c.ExpirationToDuration),
     endpoints_api_service=s.Message(
         name=s.Value(),
+        rollout_strategy=s.Value(
+            converter=c.ConvertEndpointsRolloutStrategyToEnum),
         config_id=s.Value(),
     ),
     env=s.Value(),
@@ -149,6 +157,7 @@ SCHEMA = s.Message(
                                                         c.ToJsonString)),
         session_affinity=s.Value()
     ),
+    zones=s.RepeatedField(element=s.Value(converter=c.ToJsonString)),
     nobuild_files=s.Value('nobuild_files_regex', converter=c.ToJsonString),
     resources=s.Message(
         memory_gb=s.Value(),
@@ -159,6 +168,7 @@ SCHEMA = s.Message(
             volume_type=s.Value(converter=c.ToJsonString),
             size_gb=s.Value()))),
     runtime=s.Value(converter=c.ToJsonString),
+    runtime_channel=s.Value(converter=c.ToJsonString),
     standard_websocket=s.Value('enable_standard_websocket'),
     threadsafe=s.Value(),
     version=s.Value('id', converter=c.ToJsonString),

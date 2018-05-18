@@ -14,6 +14,8 @@
 
 """Fetch cluster credentials."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.container import util
 from googlecloudsdk.calliope import actions
 from googlecloudsdk.calliope import base
@@ -28,14 +30,28 @@ cluster {0} is not running. The kubernetes API may not be available.'''
 class GetCredentials(base.Command):
   """Fetch credentials for a running cluster.
 
-  Updates a kubeconfig file with appropriate credentials to point
-  kubectl at a Container Engine Cluster. By default, credentials
-  are written to HOME/.kube/config. You can provide an alternate
-  path by setting the KUBECONFIG environment variable.
+  {command} updates a kubeconfig file with appropriate credentials and endpoint
+  information to point kubectl at a specific cluster in Google Kubernetes
+  Engine. It takes a project and a zone as parameters, passed through by set
+  defaults or flags.
+  By default, credentials are written to HOME/.kube/config. You can provide an
+  alternate path by setting the KUBECONFIG environment variable.
 
-  See [](https://cloud.google.com/container-engine/docs/kubectl) for
+  This command enables switching to a specific cluster, when working
+  with multiple clusters. It can also be used to access a previously created
+  cluster from a new workstation.
+
+  See [](https://cloud.google.com/kubernetes-engine/docs/kubectl) for
   kubectl documentation.
   """
+  detailed_help = {
+      'EXAMPLES':
+          """\
+          To switch to working on your cluster 'testcluster1', run:
+
+            $ {command} testcluster1 --zone us-central1-f
+      """,
+  }
 
   @staticmethod
   def Args(parser):
@@ -65,17 +81,17 @@ class GetCredentials(base.Command):
     location_get = self.context['location_get']
     location = location_get(args)
     cluster_ref = adapter.ParseCluster(args.name, location)
-
     log.status.Print('Fetching cluster endpoint and auth data.')
     # Call DescribeCluster to get auth info and cache for next time
     cluster = adapter.GetCluster(cluster_ref)
     auth = cluster.masterAuth
-    has_creds = (auth and ((auth.clientCertificate and auth.clientKey) or
-                           (auth.username and auth.password)))
-    if not has_creds and not util.ClusterConfig.UseGCPAuthProvider(cluster):
+    # TODO(b/70856999) Make this consistent with the checks in
+    # api_lib/container/kubeconfig.py.
+    missing_creds = not (auth and auth.clientCertificate and auth.clientKey)
+    if missing_creds and not util.ClusterConfig.UseGCPAuthProvider():
       raise util.Error(
           'get-credentials requires edit permission on {0}'.format(
               cluster_ref.projectId))
     if not adapter.IsRunning(cluster):
-      log.warn(NOT_RUNNING_MSG.format(cluster_ref.clusterId))
+      log.warning(NOT_RUNNING_MSG.format(cluster_ref.clusterId))
     util.ClusterConfig.Persist(cluster, cluster_ref.projectId)

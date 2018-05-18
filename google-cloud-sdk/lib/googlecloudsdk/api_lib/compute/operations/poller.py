@@ -13,9 +13,12 @@
 # limitations under the License.
 """Constructs to poll compute operations."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.util import waiter
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import resources
+from six.moves import zip
 
 
 class Error(core_exceptions.Error):
@@ -154,7 +157,7 @@ class BatchPoller(waiter.OperationPoller):
         requests, errors_to_collect)
     for response, operation_ref in zip(responses, not_done):
       operation_batch.SetResponse(operation_ref, response)
-      if response.error:
+      if response is not None and response.error:
         errors_to_collect.append(OperationErrors(response.error.errors))
 
     if errors_to_collect:

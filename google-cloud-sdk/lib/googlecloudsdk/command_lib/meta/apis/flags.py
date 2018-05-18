@@ -17,8 +17,8 @@
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
 from googlecloudsdk.calliope import parser_extensions
-from googlecloudsdk.command_lib.meta.apis import marshalling
-from googlecloudsdk.command_lib.meta.apis import registry
+from googlecloudsdk.command_lib.util.apis import arg_marshalling
+from googlecloudsdk.command_lib.util.apis import registry
 
 
 def APICompleter(**_):
@@ -57,6 +57,12 @@ RAW_FLAG = base.Argument(
          'flag to disable this behavior and return the raw response.'
 )
 
+API_REQUIRED_FLAG = base.Argument(
+    '--api',
+    required=True,
+    completer=APICompleter,
+    help='The name of the API to get the attributes for.')
+
 
 class MethodDynamicPositionalAction(parser_extensions.DynamicPositionalAction):
   """A DynamicPositionalAction that adds flags for a given method to the parser.
@@ -87,7 +93,8 @@ class MethodDynamicPositionalAction(parser_extensions.DynamicPositionalAction):
     method = registry.GetMethod(full_collection_name, method_name,
                                 api_version=api_version)
 
-    arg_generator = marshalling.ArgumentGenerator(method, raw=namespace.raw)
+    arg_generator = arg_marshalling.AutoArgumentGenerator(method,
+                                                          raw=namespace.raw)
     method_ref = MethodRef(namespace, method, arg_generator)
     setattr(namespace, self._dest, method_ref)
 
@@ -113,8 +120,8 @@ class MethodRef(object):
     Args:
       namespace: The argparse namespace that holds the parsed args.
       method: APIMethod, The method.
-      arg_generator: marshalling.ArgumentGenerator, The generator for this
-        method.
+      arg_generator: arg_marshalling.AutoArgumentGenerator, The generator for
+        this method.
     """
     self.namespace = namespace
     self.method = method

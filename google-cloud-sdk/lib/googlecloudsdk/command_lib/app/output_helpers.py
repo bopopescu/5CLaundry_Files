@@ -14,8 +14,11 @@
 
 """This module holds exceptions raised by commands."""
 
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.app import deploy_command_util
 from googlecloudsdk.api_lib.app import yaml_parsing
+from googlecloudsdk.api_lib.services import enable_api
+from googlecloudsdk.api_lib.services import exceptions as s_exceptions
 from googlecloudsdk.core import log
 
 
@@ -53,6 +56,12 @@ RUNTIME_MISMATCH_MSG = (u"You've generated a Dockerfile that may be customized "
                         u'for your application.  To use this Dockerfile, '
                         u'the runtime field in [{0}] must be set to custom.')
 
+QUEUE_TASKS_WARNING = u"""\
+Caution: You are updating queue configuration. This will override any changes
+performed using 'gcloud tasks'. More details at
+https://cloud.google.com/cloud-tasks/docs/queue-yaml
+"""
+
 
 def DisplayProposedDeployment(app, project, services, configs, version,
                               promote):
@@ -80,8 +89,7 @@ def DisplayProposedDeployment(app, project, services, configs, version,
       raise TypeError('If services are deployed, must provide `app` parameter.')
     log.status.Print('Services to deploy:\n')
     for service in services:
-      use_ssl = deploy_command_util.UseSsl(
-          service.service_info.parsed.handlers)
+      use_ssl = deploy_command_util.UseSsl(service.service_info)
       url = deploy_command_util.GetAppHostname(
           app=app, service=service.service_id,
           version=None if promote else version, use_ssl=use_ssl)
@@ -113,3 +121,16 @@ def DisplayProposedConfigDeployments(project, configs):
   for c in configs:
     log.status.Print(DEPLOY_CONFIG_MESSAGE_TEMPLATE.format(
         project=project, type=CONFIG_TYPES[c.config], descriptor=c.file))
+
+    if c.name == yaml_parsing.ConfigYamlInfo.QUEUE:
+      # If useful, this logic can be broken out and moved to enable_api.py,
+      # under IsServiceMaybeEnabled(...) or similar.
+      try:
+        api_maybe_enabled = enable_api.IsServiceEnabled(
+            project, 'cloudtasks.googleapis.com')
+      except s_exceptions.ListServicesPermissionDeniedException:
+        api_maybe_enabled = True  # We can't know, so presume it is enabled
+      if api_maybe_enabled:
+        # Display this warning with a false positive rate for when the Service
+        # Manangement API is not enabled or accessible.
+        log.warning(QUEUE_TASKS_WARNING)

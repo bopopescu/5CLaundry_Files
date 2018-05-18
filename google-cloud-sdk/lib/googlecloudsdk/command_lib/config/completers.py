@@ -14,9 +14,10 @@
 
 """Argcomplete completers for various config related things."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from googlecloudsdk.command_lib.util import completers
-from googlecloudsdk.command_lib.util import deprecated_completers
 from googlecloudsdk.core import module_util
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.configurations import named_configs
@@ -49,7 +50,7 @@ def PropertiesCompleter(prefix, **unused_kwargs):
 
 def NamedConfigCompleter(prefix, **unused_kwargs):
   """An argcomplete completer for existing named configuration names."""
-  configs = named_configs.ConfigurationStore.AllConfigs().keys()
+  configs = list(named_configs.ConfigurationStore.AllConfigs().keys())
   return [c for c in configs if c.startswith(prefix)]
 
 
@@ -77,12 +78,7 @@ class PropertyValueCompleter(completers.Converter):
     if prop.completer:
       # prop.completer is the module path for the resource value completer.
       completer_class = module_util.ImportModule(prop.completer)
-      completer = completer_class()
-      if (hasattr(completer, 'GetListCommand') and not isinstance(
-          completer, deprecated_completers.DeprecatedListCommandCompleter)):
-        list_command = ' '.join(completer.GetListCommand(parameter_info))
-        completer = deprecated_completers.DeprecatedListCommandCompleter(
-            collection=completer.collection, list_command=list_command)
+      completer = completer_class(cache=self.cache)
       return completer.Complete(prefix, parameter_info)
 
     # No completer for this property.

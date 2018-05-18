@@ -20,18 +20,25 @@ module lets you do operations on snapshots like getting dependency closures,
 as well as diff'ing snapshots.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import collections
+import io
 import json
 import os
 import re
 import ssl
-import urllib2
 
 from googlecloudsdk.core import config
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core.updater import installers
 from googlecloudsdk.core.updater import schemas
+from googlecloudsdk.core.util import encoding
+
+import six
+from six.moves import urllib
 
 
 class Error(exceptions.Error):
@@ -57,6 +64,14 @@ class URLFetchError(Error):
               '  $ gcloud components repositories remove {0}'
               .format(extra_repo))
     super(URLFetchError, self).__init__(msg)
+
+
+class MalformedSnapshotError(Error):
+  """Error with the contents of the snapshot."""
+
+  def __init__(self):
+    super(MalformedSnapshotError, self).__init__(
+        'Failed to process component listing from server.')
 
 
 class IncompatibleSchemaVersionError(Error):
@@ -120,7 +135,7 @@ class ComponentSnapshot(object):
     Returns:
       A ComponentSnapshot object
     """
-    with open(snapshot_file) as input_file:
+    with io.open(snapshot_file, 'rt') as input_file:
       data = json.load(input_file)
     # Windows paths will start with a drive letter so they need an extra '/' up
     # front.  Also, URLs must only have forward slashes to work correctly.
@@ -155,12 +170,10 @@ class ComponentSnapshot(object):
           current_function_name, unexpected_args.pop()))
     command_path = kwargs.get('command_path', 'unknown')
 
-    # TODO(b/36039276) Handle a json parse error here.
     first = urls[0]
     data = [
-        (ComponentSnapshot._DictFromURL(url,
-                                        command_path,
-                                        is_extra_repo=(url != first)),
+        (ComponentSnapshot._DictFromURL(
+            url, command_path, is_extra_repo=(url != first)),
          url)
         for url in urls]
     return ComponentSnapshot._FromDictionary(*data)
@@ -184,7 +197,7 @@ class ComponentSnapshot(object):
     extra_repo = url if is_extra_repo else None
     try:
       response = installers.ComponentInstaller.MakeRequest(url, command_path)
-    except (urllib2.HTTPError, urllib2.URLError, ssl.SSLError):
+    except (urllib.error.HTTPError, urllib.error.URLError, ssl.SSLError):
       log.debug('Could not fetch [{url}]'.format(url=url), exc_info=True)
       response = None
     except ValueError as e:
@@ -198,8 +211,13 @@ class ComponentSnapshot(object):
     code = response.getcode()
     if code and code != 200:
       raise URLFetchError(code=code, extra_repo=extra_repo)
-    data = json.loads(response.read())
-    return data
+    response_text = encoding.Decode(response.read())
+    try:
+      data = json.loads(response_text)
+      return data
+    except ValueError as e:
+      log.debug('Failed to parse snapshot [{}]: {}'.format(url, e))
+      raise MalformedSnapshotError()
 
   @staticmethod
   def FromInstallState(install_state):
@@ -280,12 +298,12 @@ class ComponentSnapshot(object):
     deps = dict((c.id, set(c.dependencies)) for c in sdk_definition.components)
     self.__dependencies = {}
     # Prune out unknown dependencies
-    for comp, dep_ids in deps.iteritems():
+    for comp, dep_ids in six.iteritems(deps):
       self.__dependencies[comp] = set(dep_id for dep_id in dep_ids
                                       if dep_id in deps)
 
     self.__consumers = dict((id, set()) for id in self.__dependencies)
-    for component_id, dep_ids in self.__dependencies.iteritems():
+    for component_id, dep_ids in six.iteritems(self.__dependencies):
       for dep_id in dep_ids:
         self.__consumers[dep_id].add(component_id)
 
@@ -358,7 +376,7 @@ class ComponentSnapshot(object):
     Returns:
       set(str), The matching component ids.
     """
-    return set(c_id for c_id, component in self.components.iteritems()
+    return set(c_id for c_id, component in six.iteritems(self.components)
                if component.platform.Matches(platform_filter))
 
   def DependencyClosureForComponents(self, component_ids, platform_filter=None):
@@ -474,14 +492,47 @@ class ComponentSnapshot(object):
     return ComponentSnapshotDiff(self, latest_snapshot,
                                  platform_filter=platform_filter)
 
-  def WriteToFile(self, path):
+  def CreateComponentInfos(self, platform_filter=None):
+    all_components = self.AllComponentIdsMatching(platform_filter)
+    infos = [ComponentInfo(component_id, self, platform_filter=platform_filter)
+             for component_id in all_components]
+    return infos
+
+  def WriteToFile(self, path, component_id=None):
     """Writes this snapshot back out to a JSON file.
 
     Args:
       path: str, The path of the file to write to.
+      component_id: Limit snapshot to this component.
+          If not specified all components are written out.
+
+    Raises:
+      ValueError: for non existent component_id.
     """
+    sdk_def_dict = self.sdk_definition.ToDictionary()
+    if component_id:
+      component_dict = [c for c in sdk_def_dict['components']
+                        if c['id'] == component_id]
+      if not component_dict:
+        raise ValueError(
+            'Component {} is not in this snapshot {}'
+            .format(component_id,
+                    ','.join([c['id'] for c in sdk_def_dict['components']])))
+      if 'data' in component_dict[0]:
+        # Remove non-essential/random parts from component data.
+        for f in list(component_dict[0]['data'].keys()):
+          if f not in ('contents_checksum', 'type', 'source'):
+            del component_dict[0]['data'][f]
+        # Source field is required for global snapshot, but is not for
+        # component snapshot.
+        component_dict[0]['data']['source'] = ''
+      sdk_def_dict['components'] = component_dict
+      # Remove unnecessary artifacts from snapshot.
+      for key in list(sdk_def_dict.keys()):
+        if key not in ('components', 'schema_version', 'revision', 'version'):
+          del sdk_def_dict[key]
     with open(path, 'w') as fp:
-      json.dump(self.sdk_definition.ToDictionary(),
+      json.dump(sdk_def_dict,
                 fp, indent=2, sort_keys=True)
 
 
@@ -630,7 +681,7 @@ class ComponentSnapshotDiff(object):
     Returns:
       set of str, The component ids that should be removed.
     """
-    installed_components = self.current.components.keys()
+    installed_components = list(self.current.components.keys())
     local_connected = self.current.ConnectedComponents(
         update_seed, platform_filter=self.__platform_filter)
     all_required = self.latest.DependencyClosureForComponents(
@@ -676,6 +727,65 @@ class ComponentSnapshotDiff(object):
     """
     return sorted(self.latest.ComponentsFromIds(component_ids),
                   key=lambda c: c.details.display_name)
+
+
+class ComponentInfo(object):
+  """Encapsulates information to be displayed for a component.
+
+  Attributes:
+    id: str, The component id.
+    name: str, The display name of the component.
+    current_version_string: str, The version of the component.
+    is_hidden: bool, If the component is hidden.
+    is_configuration: bool, True if this should be displayed in the packages
+      section of the component manager.
+  """
+
+  def __init__(self, component_id, snapshot, platform_filter=None):
+    """Create a new component info container.
+
+    Args:
+      component_id: str, The id of this component.
+      snapshot: ComponentSnapshot, The snapshot from which to create info from.
+      platform_filter: platforms.Platform, A platform that components must
+        match in order to be considered for any operations.
+    """
+    self._id = component_id
+    self._snapshot = snapshot
+    self._component = snapshot.ComponentFromId(component_id)
+    self._platform_filter = platform_filter
+
+  @property
+  def id(self):
+    return self._id
+
+  @property
+  def current_version_string(self):
+    return self._component.version.version_string
+
+  @property
+  def name(self):
+    return self._component.details.display_name
+
+  @property
+  def is_hidden(self):
+    return self._component.is_hidden
+
+  @property
+  def is_configuration(self):
+    return self._component.is_configuration
+
+  @property
+  def size(self):
+    return self._snapshot.GetEffectiveComponentSize(
+        self._id, platform_filter=self._platform_filter)
+
+  def __str__(self):
+    return (
+        '{name} ({id})\t[{current_version}]'
+        .format(name=self.name,
+                id=self.id,
+                current_version=self.current_version_string))
 
 
 class ComponentDiff(object):

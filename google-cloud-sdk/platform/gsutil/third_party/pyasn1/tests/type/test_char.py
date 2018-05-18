@@ -2,26 +2,35 @@
 # This file is part of pyasn1 software.
 #
 # Copyright (c) 2005-2017, Ilya Etingof <etingof@gmail.com>
-# License: http://pyasn1.sf.net/license.html
+# License: http://snmplabs.com/pyasn1/license.html
 #
+import pickle
 import sys
-from pyasn1.type import char, univ, constraint
-from pyasn1.compat.octets import ints2octs
-from pyasn1.error import PyAsn1Error
 
 try:
     import unittest2 as unittest
+
 except ImportError:
     import unittest
 
+from tests.base import BaseTestCase
 
-class AbstractStringTestCase:
+from pyasn1.type import char
+from pyasn1.type import univ
+from pyasn1.type import constraint
+from pyasn1.compat.octets import ints2octs
+from pyasn1.error import PyAsn1Error
+
+
+class AbstractStringTestCase(object):
 
     initializer = ()
     encoding = 'us-ascii'
     asn1Type = None
 
     def setUp(self):
+        BaseTestCase.setUp(self)
+
         self.asn1String = self.asn1Type(ints2octs(self.initializer), encoding=self.encoding)
         self.pythonString = ints2octs(self.initializer).decode(self.encoding)
 
@@ -46,7 +55,7 @@ class AbstractStringTestCase:
         except PyAsn1Error:
             assert False, 'Size constraint failed'
 
-    def testSerialized(self):
+    def testSerialised(self):
         if sys.version_info[0] < 3:
             assert str(self.asn1String) == self.pythonString.encode(self.encoding), '__str__() fails'
         else:
@@ -61,11 +70,13 @@ class AbstractStringTestCase:
     def testInit(self):
         assert self.asn1Type(self.pythonString) == self.pythonString
         assert self.asn1Type(self.pythonString.encode(self.encoding)) == self.pythonString
+        assert self.asn1Type(univ.OctetString(self.pythonString.encode(self.encoding))) == self.pythonString
+        assert self.asn1Type(self.asn1Type(self.pythonString)) == self.pythonString
         assert self.asn1Type(self.initializer, encoding=self.encoding) == self.pythonString
 
     def testInitFromAsn1(self):
-            assert self.asn1Type(self.asn1Type(self.pythonString)) == self.pythonString
-            assert self.asn1Type(univ.OctetString(self.pythonString.encode(self.encoding), encoding=self.encoding)) == self.pythonString
+        assert self.asn1Type(self.asn1Type(self.pythonString)) == self.pythonString
+        assert self.asn1Type(univ.OctetString(self.pythonString.encode(self.encoding), encoding=self.encoding)) == self.pythonString
 
     def testAsOctets(self):
         assert self.asn1String.asOctets() == self.pythonString.encode(self.encoding), 'testAsOctets() fails'
@@ -104,29 +115,44 @@ class AbstractStringTestCase:
         def testReverse(self):
             assert list(reversed(self.asn1String)) == list(reversed(self.pythonString))
 
+    def testSchemaPickling(self):
+        old_asn1 = self.asn1Type()
+        serialised = pickle.dumps(old_asn1)
+        assert serialised
+        new_asn1 = pickle.loads(serialised)
+        assert type(new_asn1) == self.asn1Type
+        assert old_asn1.isSameTypeWith(new_asn1)
 
-class VisibleStringTestCase(AbstractStringTestCase, unittest.TestCase):
+    def testValuePickling(self):
+        old_asn1 = self.asn1String
+        serialised = pickle.dumps(old_asn1)
+        assert serialised
+        new_asn1 = pickle.loads(serialised)
+        assert new_asn1 == self.asn1String
+
+
+class VisibleStringTestCase(AbstractStringTestCase, BaseTestCase):
 
     initializer = (97, 102)
     encoding = 'us-ascii'
     asn1Type = char.VisibleString
 
 
-class GeneralStringTestCase(AbstractStringTestCase, unittest.TestCase):
+class GeneralStringTestCase(AbstractStringTestCase, BaseTestCase):
 
     initializer = (169, 174)
     encoding = 'iso-8859-1'
     asn1Type = char.GeneralString
 
 
-class UTF8StringTestCase(AbstractStringTestCase, unittest.TestCase):
+class UTF8StringTestCase(AbstractStringTestCase, BaseTestCase):
 
     initializer = (209, 132, 208, 176)
     encoding = 'utf-8'
     asn1Type = char.UTF8String
 
 
-class BMPStringTestCase(AbstractStringTestCase, unittest.TestCase):
+class BMPStringTestCase(AbstractStringTestCase, BaseTestCase):
 
     initializer = (4, 48, 4, 68)
     encoding = 'utf-16-be'
@@ -137,7 +163,7 @@ if sys.version_info[0] > 2:
 
     # Somehow comparison of UTF-32 encoded strings does not work in Py2
 
-    class UniversalStringTestCase(AbstractStringTestCase, unittest.TestCase):
+    class UniversalStringTestCase(AbstractStringTestCase, BaseTestCase):
         initializer = (0, 0, 4, 48, 0, 0, 4, 68)
         encoding = 'utf-32-be'
         asn1Type = char.UniversalString

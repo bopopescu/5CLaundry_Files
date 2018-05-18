@@ -14,13 +14,15 @@
 
 """service-management configs describe command."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
-from googlecloudsdk.core import resources
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
+_ERROR = ('The `service-management configs describe` command has been '
+          'replaced by `endpoints configs describe`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Describe(base.DescribeCommand):
   """Describes the configuration for a given version of a service.
 
@@ -53,32 +55,10 @@ class Describe(base.DescribeCommand):
                         help='The configuration ID to retrieve.')
 
   def Run(self, args):
-    """Run 'service-management configs describe'.
+    """Stubs 'service-management configs describe'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the Get API call.
     """
-
-    def _GetServiceName():
-      return arg_parsers.GetServiceNameFromArg(
-          args.MakeGetOrRaise('--service')())
-
-    config_ref = resources.REGISTRY.Parse(
-        args.config_id,
-        params={'serviceName': _GetServiceName},
-        collection='servicemanagement.services.configs')
-
-    # Check if the user wants the active config or a specific config.
-    return self._GetConfig(config_ref.serviceName, config_ref.configId)
-
-  def _GetConfig(self, service, config_id):
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    request = messages.ServicemanagementServicesConfigsGetRequest(
-        serviceName=service, configId=config_id)
-    return client.services_configs.Get(request)
+    pass

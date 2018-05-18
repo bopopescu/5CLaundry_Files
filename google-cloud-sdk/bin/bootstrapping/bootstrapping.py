@@ -10,11 +10,8 @@ import setup
 
 import json
 import os
-import signal
-import subprocess
 import sys
 
-import oauth2client.contrib.gce as gce
 from googlecloudsdk.core import config
 from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core import metrics
@@ -22,6 +19,7 @@ from googlecloudsdk.core import properties
 from googlecloudsdk.core.credentials import store as c_store
 from googlecloudsdk.core.updater import local_state
 from googlecloudsdk.core.updater import update_manager
+from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import files
 
 
@@ -44,6 +42,24 @@ def ExecutePythonTool(tool_dir, exec_name, *args):
   """
   _ExecuteTool(
       execution_utils.ArgsForPythonTool(_FullPath(tool_dir, exec_name), *args))
+
+
+def ExecuteJarTool(java_bin, jar_dir, jar_name, classname, flags=None, *args):
+  """Execute a given jar with the given args and command line.
+
+  Args:
+    java_bin: str, path to the system Java binary
+    jar_dir: str, the directory the jar is located in
+    jar_name: str, file name of the jar under tool_dir
+    classname: str, name of the main class in the jar
+    flags: [str], flags for the java binary
+    *args: args for the command
+  """
+  flags = flags or []
+  jar_path = _FullPath(jar_dir, jar_name)
+  java_args = ['-cp', jar_path] + flags + [classname] + list(args)
+  _ExecuteTool(
+      execution_utils.ArgsForExecutableTool(java_bin, *java_args))
 
 
 def ExecuteShellTool(tool_dir, exec_name, *args):
@@ -73,9 +89,10 @@ def ExecuteCMDTool(tool_dir, exec_name, *args):
 
 def _GetToolEnv():
   env = dict(os.environ)
-  env['CLOUDSDK_WRAPPER'] = '1'
-  env['CLOUDSDK_VERSION'] = config.CLOUD_SDK_VERSION
-  env['CLOUDSDK_PYTHON'] = execution_utils.GetPythonExecutable()
+  encoding.SetEncodedValue(env, 'CLOUDSDK_WRAPPER', '1')
+  encoding.SetEncodedValue(env, 'CLOUDSDK_VERSION', config.CLOUD_SDK_VERSION)
+  encoding.SetEncodedValue(env, 'CLOUDSDK_PYTHON',
+                           execution_utils.GetPythonExecutable())
   return env
 
 
@@ -86,15 +103,6 @@ def _ExecuteTool(args):
     args: [str], The args of the command to execute.
   """
   execution_utils.Exec(args + sys.argv[1:], env=_GetToolEnv())
-
-
-def CheckCredOrExit():
-  try:
-    c_store.Load()
-  except (c_store.NoActiveAccountException,
-          c_store.NoCredentialsForAccountException) as e:
-    sys.stderr.write(str(e) + '\n\n')
-    sys.exit(1)
 
 
 def GetDefaultInstalledComponents():

@@ -12,20 +12,91 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Provides common arguments for the ML Engine command surface."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 import functools
 import itertools
 import sys
 
+from googlecloudsdk.api_lib.ml_engine import versions_api
 from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.calliope import actions
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope.concepts import concepts
+from googlecloudsdk.calliope.concepts import deps
 from googlecloudsdk.command_lib.iam import completers as iam_completers
 from googlecloudsdk.command_lib.ml_engine import models_util
+from googlecloudsdk.command_lib.util.apis import arg_utils
+from googlecloudsdk.command_lib.util.concepts import concept_parsers
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+
+
+_JOB_SUMMARY = """\
+table[box,title="Job Overview"](
+  jobId,
+  createTime,
+  startTime,
+  endTime,
+  state,
+  {INPUT},
+  {OUTPUT})
+"""
+
+_JOB_TRAIN_INPUT_SUMMARY_FORMAT = """\
+trainingInput:format='table[box,title="Training Input Summary"](
+  runtimeVersion:optional,
+  region,
+  scaleTier:optional,
+  pythonModule,
+  parameterServerType:optional,
+  parameterServerCount:optional,
+  masterType:optional,
+  workerType:optional,
+  workerCount:optional,
+  jobDir:optional
+)'
+"""
+
+_JOB_TRAIN_OUTPUT_SUMMARY_FORMAT = """\
+trainingOutput:format='table[box,title="Training Output Summary"](
+  completedTrialCount:optional:label=TRIALS,
+  consumedMLUnits:label=ML_UNITS)'
+  {HP_OUTPUT}
+"""
+
+_JOB_TRAIN_OUTPUT_TRIALS_FORMAT = """\
+,trainingOutput.trials.sort(trialId):format='table[box,title="Training Output Trials"](
+  trialId:label=TRIAL,
+  finalMetric.objectiveValue:label=OBJECTIVE_VALUE,
+  finalMetric.trainingStep:label=STEP,
+  hyperparameters.list(separator="\n"))'
+"""
+
+_JOB_PREDICT_INPUT_SUMMARY_FORMAT = """\
+predictionInput:format='table[box,title="Predict Input Summary"](
+  runtimeVersion:optional,
+  region,
+  model.basename():optional,
+  versionName.basename(),
+  outputPath,
+  uri:optional,
+  dataFormat,
+  batchSize:optional
+)'
+"""
+
+_JOB_PREDICT_OUTPUT_SUMMARY_FORMAT = """\
+predictionOutput:format='table[box,title="Predict Output Summary"](
+  errorCount,
+  nodeHours,
+  outputPath,
+  predictionCount
+  )'
+"""
 
 
 class ArgumentError(exceptions.Error):
@@ -40,6 +111,13 @@ class MlEngineIamRolesCompleter(iam_completers.IamRolesCompleter):
         resource_dest='model',
         **kwargs)
 
+
+def GetDescriptionFlag(noun):
+  return base.Argument(
+      '--description',
+      required=False,
+      default=None,
+      help='The description of the {noun}.'.format(noun=noun))
 
 # Run flags
 DISTRIBUTED = base.Argument(
@@ -108,6 +186,21 @@ Path to Python archives used for training. These can be local paths
 Storage bucket given by `--staging-bucket`, or Cloud Storage URLs
 (`gs://bucket-name/path/to/package.tar.gz`).
 """)
+# As of Alpha release, the backend service processes this as a string (despite
+# having only 2 valid values). It is a string here since there is no enum
+# validation but can be refactored if that changes before GA.
+MACHINE_TYPE = base.Argument(
+    '--machine-type',
+    required=False,
+    help="""\
+    The type of machine on which to serve the model. Currently only applies to
+    online prediction. Currently supported machine_types are:
+
+     * `mls1-highmem-1` - A virtual machine with 1 core and 2 Gb RAM.
+     * `mls1-highcpu-4` - A virtual machine with 4 core and 2 Gb RAM.
+
+     If not provided defaults to `mls1-highmem-1`.
+    """)
 
 
 def GetJobDirFlag(upload_help=True, allow_local=False):
@@ -146,7 +239,7 @@ will be used instead.
     type_ = str
   else:
     type_ = functools.partial(storage_util.ObjectReference.FromArgument,
-                              allow_empty_object=True)
+                              allow_empty_object=True)  # pytype: disable=wrong-arg-types
   return base.Argument('--job-dir', type=type_, help=help_)
 
 
@@ -165,48 +258,20 @@ be relative to the *parent* directory of `--package-path`.
 
 
 VERSION_NAME = base.Argument('version', help='Name of the model version.')
-_SCALE_TIER_CHOICES = {
-    'BASIC': ('A single worker instance. This tier is suitable for learning '
-              'how to use Cloud ML Engine, and for experimenting with new '
-              'models using small datasets.'),
-    'STANDARD_1': 'Many workers and a few parameter servers.',
-    'PREMIUM_1': 'A large number of workers with many parameter servers.',
-    'BASIC_GPU': 'A single worker instance with a GPU.',
-    'CUSTOM': """\
-The CUSTOM tier is not a set tier, but rather enables you to use your own
-cluster specification. When you use this tier, set values to configure your
-processing cluster according to these guidelines (using the --config flag):
 
-* You _must_ set `TrainingInput.masterType` to specify the type of machine to
-  use for your master node. This is the only required setting.
-* You _may_ set `TrainingInput.workerCount` to specify the number of workers to
-  use. If you specify one or more workers, you _must_ also set
-  `TrainingInput.workerType` to specify the type of machine to use for your
-  worker nodes.
-* You _may_ set `TrainingInput.parameterServerCount` to specify the number of
-  parameter servers to use. If you specify one or more parameter servers, you
-  _must_ also set `TrainingInput.parameterServerType` to specify the type of
-  machine to use for your parameter servers.  Note that all of your workers must
-  use the same machine type, which can be different from your parameter server
-  type and master type. Your parameter servers must likewise use the same
-  machine type, which can be different from your worker type and master type.\
-"""}
-SCALE_TIER = base.Argument(
-    '--scale-tier',
-    help=('Specifies the machine types, the number of replicas for workers and '
-          'parameter servers.'),
-    choices=_SCALE_TIER_CHOICES,
-    default=None)
 RUNTIME_VERSION = base.Argument(
     '--runtime-version',
-    help=('The Google Cloud ML Engine runtime version for this job. '
-          'Defaults to the latest stable version. See '
-          'https://cloud.google.com/ml/docs/concepts/runtime-version-list for '
-          'a list of accepted versions.'))
+    help=(
+        'The Google Cloud ML Engine runtime version for this job. Defaults '
+        'to a stable version, which is defined in the documentation along '
+        'with the list of supported versions: '
+        'https://cloud.google.com/ml-engine/docs/tensorflow/runtime-version-list'  # pylint: disable=line-too-long
+    ))
+
 
 POLLING_INTERVAL = base.Argument(
     '--polling-interval',
-    type=arg_parsers.BoundedInt(1, sys.maxint, unlimited=True),
+    type=arg_parsers.BoundedInt(1, sys.maxsize, unlimited=True),
     required=False,
     default=60,
     action=actions.StoreProperty(properties.VALUES.ml_engine.polling_interval),
@@ -223,6 +288,32 @@ TASK_NAME = base.Argument(
     help='If set, display only the logs for this particular task.')
 
 
+_FRAMEWORK_CHOICES = {
+    'TENSORFLOW': 'tensorflow',
+    'SCIKIT_LEARN': 'scikit-learn',
+    'XGBOOST': 'xgboost'
+}
+FRAMEWORK_MAPPER = arg_utils.ChoiceEnumMapper(
+    '--framework',
+    (versions_api.GetMessagesModule().
+     GoogleCloudMlV1Version.FrameworkValueValuesEnum),
+    custom_mappings=_FRAMEWORK_CHOICES,
+    help_str=('The ML framework used to train this version of the model. '
+              'If not specified, defaults to `tensorflow`'))
+
+
+def AddPythonVersionFlag(parser, context):
+  help_str = (
+      'The version of Python used {context}. If not set, the default '
+      'version is 2.7. Python 3.5 is available when `runtime_version` is '
+      'set to 1.4 and above. Python 2.7 works with all supported runtime '
+      'versions.').format(context=context)
+  version = base.Argument(
+      '--python-version',
+      help=help_str)
+  version.AddToParser(parser)
+
+
 def GetModelName(positional=True, required=False):
   help_text = 'Name of the model.'
   if positional:
@@ -236,9 +327,9 @@ def ProcessPackages(args):
   """Flatten PACKAGES flag and warn if multiple arguments were used."""
   if args.packages is not None:
     if len(args.packages) > 1:
-      log.warn('Use of --packages with space separated values is '
-               'deprecated and will not work in the future. Use comma '
-               'instead.')
+      log.warning('Use of --packages with space separated values is '
+                  'deprecated and will not work in the future. Use comma '
+                  'instead.')
     # flatten packages into a single list
     args.packages = list(itertools.chain.from_iterable(args.packages))
 
@@ -253,3 +344,90 @@ STAGING_BUCKET = base.Argument(
         include local paths) and no other flags implicitly specify an upload
         path.
         """)
+
+
+def GetSummarizeFlag():
+  return base.Argument(
+      '--summarize',
+      action='store_true',
+      required=False,
+      help="""\
+      Summarize job output in a set of human readable tables instead of
+      rendering the entire resource as json or yaml. The tables currently rendered
+      are:
+
+      * `Job Overview`: Overview of job including, jobId, status and create time.
+      * `Training Input Summary`: Summary of input for a training job including
+         region, main training python module and scale tier.
+      * `Training Output Summary`: Summary of output for a training job including
+         the amount of ML units consumed by the job.
+      * `Training Output Trials`: Summary of hyperparameter trials run for a
+         hyperparameter tuning training job.
+      * `Predict Input Summary`: Summary of input for a prediction job including
+         region, model verion and output path.
+      * `Predict Output Summary`: Summary of output for a prediction job including
+         prediction count and output path.
+
+      This flag overrides the `--format` flag. If
+      both are present on the command line, a warning is displayed.
+      """)
+
+
+def GetStandardTrainingJobSummary():
+  """Get tabular format for standard ml training job."""
+  return _JOB_SUMMARY.format(
+      INPUT=_JOB_TRAIN_INPUT_SUMMARY_FORMAT,
+      OUTPUT=_JOB_TRAIN_OUTPUT_SUMMARY_FORMAT.format(HP_OUTPUT=''))
+
+
+def GetHPTrainingJobSummary():
+  """Get tablular format to HyperParameter tuning ml job."""
+  return _JOB_SUMMARY.format(
+      INPUT=_JOB_PREDICT_INPUT_SUMMARY_FORMAT,
+      OUTPUT=_JOB_TRAIN_OUTPUT_SUMMARY_FORMAT.format(
+          HP_OUTPUT=_JOB_TRAIN_OUTPUT_TRIALS_FORMAT))
+
+
+def GetPredictJobSummary():
+  """Get table format for ml prediction job."""
+  return _JOB_SUMMARY.format(
+      INPUT=_JOB_PREDICT_INPUT_SUMMARY_FORMAT,
+      OUTPUT=_JOB_PREDICT_OUTPUT_SUMMARY_FORMAT)
+
+
+# Resource arguments
+def ProjectAttributeConfig():
+  return concepts.ResourceParameterAttributeConfig(
+      name='project',
+      help_text='The Cloud project for the {resource}.',
+      fallthroughs=[deps.PropertyFallthrough(properties.VALUES.core.project)])
+
+
+def ModelAttributeConfig():
+  return concepts.ResourceParameterAttributeConfig(
+      name='model',
+      help_text='The model for the {resource}.')
+
+
+def VersionAttributeConfig():
+  return concepts.ResourceParameterAttributeConfig(
+      name='version',
+      help_text='The version for the {resource}.')
+
+
+def GetVersionResourceSpec():
+  return concepts.ResourceSpec(
+      'ml.projects.models.versions',
+      resource_name='version',
+      versionsId=VersionAttributeConfig(),
+      modelsId=ModelAttributeConfig(),
+      projectsId=ProjectAttributeConfig())
+
+
+def AddVersionResourceArg(parser, verb):
+  """Add a resource argument for a Cloud ML Engine version."""
+  concept_parsers.ConceptParser.ForResource(
+      'version',
+      GetVersionResourceSpec(),
+      'The Cloud ML Engine model {}.'.format(verb),
+      required=True).AddToParser(parser)

@@ -27,6 +27,7 @@ from googlecloudsdk.command_lib.compute.instances import flags as instance_flags
 from googlecloudsdk.command_lib.util import gaia
 from googlecloudsdk.command_lib.util import time_util
 from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.util import files
 
@@ -312,7 +313,7 @@ class ResetWindowsPassword(base.UpdateCommand):
           'Your platform does not support OpenSSL.')
 
     # Get Authenticated email address and default username.
-    email = gaia.GetAuthenticatedGaiaEmail(client.apitools_client.http)
+    email = properties.VALUES.core.account.GetOrFail()
     if args.user:
       user = args.user
     else:
@@ -374,15 +375,15 @@ class ResetWindowsPassword(base.UpdateCommand):
       access_configs = updated_instance.networkInterfaces[0].accessConfigs
       external_ip_address = access_configs[0].natIP
     except (KeyError, IndexError) as _:
-      log.warn(NO_IP_WARNING.format(updated_instance.name))
+      log.warning(NO_IP_WARNING.format(updated_instance.name))
       external_ip_address = None
 
     # Check for old Windows credentials.
     if self.old_metadata_keys:
-      log.warn(OLD_KEYS_WARNING.format(instance_ref.instance,
-                                       instance_ref.instance,
-                                       instance_ref.zone,
-                                       ','.join(self.old_metadata_keys)))
+      log.warning(OLD_KEYS_WARNING.format(instance_ref.instance,
+                                          instance_ref.instance,
+                                          instance_ref.zone,
+                                          ','.join(self.old_metadata_keys)))
 
     log.info('Total Elapsed Time: {0}'
              .format(time_util.CurrentTimeSec() - start))

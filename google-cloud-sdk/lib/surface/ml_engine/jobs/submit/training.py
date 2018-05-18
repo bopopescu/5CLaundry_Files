@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """ml-engine jobs submit training command."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.ml_engine import jobs
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.ml_engine import flags
 from googlecloudsdk.command_lib.ml_engine import jobs_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 def _AddSubmitTrainingArgs(parser):
@@ -31,8 +34,9 @@ def _AddSubmitTrainingArgs(parser):
   flags.STAGING_BUCKET.AddToParser(parser)
   flags.GetJobDirFlag(upload_help=True).AddToParser(parser)
   flags.GetUserArgs(local=False).AddToParser(parser)
-  flags.SCALE_TIER.AddToParser(parser)
+  jobs_util.ScaleTierFlagMap().choice_arg.AddToParser(parser)
   flags.RUNTIME_VERSION.AddToParser(parser)
+  flags.AddPythonVersionFlag(parser, 'during training')
 
   sync_group = parser.add_mutually_exclusive_group()
   # TODO(b/36195821): Use the flag deprecation machinery when it supports the
@@ -50,6 +54,7 @@ def _AddSubmitTrainingArgs(parser):
           'Note that even if command execution is halted, the job will still '
           'run until cancelled with\n\n'
           '    $ gcloud ml-engine jobs cancel JOB_ID'))
+  labels_util.AddCreateLabelsFlags(parser)
 
 
 class Train(base.Command):
@@ -58,22 +63,26 @@ class Train(base.Command):
   @staticmethod
   def Args(parser):
     _AddSubmitTrainingArgs(parser)
-
-  def DeprecatedFormat(self, args):
-    return jobs_util.JOB_FORMAT
+    parser.display_info.AddFormat(jobs_util.JOB_FORMAT)
 
   def Run(self, args):
     stream_logs = jobs_util.GetStreamLogs(args.async, args.stream_logs)
+    scale_tier = jobs_util.ScaleTierFlagMap().GetEnumForChoice(args.scale_tier)
+    scale_tier_name = scale_tier.name if scale_tier else None
+    jobs_client = jobs.JobsClient()
+    labels = jobs_util.ParseCreateLabels(jobs_client, args)
     job = jobs_util.SubmitTraining(
-        jobs.JobsClient(), args.job,
+        jobs_client, args.job,
         job_dir=args.job_dir,
         staging_bucket=args.staging_bucket,
         packages=args.packages,
         package_path=args.package_path,
-        scale_tier=args.scale_tier,
+        scale_tier=scale_tier_name,
         config=args.config,
         module_name=args.module_name,
         runtime_version=args.runtime_version,
+        python_version=args.python_version,
+        labels=labels,
         stream_logs=stream_logs,
         user_args=args.user_args)
     # If the job itself failed, we will return a failure status.

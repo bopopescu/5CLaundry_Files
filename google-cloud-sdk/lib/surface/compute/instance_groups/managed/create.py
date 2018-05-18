@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import sys
 from apitools.base.py import encoding
 
@@ -50,8 +52,8 @@ def _AddInstanceGroupManagerArgs(parser):
   parser.add_argument(
       '--size',
       required=True,
-      type=arg_parsers.BoundedInt(0, sys.maxint, unlimited=True),
-      help=('The initial number of instances you want in this group.'))
+      type=arg_parsers.BoundedInt(0, sys.maxsize, unlimited=True),
+      help='The initial number of instances you want in this group.')
   parser.add_argument(
       '--description',
       help='An optional description for this group.')
@@ -76,12 +78,12 @@ class CreateGA(base.CreateCommand):
   def Args(parser):
     parser.display_info.AddFormat(managed_flags.DEFAULT_LIST_FORMAT)
     _AddInstanceGroupManagerArgs(parser=parser)
-    instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_MANAGER_ARG.AddArgument(
+    instance_groups_flags.GetInstanceGroupManagerArg().AddArgument(
         parser, operation_type='create')
 
   def CreateGroupReference(self, args, client, resources):
     group_ref = (
-        instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_MANAGER_ARG.
+        instance_groups_flags.GetInstanceGroupManagerArg().
         ResolveAsResource)(args, resources,
                            default_scope=compute_scope.ScopeEnum.ZONE,
                            scope_lister=flags.GetDefaultScopeLister(client))
@@ -144,7 +146,7 @@ class CreateGA(base.CreateCommand):
 
   def _CreateInstanceGroupManager(
       self, args, group_ref, template_ref, client, holder):
-    """Create parts of Instance Group Manager shared between tracks."""
+    """Create parts of Instance Group Manager shared for the track."""
     return client.messages.InstanceGroupManager(
         name=group_ref.Name(),
         description=args.description,
@@ -204,49 +206,10 @@ class CreateBeta(CreateGA):
     _AddInstanceGroupManagerArgs(parser=parser)
     auto_healing_utils.AddAutohealingArgs(
         parser=parser, health_check_group=health_check_group)
-    instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_MANAGER_ARG.AddArgument(
-        parser, operation_type='create')
-
-  def _CreateInstanceGroupManager(
-      self, args, group_ref, template_ref, client, holder):
-    """Create parts of Instance Group Manager shared between tracks."""
-    health_check = managed_instance_groups_utils.GetHealthCheckUri(
-        holder.resources, args, self.HEALTH_CHECK_ARG)
-    return client.messages.InstanceGroupManager(
-        name=group_ref.Name(),
-        description=args.description,
-        instanceTemplate=template_ref.SelfLink(),
-        baseInstanceName=self._GetInstanceGroupManagerBaseInstanceName(
-            args.base_instance_name, group_ref),
-        targetPools=self._GetInstanceGroupManagerTargetPools(
-            args.target_pool, group_ref, holder),
-        targetSize=int(args.size),
-        autoHealingPolicies=(
-            managed_instance_groups_utils.CreateAutohealingPolicies(
-                client.messages, health_check, args.initial_delay)),
-    )
-
-
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class CreateAlpha(CreateGA):
-  """Create Google Compute Engine managed instance groups."""
-
-  HEALTH_CHECK_ARG = health_checks_flags.HealthCheckArgument(
-      '', '--health-check', required=False)
-
-  @classmethod
-  def Args(cls, parser):
-    health_check_group = parser.add_mutually_exclusive_group()
-    cls.HEALTH_CHECK_ARG.AddArgument(health_check_group)
-    parser.display_info.AddFormat(managed_flags.DEFAULT_LIST_FORMAT)
-    _AddInstanceGroupManagerArgs(parser=parser)
-    auto_healing_utils.AddAutohealingArgs(
-        parser=parser, health_check_group=health_check_group)
-    instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_MANAGER_ARG.AddArgument(
-        parser, operation_type='create')
+    igm_arg = instance_groups_flags.GetInstanceGroupManagerArg(zones_flag=True)
+    igm_arg.AddArgument(parser, operation_type='create')
     instance_groups_flags.AddZonesFlag(parser)
 
-  # TODO(b/62898965): Use ResourcceResolver instead of resources.Parse().
   def CreateGroupReference(self, args, client, resources):
     if args.zones:
       zone_ref = resources.Parse(
@@ -259,13 +222,12 @@ class CreateAlpha(CreateGA):
               'region': region,
               'project': properties.VALUES.core.project.GetOrFail},
           collection='compute.regionInstanceGroupManagers')
-    return (instance_groups_flags.MULTISCOPE_INSTANCE_GROUP_MANAGER_ARG.
+    return (instance_groups_flags.GetInstanceGroupManagerArg().
             ResolveAsResource)(
                 args, resources,
                 default_scope=compute_scope.ScopeEnum.ZONE,
                 scope_lister=flags.GetDefaultScopeLister(client))
 
-  # TODO(b/62898965): Use ResourcceResolver instead of resources.Parse().
   def _CreateDistributionPolicy(self, zones, resources, messages):
     if zones:
       policy_zones = []
@@ -280,7 +242,7 @@ class CreateAlpha(CreateGA):
 
   def _CreateInstanceGroupManager(
       self, args, group_ref, template_ref, client, holder):
-    """Create parts of Instance Group Manager shared between tracks."""
+    """Create parts of Instance Group Manager shared for the track."""
     instance_groups_flags.ValidateManagedInstanceGroupScopeArgs(
         args, holder.resources)
     health_check = managed_instance_groups_utils.GetHealthCheckUri(
@@ -302,6 +264,66 @@ class CreateAlpha(CreateGA):
     )
 
 
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class CreateAlpha(CreateBeta):
+  """Create Google Compute Engine managed instance groups."""
+
+  HEALTH_CHECK_ARG = health_checks_flags.HealthCheckArgument(
+      '', '--health-check', required=False)
+
+  @classmethod
+  def Args(cls, parser):
+    health_check_group = parser.add_mutually_exclusive_group()
+    cls.HEALTH_CHECK_ARG.AddArgument(health_check_group)
+    parser.display_info.AddFormat(managed_flags.DEFAULT_LIST_FORMAT)
+    _AddInstanceGroupManagerArgs(parser=parser)
+    auto_healing_utils.AddAutohealingArgs(
+        parser=parser, health_check_group=health_check_group)
+    igm_arg = instance_groups_flags.GetInstanceGroupManagerArg(zones_flag=True)
+    igm_arg.AddArgument(parser, operation_type='create')
+    instance_groups_flags.AddZonesFlag(parser)
+    instance_groups_flags.AddMigCreateStatefulFlags(parser)
+
+  @staticmethod
+  def _GetStatefulPolicy(args, client):
+    if args.stateful_disks:
+      disks = [
+          client.messages.StatefulPolicyPreservedDisk(deviceName=device)
+          for device in args.stateful_disks
+      ]
+      preserved_resources = client.messages.StatefulPolicyPreservedResources(
+          disks=disks)
+      return client.messages.StatefulPolicy(
+          preservedResources=preserved_resources)
+    if args.stateful_names:
+      return client.messages.StatefulPolicy()
+    return None
+
+  def _CreateInstanceGroupManager(
+      self, args, group_ref, template_ref, client, holder):
+    """Create parts of Instance Group Manager shared for the track."""
+    instance_groups_flags.ValidateManagedInstanceGroupScopeArgs(
+        args, holder.resources)
+    instance_groups_flags.ValidateManagedInstanceGroupStatefulProperties(args)
+    health_check = managed_instance_groups_utils.GetHealthCheckUri(
+        holder.resources, args, self.HEALTH_CHECK_ARG)
+    return client.messages.InstanceGroupManager(
+        name=group_ref.Name(),
+        description=args.description,
+        instanceTemplate=template_ref.SelfLink(),
+        baseInstanceName=self._GetInstanceGroupManagerBaseInstanceName(
+            args.base_instance_name, group_ref),
+        targetPools=self._GetInstanceGroupManagerTargetPools(
+            args.target_pool, group_ref, holder),
+        targetSize=int(args.size),
+        autoHealingPolicies=(
+            managed_instance_groups_utils.CreateAutohealingPolicies(
+                client.messages, health_check, args.initial_delay)),
+        distributionPolicy=self._CreateDistributionPolicy(
+            args.zones, holder.resources, client.messages),
+        statefulPolicy=self._GetStatefulPolicy(args, client),
+    )
+
 DETAILED_HELP = {
     'brief': 'Create a Compute Engine managed instance group',
     'DESCRIPTION': """\
@@ -317,4 +339,3 @@ in the ``us-central1-a'' zone.
 }
 CreateGA.detailed_help = DETAILED_HELP
 CreateBeta.detailed_help = DETAILED_HELP
-CreateAlpha.detailed_help = DETAILED_HELP

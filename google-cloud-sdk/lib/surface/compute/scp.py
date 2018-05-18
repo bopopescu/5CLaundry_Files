@@ -22,31 +22,36 @@ class Scp(base.Command):
   # pylint: disable=line-too-long
   """Copy files to and from Google Compute Engine virtual machines via scp.
 
-  *{command}* copies files between a virtual machine instance and your local
-  machine using the scp command.
+  *{command}* securely copies files between a virtual machine instance and your
+  local machine using the scp command. **This command does not work for Windows
+  VMs.**
 
-  To denote a remote file, prefix the file name with the virtual machine
-  instance name (e.g., _example-instance_:~/_FILE_). To denote a local file,
-  do not add a prefix to the file name (e.g., ~/_FILE_). For example, to copy
-  a remote directory to your local host, run:
+  In order to set up a successful transfer, follow these guidelines:
+  *   Prefix remote file names with the virtual machine instance
+      name (e.g., _example-instance_:~/_FILE_).
+  *   Local file names can be used as is (e.g., ~/_FILE_).
+  *   File names containing a colon (``:'') must be invoked by either their
+      absolute path or a path that begins with ``./''.
+  *   When the destination of your transfer is local, all source files must be
+      from the same virtual machine.
+  *   When the destination of your transfer is remote instead, all sources must
+      be local.
 
-    $ {command} example-instance:~/REMOTE-DIR ~/LOCAL-DIR --zone us-central1-a
+  To copy a remote directory, `~/narnia`, from ``example-instance'' to the
+  `~/wardrobe` directory of your local host, run:
 
-  In the above example, ``~/REMOTE-DIR'' from ``example-instance'' is copied
-  into the ~/_LOCAL-DIR_ directory.
+    $ {command} --recurse example-instance:~/narnia ~/wardrobe
 
   Conversely, files from your local computer can be copied to a virtual machine:
 
-    $ {command} ~/LOCAL-FILE-1 ~/LOCAL-FILE-2 example-instance:~/REMOTE-DIR --zone us-central1-a
+    $ {command} ~/localtest.txt ~/localtest2.txt example-instance:~/narnia
 
-  If a file contains a colon (``:''), you must specify it by either using
-  an absolute path or a path that begins with ``./''.
+  If the zone cannot be determined, you will be prompted for it.  Use the
+  `--zone` flag to avoid being prompted:
 
-  Under the covers, *scp(1)* or pscp (on Windows) is used to facilitate the
-  transfer.
+    $ {command} --recurse example-instance:~/narnia ~/wardrobe --zone us-central1-a
 
-  When the destination is local, all sources must be the same virtual machine
-  instance. When the destination is remote, all sources must be local.
+  Under the covers, *scp(1)* is used to facilitate the transfer.
   """
   # pylint: enable=line-too-long
 
@@ -81,7 +86,6 @@ class Scp(base.Command):
   def Run(self, args):
     """See scp_utils.BaseScpCommand.Run."""
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    cua_holder = base_classes.ComputeUserAccountsApiHolder(self.ReleaseTrack())
 
     scp_helper = scp_utils.BaseScpHelper()
 
@@ -91,10 +95,9 @@ class Scp(base.Command):
       extra_flags.extend(args.scp_flag)
     return scp_helper.RunScp(
         holder,
-        cua_holder,
         args,
         port=args.port,
         recursive=args.recurse,
         compress=args.compress,
         extra_flags=extra_flags,
-        use_account_service=False)
+        release_track=self.ReleaseTrack())

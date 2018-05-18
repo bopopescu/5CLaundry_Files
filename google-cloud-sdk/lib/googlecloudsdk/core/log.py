@@ -13,7 +13,12 @@
 # limitations under the License.
 
 """Module with logging related functionality for calliope."""
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 from collections import OrderedDict
+import contextlib
 import datetime
 import errno
 import json
@@ -23,9 +28,15 @@ import sys
 import time
 
 from googlecloudsdk.core import properties
+from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.util import files
 from googlecloudsdk.core.util import platforms
 from googlecloudsdk.core.util import times
+
+import six
+
+
+LOG_FILE_ENCODING = 'utf-8'
 
 DEFAULT_VERBOSITY = logging.WARNING
 DEFAULT_VERBOSITY_STRING = 'warning'
@@ -151,32 +162,39 @@ class _ConsoleWriter(object):
     Args:
       *msg: str, The messages to print.
     """
-
-    from googlecloudsdk.core.console import console_attr  # pylint: disable=g-import-not-at-top, avoid import loop
-    msg = (console_attr.EncodeForConsole(x, escape=False) for x in msg)
-    message = u' '.join(msg)
-    self.write(message + u'\n')
+    msg = (
+        console_attr.SafeText(x, encoding=LOG_FILE_ENCODING, escape=False) for x in msg)
+    message = ' '.join(msg)
+    self._Write(message + '\n')
 
   def GetConsoleWriterStream(self):
     """Returns the console writer output stream."""
     return self.__stream_wrapper.stream
 
-  # pylint: disable=g-bad-name, This must match file-like objects
-  @property
-  def encoding(self):
-    return getattr(self.__stream_wrapper.stream, 'encoding', None)
+  def _Write(self, msg):
+    """Just a helper so we don't have to double encode from Print and write.
+
+    Args:
+      msg: A text string that only has characters that are safe to encode with
+        utf-8.
+    """
+    # The log file always uses utf-8 encoding, just give it the string.
+    self.__logger.info(msg)
+
+    if self.__filter.enabled:
+      # Make sure the string is safe to print in the console. The console might
+      # have a more restrictive encoding than utf-8.
+      stream_encoding = console_attr.GetConsoleAttr().GetEncoding()
+      stream_msg = console_attr.SafeText(
+          msg, encoding=stream_encoding, escape=False)
+      if six.PY2:
+        # Encode to byte strings for output only on Python 2.
+        stream_msg = msg.encode(stream_encoding or 'utf8', 'replace')
+      self.__stream_wrapper.stream.write(stream_msg)
 
   # pylint: disable=g-bad-name, This must match file-like objects
   def write(self, msg):
-    log_msg = msg
-    stream_msg = msg
-    if isinstance(msg, unicode):
-      log_msg = msg.encode('utf8')
-      stream_msg = msg.encode(self.encoding or 'utf8', 'replace')
-
-    self.__logger.info(log_msg)
-    if self.__filter.enabled:
-      self.__stream_wrapper.stream.write(stream_msg)
+    self._Write(console_attr.SafeText(msg, encoding=LOG_FILE_ENCODING, escape=False))
 
   # pylint: disable=g-bad-name, This must match file-like objects
   def writelines(self, lines):
@@ -193,16 +211,67 @@ class _ConsoleWriter(object):
     return isatty() if isatty else False
 
 
+def _FmtString(fmt):
+  """Gets the correct format string to use based on the Python version.
+
+  Args:
+    fmt: text string, The format string to convert.
+
+  Returns:
+    A byte string on Python 2 or the original string on Python 3.
+  """
+  # On Py2, log messages come in as both text and byte strings so the format
+  # strings needs to be bytes so it doesn't coerce byte messages to unicode.
+  # On Py3, only text strings come in and if the format is bytes it can't
+  # combine with the log message.
+  if six.PY2:
+    return fmt.encode('utf8')
+  return fmt
+
+
+@contextlib.contextmanager
+def _SafeDecodedLogRecord(record, encoding):
+  """Temporarily modifies a log record to make the message safe to print.
+
+  Python logging creates a single log record for each log event. Each handler
+  is given that record and asked format it. To avoid unicode issues, we decode
+  all the messages in case they are byte strings. Doing this we also want to
+  ensure the resulting string is able to be printed to the given output target.
+
+  Some handlers target the console (which can have many different encodings) and
+  some target the log file (which we always write as utf-8. If we modify the
+  record, depending on the order of handlers, the log message could lose
+  information along the way.
+
+  For example, if the user has an ascii console, we replace non-ascii characters
+  in the string with '?' to print. Then if the log file handler is called, the
+  original unicode data is gone, even though it could successfully be printed
+  to the log file. This context manager changes the log record briefly so it can
+  be formatted without changing it for later handlers.
+
+  Args:
+    record: The log record.
+    encoding: The name of the encoding to SafeDecode with.
+  """
+  original_msg = record.msg
+  try:
+    record.msg = console_attr.SafeText(
+        record.msg, encoding=encoding, escape=False)
+    yield
+  finally:
+    record.msg = original_msg
+
+
 class _ConsoleFormatter(logging.Formatter):
   """A formatter for the console logger, handles colorizing messages."""
 
-  LEVEL = '%(levelname)s:'
-  MESSAGE = ' %(message)s'
+  LEVEL = _FmtString('%(levelname)s:')
+  MESSAGE = _FmtString(' %(message)s')
   DEFAULT_FORMAT = LEVEL + MESSAGE
 
-  RED = '\033[1;31m'
-  YELLOW = '\033[1;33m'
-  END = '\033[0m'
+  RED = _FmtString('\033[1;31m')
+  YELLOW = _FmtString('\033[1;33m')
+  END = _FmtString('\033[0m')
 
   FORMATS = {}
   COLOR_FORMATS = {
@@ -213,7 +282,7 @@ class _ConsoleFormatter(logging.Formatter):
 
   def __init__(self, out_stream):
     super(_ConsoleFormatter, self).__init__()
-    use_color = not properties.VALUES.core.disable_color.GetBool()
+    use_color = not properties.VALUES.core.disable_color.GetBool(validate=False)
     use_color &= out_stream.isatty()
     use_color &= (platforms.OperatingSystem.Current() !=
                   platforms.OperatingSystem.WINDOWS)
@@ -221,9 +290,40 @@ class _ConsoleFormatter(logging.Formatter):
                      if use_color else _ConsoleFormatter.FORMATS)
 
   def format(self, record):
-    self._fmt = self._formats.get(record.levelno,
-                                  _ConsoleFormatter.DEFAULT_FORMAT)
-    return logging.Formatter.format(self, record)
+    fmt = self._formats.get(record.levelno, _ConsoleFormatter.DEFAULT_FORMAT)
+    # We are doing some hackery here to change the log format on the fly. In
+    # Python 3, they changed the internal workings of the formatter class so we
+    # need to do something a little different to maintain the behavior.
+    self._fmt = fmt
+    if six.PY3:
+      # pylint: disable=protected-access
+      self._style._fmt = fmt
+    # Convert either bytes or text into a text string that is safe for printing.
+    # This is the first time we are able to intercept messages that come
+    # directly from the log methods (as opposed to the out.write() methods
+    # above).
+    stream_encoding = console_attr.GetConsoleAttr().GetEncoding()
+    with _SafeDecodedLogRecord(record, stream_encoding):
+      msg = super(_ConsoleFormatter, self).format(record)
+    if six.PY2:
+      msg = msg.encode(stream_encoding or 'utf8', 'replace')
+    return msg
+
+
+class _LogFileFormatter(logging.Formatter):
+  """A formatter for log file contents."""
+  # Note: if this ever changes, please update LOG_PREFIX_PATTERN
+  FORMAT = _FmtString('%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+
+  def __init__(self):
+    super(_LogFileFormatter, self).__init__(fmt = _LogFileFormatter.FORMAT)
+
+  def format(self, record):
+    # The log file handler expects text strings always, and encodes them to
+    # utf-8 before writing to the file.
+    with _SafeDecodedLogRecord(record, LOG_FILE_ENCODING):
+      msg = super(_LogFileFormatter, self).format(record)
+    return msg
 
 
 class _JsonFormatter(logging.Formatter):
@@ -249,7 +349,7 @@ class _JsonFormatter(logging.Formatter):
 
       if issubclass(type(log_record.msg), BaseException):
         error_dict['type'] = type(log_record.msg).__name__
-        error_dict['details'] = log_record.msg.message
+        error_dict['details'] = six.text_type(log_record.msg)
         error_dict['stacktrace'] = getattr(log_record.msg,
                                            '__traceback__', None)
       elif issubclass(type(log_record.exc_info[0]), BaseException):
@@ -276,7 +376,7 @@ class _JsonFormatter(logging.Formatter):
     """
     message_dict = OrderedDict()
     # This perserves the order in the output for each JSON message
-    for outfield, logfield in self.required_fields.iteritems():
+    for outfield, logfield in six.iteritems(self.required_fields):
       if outfield == 'version':
         message_dict[outfield] = STRUCTURED_RECORD_VERSION
       else:
@@ -343,9 +443,7 @@ class _LogManager(object):
   FILE_ONLY_LOGGER_NAME = '___FILE_ONLY___'
 
   def __init__(self):
-    # Note: if this ever changes, please update LOG_PREFIX_PATTERN
-    self._file_formatter = logging.Formatter(
-        fmt='%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+    self._file_formatter = _LogFileFormatter()
 
     # Set up the root logger, it accepts all levels.
     self._root_logger = logging.getLogger()
@@ -402,6 +500,8 @@ class _LogManager(object):
     self._root_logger.addHandler(self.stderr_handler)
 
     # Reset all the log file handlers.
+    for f in self.file_only_logger.handlers:
+      f.close()
     self.file_only_logger.handlers[:] = []
     self.file_only_logger.addHandler(_NullHandler())
 
@@ -450,7 +550,8 @@ class _LogManager(object):
       bool, The old value of enabled.
     """
     if enabled is None:
-      enabled = properties.VALUES.core.user_output_enabled.GetBool()
+      enabled = properties.VALUES.core.user_output_enabled.GetBool(
+          validate=False)
     if enabled is None:
       enabled = DEFAULT_USER_OUTPUT_ENABLED
 
@@ -501,10 +602,10 @@ class _LogManager(object):
     # A handler to write DEBUG and above to log files in the given directory
     try:
       log_file = self._SetupLogsDir(logs_dir)
-      file_handler = logging.FileHandler(log_file)
+      file_handler = logging.FileHandler(log_file, encoding=LOG_FILE_ENCODING)
     except (OSError, IOError, files.Error) as exp:
-      warn(u'Could not setup log file in {0}, ({1}: {2})'
-           .format(logs_dir, type(exp).__name__, exp))
+      warning('Could not setup log file in {0}, ({1}: {2})'
+              .format(logs_dir, type(exp).__name__, exp))
       return
 
     self.current_log_file = log_file
@@ -662,6 +763,30 @@ def Print(*msg):
   out.Print(*msg)
 
 
+def WriteToFileOrStdout(path, content, overwrite=True, binary=False,
+                        private=False):
+  """Writes content to the specified file or stdout if path is '-'.
+
+  Args:
+    path: str, The path of the file to write.
+    content: str, The content to write to the file.
+    overwrite: bool, Whether or not to overwrite the file if it exists.
+    binary: bool, True to open the file in binary mode.
+    private: bool, Whether to write the file in private mode.
+
+  Raises:
+    Error: If the file cannot be written.
+  """
+  if path == '-':
+    if binary:
+      files.WriteStreamBytes(sys.stdout, content)
+    else:
+      out.write(content)
+  else:
+    files.WriteFileContents(
+        path, content, overwrite=overwrite, binary=binary, private=private)
+
+
 def Reset(stdout=None, stderr=None):
   """Reinitialize the logging system.
 
@@ -721,7 +846,7 @@ def GetVerbosityName(verbosity=None):
   """
   if verbosity is None:
     verbosity = GetVerbosity()
-  for name, num in VALID_VERBOSITY_STRINGS.iteritems():
+  for name, num in six.iteritems(VALID_VERBOSITY_STRINGS):
     if verbosity == num:
       return name
   return None
@@ -857,7 +982,7 @@ def GetLogFilePath():
 def _PrintResourceChange(operation,
                          resource,
                          kind,
-                         async,
+                         is_async,
                          details,
                          failed,
                          operation_past_tense=None):
@@ -869,7 +994,7 @@ def _PrintResourceChange(operation,
     operation: str, The completed operation name.
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message. For commands that operate on multiple
       resources and report all successes and failures before exiting. Failure
@@ -882,7 +1007,7 @@ def _PrintResourceChange(operation,
   if failed:
     msg.append('Failed to')
     msg.append(operation)
-  elif async:
+  elif is_async:
     msg.append(operation.capitalize())
     msg.append('in progress for')
   else:
@@ -891,84 +1016,86 @@ def _PrintResourceChange(operation,
 
   if kind:
     msg.append(kind)
-  msg.append(u'[{0}]'.format(unicode(resource)))
+  if resource:
+    msg.append('[{0}]'.format(str(resource)))
   if details:
     msg.append(details)
   if failed:
-    msg[-1] = u'{0}:'.format(msg[-1])
+    msg[-1] = '{0}:'.format(msg[-1])
     msg.append(failed)
   period = '' if msg[-1].endswith('.') else '.'
   writer = error if failed else status.Print
-  writer(u'{0}{1}'.format(' '.join(msg), period))
+  writer('{0}{1}'.format(' '.join(msg), period))
 
 
-def CreatedResource(resource, kind=None, async=False, details=None,
+def CreatedResource(resource, kind=None, is_async=False, details=None,
                     failed=None):
   """Prints a status message indicating that a resource was created.
 
   Args:
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message.
   """
-  _PrintResourceChange('create', resource, kind, async, details, failed)
+  _PrintResourceChange('create', resource, kind, is_async, details, failed)
 
 
-def DeletedResource(resource, kind=None, async=False, details=None,
+def DeletedResource(resource, kind=None, is_async=False, details=None,
                     failed=None):
   """Prints a status message indicating that a resource was deleted.
 
   Args:
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message.
   """
-  _PrintResourceChange('delete', resource, kind, async, details, failed)
+  _PrintResourceChange('delete', resource, kind, is_async, details, failed)
 
 
-def RestoredResource(resource, kind=None, async=False, details=None,
+def RestoredResource(resource, kind=None, is_async=False, details=None,
                      failed=None):
   """Prints a status message indicating that a resource was restored.
 
   Args:
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message.
   """
-  _PrintResourceChange('restore', resource, kind, async, details, failed)
+  _PrintResourceChange('restore', resource, kind, is_async, details, failed)
 
 
-def UpdatedResource(resource, kind=None, async=False, details=None,
+def UpdatedResource(resource, kind=None, is_async=False, details=None,
                     failed=None):
   """Prints a status message indicating that a resource was updated.
 
   Args:
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message.
   """
-  _PrintResourceChange('update', resource, kind, async, details, failed)
+  _PrintResourceChange('update', resource, kind, is_async, details, failed)
 
 
-def ResetResource(resource, kind=None, async=False, details=None, failed=None):
+def ResetResource(resource, kind=None, is_async=False, details=None,
+                  failed=None):
   """Prints a status message indicating that a resource was reset.
 
   Args:
     resource: str, The resource name.
     kind: str, The resource kind (instance, cluster, project, etc.).
-    async: bool, True if the operation is in progress.
+    is_async: bool, True if the operation is in progress.
     details: str, Extra details appended to the message. Keep it succinct.
     failed: str, Failure message.
   """
-  _PrintResourceChange('reset', resource, kind, async, details, failed,
+  _PrintResourceChange('reset', resource, kind, is_async, details, failed,
                        operation_past_tense='reset')
 
 
@@ -978,7 +1105,6 @@ getLogger = logging.getLogger
 log = logging.log
 debug = logging.debug
 info = logging.info
-warn = logging.warn
 warning = logging.warning
 error = logging.error
 critical = logging.critical

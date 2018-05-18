@@ -17,7 +17,10 @@
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
+@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
 class Logging(base.Group):
   """Manage Stackdriver Logging."""
 
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

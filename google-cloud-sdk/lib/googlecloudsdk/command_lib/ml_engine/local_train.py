@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for running training jobs locally."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import atexit
 import json
 import os
@@ -19,6 +21,10 @@ import subprocess
 
 from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
+from googlecloudsdk.core.util import encoding
+from googlecloudsdk.core.util import files
+from six.moves import range
 
 
 def MakeProcess(module_name,
@@ -47,11 +53,16 @@ def MakeProcess(module_name,
     a subprocess.Popen object corresponding to the subprocesses or an int
     corresponding to the return value of the subprocess
     (if task_type is 'master')
+  Raises:
+    RuntimeError: if there is no python executable on the user system
   """
   if args is None:
     args = []
-  python = execution_utils.GetPythonExecutable()
-  cmd = [python, '-m', module_name] + args
+  exe_override = properties.VALUES.ml_engine.local_python.Get()
+  python_executable = exe_override or files.FindExecutableOnPath('python')
+  if not python_executable:
+    raise RuntimeError('No python interpreter found on local machine')
+  cmd = [python_executable, '-m', module_name] + args
   config = {
       'job': {'job_name': module_name, 'args': args},
       'task': {'type': task_type, 'index': index} if cluster else {},
@@ -66,12 +77,13 @@ def MakeProcess(module_name,
   env = os.environ.copy()
   # the tf_config environment variable is used to pass the tensorflow
   # configuration options to the training module. the module specific
-  # arguments are passed as comand line arguments.
+  # arguments are passed as command line arguments.
   env['TF_CONFIG'] = json.dumps(config)
   if task_type == 'master':
     return execution_utils.Exec(
         cmd, env=env, no_exit=True, cwd=package_root, **extra_popen_args)
   else:
+    env = encoding.EncodeEnv(env)
     task = subprocess.Popen(
         cmd,
         env=env,
@@ -102,7 +114,7 @@ def RunDistributed(module_name,
   Returns:
     int. the retval of 'master' subprocess
   """
-  ports = range(start_port, start_port + num_ps + num_workers + 1)
+  ports = list(range(start_port, start_port + num_ps + num_workers + 1))
   cluster = {
       'master': ['localhost:{port}'.format(port=ports[0])],
       'ps': ['localhost:{port}'.format(port=p)

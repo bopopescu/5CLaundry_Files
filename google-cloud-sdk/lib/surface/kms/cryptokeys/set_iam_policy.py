@@ -13,6 +13,8 @@
 # limitations under the License.
 """Set the IAM policy for a CryptoKey."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.api_lib.cloudkms import iam
 from googlecloudsdk.calliope import base
@@ -23,7 +25,7 @@ from googlecloudsdk.command_lib.kms import flags
 class SetIamPolicy(base.Command):
   """Set the IAM policy for a CryptoKey.
 
-  Sets the IAM policy for the given CryptoKey as defined in a JSON file.
+  Sets the IAM policy for the given CryptoKey as defined in a JSON or YAML file.
 
   See https://cloud.google.com/iam/docs/managing-policies for details of
   the policy file format and contents.
@@ -42,12 +44,14 @@ class SetIamPolicy(base.Command):
   @staticmethod
   def Args(parser):
     flags.AddCryptoKeyArgument(parser, 'whose IAM policy to update')
-    parser.add_argument('policy_file', help='JSON file with the IAM policy')
+    parser.add_argument('policy_file', help=('JSON or YAML '
+                                             'file with the IAM policy'))
 
   def Run(self, args):
     messages = cloudkms_base.GetMessagesModule()
 
-    policy = iam_util.ParseJsonPolicyFile(args.policy_file, messages.Policy)
+    policy, unused_mask = iam_util.ParseYamlOrJsonPolicyFile(args.policy_file,
+                                                             messages.Policy)
 
     crypto_key_ref = flags.ParseCryptoKeyName(args)
     result = iam.SetCryptoKeyIamPolicy(crypto_key_ref, policy)

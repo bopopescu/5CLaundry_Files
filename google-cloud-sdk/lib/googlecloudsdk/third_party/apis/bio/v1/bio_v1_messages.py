@@ -13,7 +13,7 @@ package = 'bio'
 
 
 class BioProjectsOperationsCancelRequest(_messages.Message):
-  """A BioProjectsOperationsCancelRequest object.
+  r"""A BioProjectsOperationsCancelRequest object.
 
   Fields:
     name: The name of the operation resource to be cancelled.
@@ -23,7 +23,7 @@ class BioProjectsOperationsCancelRequest(_messages.Message):
 
 
 class BioProjectsOperationsGetRequest(_messages.Message):
-  """A BioProjectsOperationsGetRequest object.
+  r"""A BioProjectsOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -33,7 +33,7 @@ class BioProjectsOperationsGetRequest(_messages.Message):
 
 
 class BioProjectsOperationsListRequest(_messages.Message):
-  """A BioProjectsOperationsListRequest object.
+  r"""A BioProjectsOperationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -48,22 +48,8 @@ class BioProjectsOperationsListRequest(_messages.Message):
   pageToken = _messages.StringField(4)
 
 
-class BioProjectsPipelinesRunDeepVariantV1alphaRequest(_messages.Message):
-  """A BioProjectsPipelinesRunDeepVariantV1alphaRequest object.
-
-  Fields:
-    projectId: Required. The project associated with this DeepVariant pipeline
-      run.
-    runDeepVariantV1alphaRequest: A RunDeepVariantV1alphaRequest resource to
-      be passed as the request body.
-  """
-
-  projectId = _messages.StringField(1, required=True)
-  runDeepVariantV1alphaRequest = _messages.MessageField('RunDeepVariantV1alphaRequest', 2)
-
-
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -73,7 +59,7 @@ class Empty(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -86,8 +72,8 @@ class ListOperationsResponse(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
     MetadataValue: Service-specific metadata associated with the operation.
@@ -105,7 +91,7 @@ class Operation(_messages.Message):
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
@@ -128,7 +114,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata associated with the operation.  It typically
+    r"""Service-specific metadata associated with the operation.  It typically
     contains progress information and common metadata such as create time.
     Some services might not provide such metadata.  Any method that returns a
     long-running operation should document the metadata type, if any.
@@ -142,7 +128,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -156,7 +142,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """The normal response of the operation in case of success.  If the
+    r"""The normal response of the operation in case of success.  If the
     original method returns no data on success, such as `Delete`, the response
     is `google.protobuf.Empty`.  If the original method is standard
     `Get`/`Create`/`Update`, the response should be the resource.  For other
@@ -173,7 +159,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -193,7 +179,7 @@ class Operation(_messages.Message):
 
 
 class OperationEvent(_messages.Message):
-  """An event that occurred during an Operation.
+  r"""An event that occurred during an Operation.
 
   Fields:
     description: A description of event in JSON-LD format.
@@ -209,7 +195,7 @@ class OperationEvent(_messages.Message):
 
 
 class OperationMetadata(_messages.Message):
-  """Metadata describing an Operation.
+  r"""Metadata describing an Operation.
 
   Messages:
     LabelsValue: User-settable labels.
@@ -232,7 +218,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """User-settable labels.
+    r"""User-settable labels.
 
     Messages:
       AdditionalProperty: An additional property for a LabelsValue object.
@@ -242,7 +228,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -256,7 +242,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RequestValue(_messages.Message):
-    """The original request that started the operation.
+    r"""The original request that started the operation.
 
     Messages:
       AdditionalProperty: An additional property for a RequestValue object.
@@ -267,7 +253,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RequestValue object.
+      r"""An additional property for a RequestValue object.
 
       Fields:
         key: Name of the additional property.
@@ -281,7 +267,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RuntimeMetadataValue(_messages.Message):
-    """Runtime metadata on this Operation.
+    r"""Runtime metadata on this Operation.
 
     Messages:
       AdditionalProperty: An additional property for a RuntimeMetadataValue
@@ -293,7 +279,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RuntimeMetadataValue object.
+      r"""An additional property for a RuntimeMetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -315,95 +301,15 @@ class OperationMetadata(_messages.Message):
   startTime = _messages.StringField(8)
 
 
-class PipelineOptions(_messages.Message):
-  """Common pipeline options.
-
-  Messages:
-    LabelsValue: User-settable labels. Applied to the Operation and any
-      associated pipeline resources, e.g. GCE VMs (if any).
-
-  Fields:
-    computeZones: Google Compute Engine availability zones in which the
-      workflow should start worker virtual machines, if any are needed for
-      this particular workflow. Must be valid Google Compute Engine zone
-      names, for example "us-east1-d".
-    labels: User-settable labels. Applied to the Operation and any associated
-      pipeline resources, e.g. GCE VMs (if any).
-    requestId: Optional. If non-empty then requests are idempotent in that
-      sending a second RunWorkflowRequest with the same project_id and
-      request_id will return the name of the same already-running operation,
-      instead of starting another. Do not reuse request_ids. Reusing a
-      (project_id, request_id) for a different request will result in an
-      error. A common way of filling this value is with a random 64-bit
-      number.
-  """
-
-  @encoding.MapUnrecognizedFields('additionalProperties')
-  class LabelsValue(_messages.Message):
-    """User-settable labels. Applied to the Operation and any associated
-    pipeline resources, e.g. GCE VMs (if any).
-
-    Messages:
-      AdditionalProperty: An additional property for a LabelsValue object.
-
-    Fields:
-      additionalProperties: Additional properties of type LabelsValue
-    """
-
-    class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
-
-      Fields:
-        key: Name of the additional property.
-        value: A string attribute.
-      """
-
-      key = _messages.StringField(1)
-      value = _messages.StringField(2)
-
-    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
-
-  computeZones = _messages.StringField(1, repeated=True)
-  labels = _messages.MessageField('LabelsValue', 2)
-  requestId = _messages.StringField(3)
-
-
-class RunDeepVariantV1alphaRequest(_messages.Message):
-  """A RunDeepVariantV1alphaRequest object.
-
-  Fields:
-    inputFastq1: List of Google Cloud Storage paths of forward strand FASTQ.
-      The pairs of FASTQ files must occur at the same position in both lists.
-      e.g.:    input_fastq1s = ['lane1_1.fastq', 'lane2_1.fastq',
-      'lane3_1.fastq']   input_fastq2s = ['lane1_2.fastq', 'lane2_2.fastq',
-      'lane3_2.fastq']
-    inputFastq2: List of Google Cloud Storage paths of reverse strand FASTQ.
-      The pairs of FASTQ files must occur at the same position in both lists.
-      e.g.:    input_fastq1s = ['lane1_1.fastq', 'lane2_1.fastq',
-      'lane3_1.fastq']   input_fastq2s = ['lane1_2.fastq', 'lane2_2.fastq',
-      'lane3_2.fastq']
-    options: Common pipeline options.
-    outputPath: Required. The Google Cloud Storage path for copying the final
-      output files. For example, 'gs://<user_bucket>/<sample_name>'.
-    sampleName: Required. Sample name.
-  """
-
-  inputFastq1 = _messages.StringField(1, repeated=True)
-  inputFastq2 = _messages.StringField(2, repeated=True)
-  options = _messages.MessageField('PipelineOptions', 3)
-  outputPath = _messages.StringField(4)
-  sampleName = _messages.StringField(5)
-
-
 class RuntimeMetadata(_messages.Message):
-  """Runtime metadata that will be populated in the runtime_metadata field of
+  r"""Runtime metadata that will be populated in the runtime_metadata field of
   an Operation associated with a RunWorkflow execution.
   """
 
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -432,7 +338,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -444,7 +350,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -470,7 +376,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -518,7 +424,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -530,7 +436,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -548,11 +454,8 @@ class Status(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'bio')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'bio')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'bio')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

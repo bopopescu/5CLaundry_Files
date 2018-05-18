@@ -13,6 +13,9 @@
 # limitations under the License.
 
 """SSH client utilities for key-generation, dispatching the ssh commands etc."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import errno
 import getpass
 import os
@@ -29,6 +32,8 @@ from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.util import files
 from googlecloudsdk.core.util import platforms
 from googlecloudsdk.core.util import retry
+
+import six
 
 
 PER_USER_SSH_CONFIG_FILE = os.path.join('~', '.ssh', 'config')
@@ -54,7 +59,8 @@ class CommandError(core_exceptions.Error):
     message_text = '[{0}]'.format(message) if message else None
     return_code_text = ('return code [{0}]'.format(return_code)
                         if return_code else None)
-    why_failed = ' and '.join(filter(None, [message_text, return_code_text]))
+    why_failed = ' and '.join(
+        [f for f in [message_text, return_code_text] if f])
 
     super(CommandError, self).__init__(
         '[{0}] exited with {1}.'.format(self.cmd, why_failed),
@@ -131,7 +137,12 @@ class Environment(object):
     """
     self.suite = suite
     self.bin_path = bin_path
-    for key, cmd in self.COMMANDS[suite].iteritems():
+    # So pytype is aware of attributes.
+    self.ssh = None
+    self.ssh_term = None
+    self.scp = None
+    self.keygen = None
+    for key, cmd in six.iteritems(self.COMMANDS[suite]):
       setattr(self, key, files.FindExecutableOnPath(cmd, path=self.bin_path))
     self.ssh_exit_code = self.SSH_EXIT_CODES[suite]
 
@@ -246,7 +257,10 @@ class Keys(object):
       # convert to unicode. Assume UTF 8, but if we miss a character we can just
       # replace it with a '?'. The only source of issues would be the hostnames,
       # which are relatively inconsequential.
-      parts = key_string.strip().decode('utf8', 'replace').split(' ', 2)
+      decoded_key = key_string.strip()
+      if isinstance(key_string, six.binary_type):
+        decoded_key = decoded_key.decode('utf8', 'replace')
+      parts = decoded_key.split(' ', 2)
       if len(parts) < 2:
         raise InvalidKeyError('Public key [{}] is invalid.'.format(key_string))
       comment = parts[2].strip() if len(parts) > 2 else ''  # e.g. `me@host`
@@ -261,9 +275,9 @@ class Keys(object):
       Returns:
         str, A key string on the form `TYPE DATA` or `TYPE DATA COMMENT`.
       """
-      out_format = u'{type} {data}'
+      out_format = '{type} {data}'
       if include_comment and self.comment:
-        out_format += u' {comment}'
+        out_format += ' {comment}'
       return out_format.format(
           type=self.key_type, data=self.key_data, comment=self.comment)
 
@@ -288,10 +302,11 @@ class Keys(object):
     private_key_file = os.path.realpath(os.path.expanduser(key_file))
     self.dir = os.path.dirname(private_key_file)
     self.env = env or Environment.Current()
+    # TODO(b/71388306): Enums aren't handled well by pytype.
     self.keys = {
         _KeyFileKind.PRIVATE: self.KeyFileData(private_key_file),
         _KeyFileKind.PUBLIC: self.KeyFileData(private_key_file + '.pub')
-    }
+    }  # type: dict[enum.Enum, Keys.KeyFileData]
     if self.env.suite is Suite.PUTTY:
       self.keys[_KeyFileKind.PPK] = self.KeyFileData(private_key_file + '.ppk')
 
@@ -320,13 +335,13 @@ class Keys(object):
     status_padding = 0
     for kind in self.keys:
       data = self.keys[kind]
-      key_padding = max(key_padding, len(kind.value))
-      status_padding = max(status_padding, len(data.status.value))
+      key_padding = max(key_padding, len(kind.value))  # pytype: disable=attribute-error
+      status_padding = max(status_padding, len(data.status.value))  # pytype: disable=attribute-error
     for kind in self.keys:
       data = self.keys[kind]
       messages.append('{} {} [{}]\n'.format(
-          (kind.value + ' key').ljust(key_padding + 4),
-          ('(' + data.status.value + ')') .ljust(status_padding + 2),
+          (kind.value + ' key').ljust(key_padding + 4),  # pytype: disable=attribute-error
+          ('(' + data.status.value + ')') .ljust(status_padding + 2),  # pytype: disable=attribute-error
           data.filename))
     messages.sort()
     return ''.join(messages)
@@ -345,7 +360,7 @@ class Keys(object):
     """
     def ValidateFile(kind):
       status_or_line = self._WarnOrReadFirstKeyLine(self.keys[kind].filename,
-                                                    kind.value)
+                                                    kind.value)  # pytype: disable=attribute-error
       if isinstance(status_or_line, KeyFileStatus):
         return status_or_line
       else:  # returned line - present
@@ -362,12 +377,12 @@ class Keys(object):
       try:
         self.GetPublicKey()
       except InvalidKeyError:
-        log.warn('The public SSH key file [{}] is corrupt.'
-                 .format(self.keys[_KeyFileKind.PUBLIC]))
+        log.warning('The public SSH key file [{}] is corrupt.'
+                    .format(self.keys[_KeyFileKind.PUBLIC]))
         self.keys[_KeyFileKind.PUBLIC].status = KeyFileStatus.BROKEN
 
     # Summary
-    collected_values = [x.status for x in self.keys.itervalues()]
+    collected_values = [x.status for x in six.itervalues(self.keys)]
     if all(x == KeyFileStatus.ABSENT for x in collected_values):
       return KeyFileStatus.ABSENT
     elif all(x == KeyFileStatus.PRESENT for x in collected_values):
@@ -399,7 +414,7 @@ class Keys(object):
     if force_key_file_overwrite is False:
       raise console_io.OperationCancelledError(message + 'Operation aborted.')
     message += 'We are going to overwrite all above files.'
-    log.warn(message)
+    log.warning(message)
     if force_key_file_overwrite is None:
       # - Interactive when pressing 'Y', continue
       # - Interactive when pressing enter or 'N', raise OperationCancelledError
@@ -407,7 +422,7 @@ class Keys(object):
       console_io.PromptContinue(default=False, cancel_on_no=True)
 
     # Remove existing broken key files.
-    for key_file in self.keys.viewvalues():
+    for key_file in six.viewvalues(self.keys):
       try:
         os.remove(key_file.filename)
       except OSError as e:
@@ -418,7 +433,7 @@ class Keys(object):
   def _WarnOrReadFirstKeyLine(self, path, kind):
     """Returns the first line from the key file path.
 
-    A None return indicates an error and is always accompanied by a log.warn
+    A None return indicates an error and is always accompanied by a log.warning
     message.
 
     Args:
@@ -426,7 +441,7 @@ class Keys(object):
       kind: The kind of key file, 'private' or 'public'.
 
     Returns:
-      None (and prints a log.warn message) if the file does not exist, is not
+      None (and prints a log.warning message) if the file does not exist, is not
       readable, or is empty. Otherwise returns the first line utf8 decoded.
     """
     try:
@@ -435,7 +450,9 @@ class Keys(object):
         # encoded so it cannot contain any unicode. Comments may contain
         # unicode, but they are ignored in the key file analysis here, so
         # replacing invalid chars with ? is OK.
-        line = f.readline().strip().decode('utf8', 'replace')
+        line = f.readline().strip()
+        if isinstance(line, six.binary_type):
+          line = line.decode('utf8', 'replace')
         if line:
           return line
         msg = 'is empty'
@@ -447,10 +464,11 @@ class Keys(object):
       else:
         msg = 'is not readable'
         status = KeyFileStatus.BROKEN
-    log.warn('The %s SSH key file for gcloud %s.', kind, msg)
+    log.warning('The %s SSH key file for gcloud %s.', kind, msg)
     return status
 
   def GetPublicKey(self):
+    # type: () -> Keys.PublicKey
     """Returns the public key verbatim from file as a string.
 
     Precondition: The public key must exist. Run Keys.EnsureKeysExist() prior.
@@ -491,8 +509,8 @@ class Keys(object):
     if key_files_validity is not KeyFileStatus.PRESENT:
       if key_files_validity is KeyFileStatus.ABSENT:
         # If key is broken, message is already displayed
-        log.warn('You do not have an SSH key for gcloud.')
-        log.warn('SSH keygen will be executed to generate a key.')
+        log.warning('You do not have an SSH key for gcloud.')
+        log.warning('SSH keygen will be executed to generate a key.')
 
       if not os.path.exists(self.dir):
         msg = ('This tool needs to create the directory [{0}] before being '
@@ -500,7 +518,7 @@ class Keys(object):
         console_io.PromptContinue(
             message=msg, cancel_on_no=True,
             cancel_string='SSH key generation aborted by user.')
-        files.MakeDir(self.dir, 0700)
+        files.MakeDir(self.dir, 0o700)
 
       cmd = KeygenCommand(self.key_file, allow_passphrase=allow_passphrase)
       cmd.Run(self.env)
@@ -619,11 +637,25 @@ def GetDefaultSshUsername(warn_on_account_user=False):
     full_account = properties.VALUES.core.account.Get(required=True)
     account_user = gaia.MapGaiaEmailToDefaultAccountName(full_account)
     if warn_on_account_user:
-      log.warn('Invalid characters in local username [{0}]. '
-               'Using username corresponding to active account: [{1}]'.format(
-                   user, account_user))
+      log.warning(
+          'Invalid characters in local username [{0}]. '
+          'Using username corresponding to active account: [{1}]'.format(
+              user, account_user))
     user = account_user
   return user
+
+
+def ParseAndSubstituteSSHFlags(args, remote, ip_address):
+  """Obtain extra flags from the command arguments."""
+  extra_flags = []
+  if args.ssh_flag:
+    for flag in args.ssh_flag:
+      for flag_part in flag.split():  # We want grouping here
+        dereferenced_flag = (
+            flag_part.replace('%USER%', remote.user)
+            .replace('%INSTANCE%', ip_address))
+        extra_flags.append(dereferenced_flag)
+  return extra_flags
 
 
 def _SdkHelperBin():
@@ -861,7 +893,7 @@ class SSHCommand(object):
 
     if env.suite is Suite.OPENSSH:
       # Always, always deterministic order
-      for key, value in sorted(self.options.iteritems()):
+      for key, value in sorted(six.iteritems(self.options)):
         args.extend(['-o', '{k}={v}'.format(k=key, v=value)])
     args.extend(self.extra_flags)
     args.append(self.remote.ToArg())
@@ -877,7 +909,8 @@ class SSHCommand(object):
       args.extend(self.remote_command)
     return args
 
-  def Run(self, env=None, force_connect=False):
+  def Run(self, env=None, force_connect=False,
+          explicit_output_file=None):
     """Run the SSH command using the given environment.
 
     Args:
@@ -885,6 +918,8 @@ class SSHCommand(object):
       force_connect: bool, whether to inject 'y' into the prompts for `plink`,
         which is insecure and not recommended. It serves legacy compatibility
         purposes only.
+      explicit_output_file: File-like object into which pipe stdout.
+        Useful when some process is needed over the command.
 
     Raises:
       MissingCommandError: If SSH command(s) not found.
@@ -899,7 +934,14 @@ class SSHCommand(object):
     log.debug('Running command [{}].'.format(' '.join(args)))
     # PuTTY and friends always ask on fingerprint mismatch
     in_str = 'y\n' if env.suite is Suite.PUTTY and force_connect else None
-    status = execution_utils.Exec(args, no_exit=True, in_str=in_str)
+
+    # We pipe stdout to a specific file
+    extra_popen_kwargs = {}
+    if explicit_output_file:
+      extra_popen_kwargs['stdout'] = explicit_output_file
+
+    status = execution_utils.Exec(args, no_exit=True, in_str=in_str,
+                                  **extra_popen_kwargs)
     if status == env.ssh_exit_code:
       raise CommandError(args[0], return_code=status)
     return status
@@ -1039,7 +1081,7 @@ class SCPCommand(object):
     # SSH config options
     if env.suite is Suite.OPENSSH:
       # Always, always deterministic order
-      for key, value in sorted(self.options.iteritems()):
+      for key, value in sorted(six.iteritems(self.options)):
         args.extend(['-o', '{k}={v}'.format(k=key, v=value)])
 
     args.extend(self.extra_flags)

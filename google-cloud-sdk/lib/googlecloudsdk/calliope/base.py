@@ -15,18 +15,23 @@
 
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import abc
+import collections
 from functools import wraps
 import itertools
+import re
 import sys
 
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import display
+from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
-from googlecloudsdk.core import remote_completion
-from googlecloudsdk.core.resource import resource_exceptions
+from googlecloudsdk.core import properties
 from googlecloudsdk.core.resource import resource_printer
-from googlecloudsdk.core.resource import resource_registry
+
+import six
 
 
 # Common markdown.
@@ -35,7 +40,7 @@ MARKDOWN_ITALIC = '_'
 MARKDOWN_CODE = '`'
 
 
-class DeprecationException(Exception):
+class DeprecationException(exceptions.Error):
   """An exception for when a command or group has been deprecated."""
 
 
@@ -64,6 +69,9 @@ class ReleaseTrack(object):
     def __eq__(self, other):
       return self.id == other.id
 
+    def __hash__(self):
+      return hash(self.id)
+
   GA = _TRACK('GA', None, None, None)
   BETA = _TRACK(
       'BETA', 'beta',
@@ -72,7 +80,11 @@ class ReleaseTrack(object):
   ALPHA = _TRACK(
       'ALPHA', 'alpha',
       '{0}(ALPHA){0} '.format(MARKDOWN_BOLD),
-      'This command is currently in ALPHA and may change without notice.')
+      'This command is currently in ALPHA and may change without notice. '
+      'Usually, users of ALPHA commands and flags need to apply for access, '
+      'agree to applicable terms, and have their projects whitelisted. '
+      'Contact Google or sign up on a product\'s page for ALPHA access. '
+      'Product pages can be found at https://cloud.google.com/products/.')
   _ALL = [GA, BETA, ALPHA]
 
   @staticmethod
@@ -119,10 +131,8 @@ class ReleaseTrack(object):
     raise ValueError('Unknown release track id [{}].'.format(id))
 
 
-class Action(object):
+class Action(six.with_metaclass(abc.ABCMeta, object)):
   """A class that allows you to save an Action configuration for reuse."""
-
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self, *args, **kwargs):
     """Creates the Action.
@@ -188,10 +198,13 @@ class ArgumentGroup(Action):
     Returns:
       The result of parser.add_argument().
     """
-    group = parser.add_argument_group(*self.args, **self.kwargs)
+    group = self._CreateGroup(parser)
     for arg in self.arguments:
       arg.AddToParser(group)
     return group
+
+  def _CreateGroup(self, parser):
+    return parser.add_group(*self.args, **self.kwargs)
 
 
 class Argument(Action):
@@ -240,6 +253,8 @@ class Argument(Action):
           parser.dests.remove(flag.dest)
         if flag in parser.flag_args:
           parser.flag_args.remove(flag)
+        if flag in parser.arguments:
+          parser.arguments.remove(flag)
 
   def SetDefault(self, parser, default):
     """Sets the default value for this flag in the given parser.
@@ -253,6 +268,15 @@ class Argument(Action):
       kwargs = {flag.dest: default}
       parser.set_defaults(**kwargs)
 
+      # Update the flag's help text.
+      original_help = flag.help
+      match = re.search(r'(.*The default is ).*?(\.([ \t\n].*))',
+                        original_help, re.DOTALL)
+      if match:
+        new_help = '{}*{}*{}'.format(match.group(1), default, match.group(2))
+      else:
+        new_help = original_help + ' The default is *{}*.'.format(default)
+      flag.help = new_help
 
 # Common flag definitions for consistency.
 
@@ -270,7 +294,7 @@ FLATTEN_FLAG = Argument(
         Flatten _name_[] output resource slices in _KEY_ into separate records
         for each item in each slice. Multiple keys and slices may be specified.
         This also flattens keys for *--format* and *--filter*. For example,
-        *--flatten=abc.def[]* flattens *abc.def[].ghi* references to
+        *--flatten=abc.def* flattens *abc.def[].ghi* references to
         *abc.def.ghi*. A resource record containing *abc.def[]* with N elements
         will expand to N records in the flattened output. This flag interacts
         with other flags that are applied in this order: *--flatten*,
@@ -308,7 +332,7 @@ FILTER_FLAG = Argument(
 
 LIMIT_FLAG = Argument(
     '--limit',
-    type=arg_parsers.BoundedInt(1, sys.maxint, unlimited=True),
+    type=arg_parsers.BoundedInt(1, sys.maxsize, unlimited=True),
     category=LIST_COMMAND_FLAGS,
     help="""\
     The maximum number of resources to list. The default is *unlimited*.
@@ -318,7 +342,7 @@ LIMIT_FLAG = Argument(
 
 PAGE_SIZE_FLAG = Argument(
     '--page-size',
-    type=arg_parsers.BoundedInt(1, sys.maxint, unlimited=True),
+    type=arg_parsers.BoundedInt(1, sys.maxsize, unlimited=True),
     category=LIST_COMMAND_FLAGS,
     help="""\
     Some services group resource list output into pages. This flag specifies
@@ -347,10 +371,8 @@ URI_FLAG = Argument(
     help='Print a list of resource URIs instead of the default output.')
 
 
-class _Common(object):
+class _Common(six.with_metaclass(abc.ABCMeta, object)):
   """Base class for Command and Group."""
-
-  __metaclass__ = abc.ABCMeta
   _cli_generator = None
   _is_hidden = False
   _is_unicode_supported = False
@@ -358,8 +380,9 @@ class _Common(object):
   _valid_release_tracks = None
   _notices = None
 
-  def __init__(self):
+  def __init__(self, is_group=False):
     self.exit_code = 0
+    self.is_group = is_group
 
   @staticmethod
   def Args(parser):
@@ -385,7 +408,10 @@ class _Common(object):
 
   @classmethod
   def IsUnicodeSupported(cls):
-    return cls._is_unicode_supported
+    if six.PY2:
+      return cls._is_unicode_supported
+    # We always support unicode on Python 3.
+    return True
 
   @classmethod
   def ReleaseTrack(cls):
@@ -425,32 +451,12 @@ class _Common(object):
     return cls._notices
 
   @classmethod
-  def AddNotice(cls, tag, msg):
+  def AddNotice(cls, tag, msg, preserve_existing=False):
     if not cls._notices:
       cls._notices = {}
+    if tag in cls._notices and preserve_existing:
+      return
     cls._notices[tag] = msg
-
-  @classmethod
-  def GetExecutionFunction(cls, *args):
-    """Get a fully bound function that will call another gcloud command.
-
-    This class method can be called at any time to generate a function that will
-    execute another gcloud command.  The function itself can only be executed
-    after the gcloud CLI has been built i.e. after all Args methods have
-    been called.
-
-    Args:
-      *args: str, The args for the command to execute.  Each token should be a
-        separate string and the tokens should start from after the 'gcloud'
-        part of the invocation.
-
-    Returns:
-      A bound function to call the gcloud command.
-    """
-    def ExecFunc():
-      return cls._cli_generator.Generate().Execute(list(args),
-                                                   call_arg_complete=False)
-    return ExecFunc
 
   @classmethod
   def GetCLIGenerator(cls):
@@ -470,7 +476,7 @@ class Group(_Common):
   _command_suggestions = {}
 
   def __init__(self):
-    super(Group, self).__init__()
+    super(Group, self).__init__(is_group=True)
 
   def Filter(self, context, args):
     """Modify the context that will be given to this group's commands when run.
@@ -488,7 +494,7 @@ class Group(_Common):
     return cls._command_suggestions
 
 
-class Command(_Common):
+class Command(six.with_metaclass(abc.ABCMeta, _Common)):
   """Command is a base class for commands to implement.
 
   Attributes:
@@ -500,10 +506,8 @@ class Command(_Common):
     _uri_cache_enabled: bool, The URI cache enabled state.
   """
 
-  __metaclass__ = abc.ABCMeta
-
   def __init__(self, cli, context):
-    super(Command, self).__init__()
+    super(Command, self).__init__(is_group=False)
     self._cli_do_not_use_directly = cli
     self.context = context
     self._uri_cache_enabled = False
@@ -548,90 +552,6 @@ class Command(_Common):
     """
     pass
 
-  def Collection(self):
-    """Returns the default collection path string.
-
-    Should handle all command-specific args. --async is handled by
-    ResourceInfo().
-
-    Returns:
-      The default collection path string.
-    """
-    return None
-
-  def ResourceInfo(self, args):
-    """Returns the command resource ResourceInfo object.
-
-    Handles the --async flag.
-
-    Args:
-      args: argparse.Namespace, An object that contains the values for the
-          arguments specified in the ._Flags() and .Args() methods.
-
-    Raises:
-      ResourceRegistryAttributeError: If --async is set and the
-        resource_registry info does not have an async_collection attribute.
-      UnregisteredCollectionError: If the async_collection name is not in the
-        resource registry.
-
-    Returns:
-      A resource object dispatched by display.Displayer().
-    """
-    collection = self.Collection()  # pylint: disable=assignment-from-none
-    if not collection:
-      return None
-    info = resource_registry.Get(collection)
-    if not getattr(args, 'async', False):
-      return info
-    if not info.async_collection:
-      raise resource_exceptions.ResourceRegistryAttributeError(
-          'Collection [{collection}] does not have an async_collection '
-          'attribute.'.format(collection=collection))
-    info = resource_registry.Get(info.async_collection)
-    # One more indirection allowed for commands that have a different operations
-    # format for --async and operations list.
-    if info.async_collection:
-      info = resource_registry.Get(info.async_collection)
-    return info
-
-  def DeprecatedFormat(self, args):
-    """Returns the default format string.
-
-    Calliope supports a powerful formatting mini-language. It allows running
-    things like
-
-        $ my-tool run-foo --format=json
-        $ my-tool run-foo --format='value(bar.baz.map().qux().list())'
-        $ my-tool run-foo --format='table[box](a, b, c:label=SOME_DESCRIPTION)'
-
-    For the best current documentation on this formatting language, see
-    `gcloud topic formats` and `gcloud topic projections`.
-
-    When a command is run with no `--format` flag, this method is run and its
-    result is used as the format string.
-
-    This method is deprecated in favor of calling:
-
-        parser.display_info.AddFormat(<format string>)
-
-    in the Args method for the command.
-
-    Args:
-      args: the argparse namespace object for this command execution. Not used
-        in the default implementation, but available for subclasses to use.
-
-    Returns:
-      str, the default format string for this command.
-    """
-    del args  # Unused in DeprecatedFormat
-    return 'default'
-
-  def ListFormat(self, args):
-    info = self.ResourceInfo(args)
-    if info and info.list_format:
-      return info.list_format
-    return 'default'
-
   def Epilog(self, resources_were_displayed):
     """Called after resources are displayed if the default format was used.
 
@@ -639,10 +559,6 @@ class Command(_Common):
       resources_were_displayed: True if resources were displayed.
     """
     _ = resources_were_displayed
-
-  def Defaults(self):
-    """Returns the command projection defaults."""
-    return None
 
   def GetReferencedKeyNames(self, args):
     """Returns the key names referenced by the filter and format expressions."""
@@ -656,16 +572,9 @@ class Command(_Common):
     """
     return None
 
-  @staticmethod
-  def GetUriCacheUpdateOp():
-    """Returns the URI cache update OP."""
-    return None
 
-
-class TopicCommand(Command):
+class TopicCommand(six.with_metaclass(abc.ABCMeta, Command)):
   """A command that displays its own help on execution."""
-
-  __metaclass__ = abc.ABCMeta
 
   def Run(self, args):
     self.ExecuteCommandDoNotUse(args.command_path[1:] +
@@ -673,45 +582,28 @@ class TopicCommand(Command):
     return None
 
 
-class SilentCommand(Command):
+class SilentCommand(six.with_metaclass(abc.ABCMeta, Command)):
   """A command that produces no output."""
-
-  __metaclass__ = abc.ABCMeta
 
   @staticmethod
   def _Flags(parser):
     parser.display_info.AddFormat('none')
 
-  def DeprecatedFormat(self, unused_args):
-    return 'none'
 
-
-class DescribeCommand(Command):
+class DescribeCommand(six.with_metaclass(abc.ABCMeta, Command)):
   """A command that prints one resource in the 'default' format."""
 
-  __metaclass__ = abc.ABCMeta
 
-
-class CacheCommand(Command):
+class CacheCommand(six.with_metaclass(abc.ABCMeta, Command)):
   """A command that affects the resource URI cache."""
-
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self, *args, **kwargs):
     super(CacheCommand, self).__init__(*args, **kwargs)
     self._uri_cache_enabled = True
 
-  @staticmethod
-  @abc.abstractmethod
-  def GetUriCacheUpdateOp():
-    """Returns the URI cache update OP."""
-    pass
 
-
-class ListCommand(CacheCommand):
+class ListCommand(six.with_metaclass(abc.ABCMeta, CacheCommand)):
   """A command that pretty-prints all resources."""
-
-  __metaclass__ = abc.ABCMeta
 
   @staticmethod
   def _Flags(parser):
@@ -726,6 +618,7 @@ class ListCommand(CacheCommand):
     PAGE_SIZE_FLAG.AddToParser(parser)
     SORT_BY_FLAG.AddToParser(parser)
     URI_FLAG.AddToParser(parser)
+    parser.display_info.AddFormat('default')
 
   def Epilog(self, resources_were_displayed):
     """Called after resources are displayed if the default format was used.
@@ -736,42 +629,17 @@ class ListCommand(CacheCommand):
     if not resources_were_displayed:
       log.status.Print('Listed 0 items.')
 
-  def DeprecatedFormat(self, args):
-    return self.ListFormat(args)
-
-  @staticmethod
-  def GetUriCacheUpdateOp():
-    return remote_completion.ReplaceCacheOp
-
 
 class CreateCommand(CacheCommand, SilentCommand):
   """A command that creates resources."""
-
-  __metaclass__ = abc.ABCMeta
-
-  @staticmethod
-  def GetUriCacheUpdateOp():
-    return remote_completion.AddToCacheOp
 
 
 class DeleteCommand(CacheCommand, SilentCommand):
   """A command that deletes resources."""
 
-  __metaclass__ = abc.ABCMeta
-
-  @staticmethod
-  def GetUriCacheUpdateOp():
-    return remote_completion.DeleteFromCacheOp
-
 
 class RestoreCommand(CacheCommand, SilentCommand):
   """A command that restores resources."""
-
-  __metaclass__ = abc.ABCMeta
-
-  @staticmethod
-  def GetUriCacheUpdateOp():
-    return remote_completion.AddToCacheOp
 
 
 class UpdateCommand(SilentCommand):
@@ -906,7 +774,7 @@ def Deprecate(is_removed=True,
       def WrappedRun(*args, **kw):
         if is_removed:
           raise DeprecationException(error)
-        log.warn(warning)
+        log.warning(warning)
         return run_func(*args, **kw)
       return WrappedRun
 
@@ -921,3 +789,97 @@ def Deprecate(is_removed=True,
     return cmd_class
 
   return DeprecateCommand
+
+
+def _ChoiceValueType(value):
+  """Returns a function that ensures choice flag values match Cloud SDK Style.
+
+  Args:
+    value: string, string representing flag choice value parsed from command
+           line.
+
+  Returns:
+       A string value entirely in lower case, with words separated by
+       hyphens.
+  """
+  return value.replace('_', '-').lower()
+
+
+def ChoiceArgument(name_or_flag, choices, help_str=None, required=False,
+                   action=None, metavar=None, dest=None, default=None,
+                   hidden=False):
+  """Returns Argument with a Cloud SDK style compliant set of choices.
+
+  Args:
+    name_or_flag: string, Either a name or a list of option strings,
+       e.g. foo or -f, --foo.
+    choices: container,  A container (e.g. set, dict, list, tuple) of the
+       allowable values for the argument. Should consist of strings entirely in
+       lower case, with words separated by hyphens.
+    help_str: string,  A brief description of what the argument does.
+    required: boolean, Whether or not the command-line option may be omitted.
+    action: string or argparse.Action, The basic type of argeparse.action
+       to be taken when this argument is encountered at the command line.
+    metavar: string,  A name for the argument in usage messages.
+    dest: string,  The name of the attribute to be added to the object returned
+       by parse_args().
+    default: string,  The value produced if the argument is absent from the
+       command line.
+    hidden: boolean, Whether or not the command-line option is hidden.
+
+  Returns:
+     Argument object with choices, that can accept both lowercase and uppercase
+     user input with hyphens or undersores.
+
+  Raises:
+     TypeError: If choices are not an iterable container of string options.
+     ValueError: If provided choices are not Cloud SDK Style compliant.
+  """
+
+  if not choices:
+    raise ValueError('Choices must not be empty.')
+
+  if (not isinstance(choices, collections.Iterable)
+      or isinstance(choices, six.string_types)):
+    raise TypeError(
+        'Choices must be an iterable container of options: [{}].'.format(
+            ', '.join(choices)))
+
+  # Valid choices should be alphanumeric sequences followed by an optional
+  # period '.', separated by a single hyphen '-'.
+  choice_re = re.compile(r'^([a-z0-9]\.?-?)+[a-z0-9]$')
+  invalid_choices = [x for x in choices if not choice_re.match(x)]
+  if invalid_choices:
+    raise ValueError(
+        ('Invalid choices [{}]. Choices must be entirely in lowercase with '
+         'words separated by hyphens(-)').format(', '.join(invalid_choices)))
+
+  return Argument(name_or_flag, choices=choices, required=required,
+                  type=_ChoiceValueType, help=help_str, action=action,
+                  metavar=metavar, dest=dest, default=default, hidden=hidden)
+
+
+def DisableUserProjectQuota():
+  """Disable the quota header if the user hasn't manually specified it."""
+  if not properties.VALUES.billing.quota_project.IsExplicitlySet():
+    properties.VALUES.billing.quota_project.Set(
+        properties.VALUES.billing.LEGACY)
+
+
+def LogCommand(prog, args):
+  """Log (to debug) the command/arguments being run in a standard format.
+
+  `gcloud feedback` depends on this format.
+
+  Example format is:
+
+      Running [gcloud.example.command] with arguments: [--bar: "baz"]
+
+  Args:
+    prog: string, the dotted name of the command being run (ex.
+        "gcloud.foos.list")
+    args: argparse.namespace, the parsed arguments from the command line
+  """
+  specified_args = sorted(six.iteritems(args.GetSpecifiedArgs()))
+  arg_string = ', '.join(['{}: "{}"'.format(k, v) for k, v in specified_args])
+  log.debug('Running [{}] with arguments: [{}]'.format(prog, arg_string))

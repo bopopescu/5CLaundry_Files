@@ -13,11 +13,13 @@
 # limitations under the License.
 """Flags and helpers for the compute firewall-rules commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
 # Needs to be indented to show up correctly in help text
-LIST_WITH_ALL_FIELDS_FORMAT_BETA = """\
+LIST_WITH_ALL_FIELDS_FORMAT = """\
 table(
                     name,
                     network,
@@ -37,20 +39,39 @@ DEFAULT_LIST_FORMAT = """\
     table(
       name,
       network.basename(),
-      sourceRanges.list():label=SRC_RANGES,
-      allowed[].map().firewall_rule().list():label=RULES,
-      sourceTags.list():label=SRC_TAGS,
-      targetTags.list():label=TARGET_TAGS
+      direction,
+      priority,
+      allowed[].map().firewall_rule().list():label=ALLOW,
+      denied[].map().firewall_rule().list():label=DENY
     )"""
 
-DEFAULT_BETA_LIST_FORMAT = """\
+# Needs to be indented to show up correctly in help text
+LIST_WITH_ALL_FIELDS_FORMAT_BETA = """\
+table(
+                    name,
+                    network,
+                    direction,
+                    priority,
+                    sourceRanges.list():label=SRC_RANGES,
+                    destinationRanges.list():label=DEST_RANGES,
+                    allowed[].map().firewall_rule().list():label=ALLOW,
+                    denied[].map().firewall_rule().list():label=DENY,
+                    sourceTags.list():label=SRC_TAGS,
+                    sourceServiceAccounts.list():label=SRC_SVC_ACCT,
+                    targetTags.list():label=TARGET_TAGS,
+                    targetServiceAccounts.list():label=TARGET_SVC_ACCT,
+                    disabled
+                )"""
+
+DEFAULT_LIST_FORMAT_BETA = """\
     table(
       name,
       network.basename(),
       direction,
       priority,
       allowed[].map().firewall_rule().list():label=ALLOW,
-      denied[].map().firewall_rule().list():label=DENY
+      denied[].map().firewall_rule().list():label=DENY,
+      disabled
     )"""
 
 LIST_NOTICE = """\
@@ -75,3 +96,14 @@ def FirewallRuleArgument(required=True, plural=False):
       plural=plural,
       required=required,
       global_collection='compute.firewalls')
+
+
+def AddEnableLogging(parser, default):
+  parser.add_argument(
+      '--enable-logging',
+      action='store_true',
+      default=default,
+      help="""\
+      Enable logging for the firewall rule. Logs will be exported to
+      StackDriver. Firewall logging is disabled by default.
+      """)

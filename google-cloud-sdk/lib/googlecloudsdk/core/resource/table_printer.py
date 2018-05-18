@@ -14,15 +14,21 @@
 
 """Table format resource printer."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+import io
 import json
 import operator
 import re
-import StringIO
 
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.resource import resource_printer_base
 from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.resource import resource_transform
+
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 # Table output column padding.
@@ -36,12 +42,12 @@ def _Stringify(value):  # pylint: disable=invalid-name
     return ''
   elif isinstance(value, console_attr.Colorizer):
     return value
-  elif isinstance(value, basestring):
-    return console_attr.DecodeFromConsole(value)
+  elif isinstance(value, six.string_types):
+    return console_attr.Decode(value)
   elif isinstance(value, float):
     return resource_transform.TransformFloat(value)
   elif hasattr(value, '__str__'):
-    return unicode(value)
+    return six.text_type(value)
   else:
     return json.dumps(value, sort_keys=True)
 
@@ -58,7 +64,7 @@ class _Justify(object):
   """
 
   def __init__(self, attr, string):
-    self._string = console_attr.EncodeForConsole(
+    self._string = console_attr.SafeText(
         string, encoding=attr.GetEncoding(), escape=False)
     self._adjust = attr.DisplayWidth(self._string) - len(self._string)
 
@@ -108,12 +114,12 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
   title, if any, is printed before the first table.
 
   Printer attributes:
-    box: Prints a box around the entire table and each cell, including the
+    all-box: Prints a box around the entire table and each cell, including the
       title if any.
+    box: Prints a box around the entire table and the title cells if any.
     format=_FORMAT-STRING_: Prints the key data indented by 4 spaces using
       _FORMAT-STRING_ which can reference any of the supported formats.
     no-heading: Disables the column headings.
-    optional: Does not display the column if it is empty.
     pad=N: Sets the column horizontal pad to _N_ spaces. The default is 1 for
       box, 2 otherwise.
     title=_TITLE_: Prints a centered _TITLE_ at the top of the table, within
@@ -140,8 +146,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
         encoding = name
         break
     if not self._console_attr:
-      self._console_attr = console_attr.GetConsoleAttr(encoding=encoding,
-                                                       out=self._out)
+      self._console_attr = console_attr.GetConsoleAttr(encoding=encoding)
     self._csi = self._console_attr.GetControlSequenceIndicator()
     self._page_count = 0
 
@@ -167,7 +172,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
       for col in self.column_attributes.Columns():
         if col.attribute.subformat:
           # This initializes a nested Printer to a string stream.
-          out = self._out if self._aggregate else StringIO.StringIO()
+          out = self._out if self._aggregate else io.StringIO()
           wrap = None
           printer = self.Printer(col.attribute.subformat, out=out,
                                  console_attr=self._console_attr,
@@ -277,7 +282,8 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
       return
 
     # Border box decorations.
-    if 'box' in self.attributes:
+    all_box = 'all-box' in self.attributes
+    if all_box or 'box' in self.attributes:
       box = self._console_attr.GetBoxLineCharacters()
       table_column_pad = 1
     else:
@@ -362,7 +368,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
         self._visible = visible
         rows = [self._Visible(row) for row in rows]
         align = self._Visible(align)
-        heading = [self._Visible(heading[0])]
+        heading = [self._Visible(heading[0])] if heading else []
         col_widths = self._Visible(col_widths)
     if heading:
       # Check the heading widths too.
@@ -389,7 +395,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
         available_width = total_col_width - non_wrappable_width
         for i, col_width in enumerate(col_widths):
           if i in wrap:
-            col_widths[i] = max(int((available_width * 1.0)/len(wrap)), 1)
+            col_widths[i] = max(available_width // len(wrap), 1)
 
     # Print the title if specified.
     title = self.attributes.get('title') if self._page_count <= 1 else None
@@ -405,7 +411,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
         sep = 3
       if width < self._console_attr.DisplayWidth(title) and not wrap:
         # Title is wider than the table => pad each column to make room.
-        pad = ((self._console_attr.DisplayWidth(title) + len(col_widths) - 1) /
+        pad = ((self._console_attr.DisplayWidth(title) + len(col_widths) - 1) //
                len(col_widths))
         width += len(col_widths) * pad
         if box:
@@ -417,7 +423,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
         line += box.dl
         self._out.write(line)
         self._out.write('\n')
-        line = u'{0}{1}{2}'.format(
+        line = '{0}{1}{2}'.format(
             box.v, _Justify(self._console_attr, title).center(width), box.v)
       else:
         width += table_column_pad * (len(col_widths) - 1)
@@ -454,7 +460,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
           line.append(box.v)
           line.append(row[i].center(col_widths[i]))
         line.append(box.v)
-        self._out.write(u' '.join(line))
+        self._out.write(' '.join(line))
         self._out.write('\n')
         self._out.write(m_rule)
         self._out.write('\n')
@@ -466,9 +472,13 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
     for row in heading + rows:
       if first:
         first = False
-      elif box and self._subformats:
-        self._out.write(t_rule)
-        self._out.write('\n')
+      elif box:
+        if self._subformats:
+          self._out.write(t_rule)
+          self._out.write('\n')
+        elif all_box:
+          self._out.write(m_rule)
+          self._out.write('\n')
       row_finished = False
       while not row_finished:
         pad = 0
@@ -481,9 +491,10 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
           # Wrap text if needed.
           s = row[i]
           is_colorizer = isinstance(s, console_attr.Colorizer)
-          if self._console_attr.DisplayWidth(s) > width or '\n' in unicode(s):
+          if (self._console_attr.DisplayWidth(s) > width or
+              '\n' in six.text_type(s)):
             cell_value, remainder = self._GetNextLineAndRemainder(
-                unicode(s), width, include_all_whitespace=is_colorizer)
+                six.text_type(s), width, include_all_whitespace=is_colorizer)
             if is_colorizer:
               # pylint:disable=protected-access
               cell = console_attr.Colorizer(cell_value, s._color, s._justify)
@@ -504,7 +515,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
               self._out.write(' ' * pad)
               pad = 0
             # pylint: disable=cell-var-from-loop
-            cell.Render(justify=lambda s: justify(s, width))
+            cell.Render(self._out, justify=lambda s: justify(s, width))
             if box:
               self._out.write(' ' * table_column_pad)
             else:
@@ -545,6 +556,7 @@ class TablePrinter(resource_printer_base.ResourcePrinter):
                   self._out.write('    ' + line + '\n')
                 # Rewind the output buffer.
                 subformat.out.truncate(0)
+                subformat.out.seek(0)
         else:
           self._out.write('\n')
     if box and not self._subformats:

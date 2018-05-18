@@ -63,12 +63,12 @@ def _Args(parser):
           The name or ID of a container inside of the virtual machine instance
           to connect to. This only applies to virtual machines that are using
           a Google Container-Optimized virtual machine image. For more
-          information, see [](https://cloud.google.com/compute/docs/containers)
+          information, see [](https://cloud.google.com/compute/docs/containers).
           """)
 
   parser.add_argument(
       'user_host',
-      completer=completers.DeprecatedInstancesCompleter,
+      completer=completers.InstancesCompleter,
       metavar='[USER@]INSTANCE',
       help="""\
       Specifies the instance to SSH into.
@@ -102,7 +102,6 @@ class SshGA(base.Command):
 
   def __init__(self, *args, **kwargs):
     super(SshGA, self).__init__(*args, **kwargs)
-    self._use_account_service = False
     self._use_internal_ip = False
 
   @staticmethod
@@ -117,14 +116,11 @@ class SshGA(base.Command):
   def Run(self, args):
     """See ssh_utils.BaseSSHCLICommand.Run."""
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    cua_holder = base_classes.ComputeUserAccountsApiHolder(self.ReleaseTrack())
     client = holder.client
 
     ssh_helper = ssh_utils.BaseSSHCLIHelper()
     ssh_helper.Run(args)
-    user, instance_name = ssh_utils.GetUserAndInstance(
-        args.user_host, self._use_account_service,
-        client.apitools_client.http)
+    user, instance_name = ssh_utils.GetUserAndInstance(args.user_host)
     instance_ref = instance_flags.SSH_INSTANCE_RESOLVER.ResolveResources(
         [instance_name], compute_scope.ScopeEnum.ZONE, args.zone,
         holder.resources,
@@ -135,8 +131,7 @@ class SshGA(base.Command):
       use_oslogin = False
     else:
       user, use_oslogin = ssh_helper.CheckForOsloginAndGetUser(
-          instance, project, user,
-          self.ReleaseTrack(), client.apitools_client.http)
+          instance, project, user, self.ReleaseTrack())
     if self._use_internal_ip:
       ip_address = ssh_utils.GetInternalIPAddress(instance)
     else:
@@ -151,16 +146,8 @@ class SshGA(base.Command):
       options = ssh_helper.GetConfig(ssh_utils.HostKeyAlias(instance),
                                      args.strict_host_key_checking)
 
-    extra_flags = []
+    extra_flags = ssh.ParseAndSubstituteSSHFlags(args, remote, ip_address)
     remainder = []
-
-    if args.ssh_flag:
-      for flag in args.ssh_flag:
-        for flag_part in flag.split():  # We want grouping here
-          dereferenced_flag = (
-              flag_part.replace('%USER%', remote.user)
-              .replace('%INSTANCE%', ip_address))
-          extra_flags.append(dereferenced_flag)
 
     if args.ssh_args:
       remainder.extend(args.ssh_args)
@@ -182,9 +169,7 @@ class SshGA(base.Command):
       keys_newly_added = False
     else:
       keys_newly_added = ssh_helper.EnsureSSHKeyExists(
-          client, cua_holder.client,
-          remote.user, instance, project,
-          use_account_service=self._use_account_service)
+          client, remote.user, instance, project)
 
     if keys_newly_added:
       poller = ssh.SSHPoller(
@@ -199,7 +184,7 @@ class SshGA(base.Command):
         raise ssh_utils.NetworkError()
 
     if self._use_internal_ip:
-      ssh_helper.PreliminarylyVerifyInstance(instance.id, remote, identity_file,
+      ssh_helper.PreliminarilyVerifyInstance(instance.id, remote, identity_file,
                                              options)
 
     return_code = cmd.Run(ssh_helper.env, force_connect=True)
@@ -215,7 +200,6 @@ class SshBeta(SshGA):
 
   def __init__(self, *args, **kwargs):
     super(SshBeta, self).__init__(*args, **kwargs)
-    self._use_account_service = True
 
   @staticmethod
   def Args(parser):
@@ -228,27 +212,18 @@ class SshBeta(SshGA):
     parser.add_argument(
         '--internal-ip', default=False, action='store_true',
         help="""\
-        Connect to instances using their private IP addresses. By default,
-        gcloud attempts to establish a ssh connection only if the specified
-        instance has a public IP address. When this flag is present, gcloud
-        attempts to connect to the instance using the IP of the internal network
-        instance even if the instance has a public IP.
+        Connect to instances using their internal IP addresses rather than their
+        external IP addresses. Use this to connect from one instance to another
+        on the same VPC network, over a VPN connection, or between two peered
+        VPC networks.
 
-        For the connection to work, your network must already be configured to
-        allow you to establish connections using the instance's private
-        network IP.
+        For this connection to work, you must configure your networks and
+        firewall to allow SSH connections to the internal IP address of
+        the instance to which you want to connect.
 
-        gcloud will verify that the instance it connected to reports the same id
-        as the instance you requested connection to. This only helps with
-        catching network configuration mistakes and is not meant as protection
-        against any kind of attack.
-
-        The same IP can appear in two internal networks and can result in an
-        incorrect connection. For example, instance-1 in network-1 has the same
-        internal IP as instance-2 in network-2. You want to connect to
-        instance-1 but your network configuration results in opening a
-        connection to instance-2. This requires the instance to have curl tool
-        available.""")
+        To learn how to use this flag, see
+        [](https://cloud.google.com/compute/docs/instances/connecting-advanced#sshbetweeninstances).
+        """)
 
   def Run(self, args):
     """See SshGA.Run."""
@@ -265,6 +240,16 @@ def DetailedHelp(version):
         takes care of authentication and the translation of the
         instance name into an IP address.
 
+        The default network comes preconfigured to allow ssh access to
+        all VMs. If the default network was edited, or if not using the
+        default network, you may need to explicitly enable ssh access by adding
+        a firewall-rule:
+
+          $ gcloud compute firewall-rules create --network=NETWORK \
+            default-allow-ssh --allow tcp:22
+
+        This command does not work for Windows VMs.
+
         This command ensures that the user's public SSH key is present
         in the project's metadata. If the user does not have a public
         SSH key, one is generated using *ssh-keygen(1)* (if the `--quiet`
@@ -280,8 +265,8 @@ def DetailedHelp(version):
 
           $ {command} example-instance --zone us-central1-a --command "ps -ejH"
 
-        If you are using the Google container virtual machine image, you
-        can SSH into one of your containers with:
+        If you are using the Google Container-Optimized virtual machine image,
+        you can SSH into one of your containers with:
 
           $ {command} example-instance --zone us-central1-a --container CONTAINER
         """,
@@ -291,6 +276,16 @@ def DetailedHelp(version):
         *{command}* is a thin wrapper around the *ssh(1)* command that
         takes care of authentication and the translation of the
         instance name into an IP address.
+
+        The default network comes preconfigured to allow ssh access to
+        all VMs. If the default network was edited, or if not using the
+        default network, you may need to explicitly enable ssh access by adding
+        a firewall-rule:
+
+          $ gcloud compute firewall-rules create --network=NETWORK \
+            default-allow-ssh --allow tcp:22
+
+        This command does not work for Windows VMs.
 
         This command uses the Compute Accounts API to ensure that the user's
         public SSH key is availibe to the VM. This form of key management

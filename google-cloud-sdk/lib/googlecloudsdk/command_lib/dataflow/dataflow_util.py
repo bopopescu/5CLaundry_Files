@@ -14,13 +14,15 @@
 
 """Utilities for building the dataflow CLI."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import json
 import re
 
 from apitools.base.py import exceptions
 from apitools.base.py import list_pager
 
-from googlecloudsdk.calliope import exceptions as calliope_exceptions
+from googlecloudsdk.api_lib.dataflow import exceptions as dataflow_exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
@@ -34,14 +36,7 @@ DATAFLOW_METRICS_RE = re.compile('^dataflow')
 WINDMILL_WATERMARK_RE = re.compile('^(.*)-windmill-(.*)-watermark')
 
 
-JOBS_COLLECTION = 'dataflow.projects.jobs'
-
-
-class ServiceException(calliope_exceptions.ToolException):
-  """Generic exception related to calling the Dataflow service APIs."""
-
-  def __init__(self, message):
-    super(calliope_exceptions.ToolException, self).__init__(message)
+JOBS_COLLECTION = 'dataflow.projects.locations.jobs'
 
 
 def GetErrorMessage(error):
@@ -61,49 +56,92 @@ def GetErrorMessage(error):
     return 'Unknown error'
 
 
-def MakeErrorMessage(error, job_id='', project_id=''):
+def MakeErrorMessage(error, job_id='', project_id='', region_id=''):
   """Create a standard error message across commands.
 
   Args:
     error: The error exceptions.HttpError thrown by the API client.
     job_id: The job ID that was used in the command.
     project_id: The project ID that was used in the command.
+    region_id: The region ID that was used in the command.
 
   Returns:
-    ServiceException
+    str, a standard error message.
   """
   if job_id:
     job_id = ' with job ID [{0}]'.format(job_id)
   if project_id:
     project_id = ' in project [{0}]'.format(project_id)
-  return ServiceException('Failed operation{0}{1}: {2}'.format(
-      job_id, project_id, GetErrorMessage(error)))
+  if region_id:
+    region_id = ' in regional endpoint [{0}]'.format(region_id)
+  return 'Failed operation{0}{1}{2}: {3}'.format(
+      job_id, project_id, region_id, GetErrorMessage(error))
 
 
-def YieldExceptionWrapper(generator, job_id='', project_id=''):
+def YieldExceptionWrapper(generator, job_id='', project_id='', region_id=''):
   """Wraps a generator to catch any exceptions.
 
   Args:
     generator: The error exceptions.HttpError thrown by the API client.
     job_id: The job ID that was used in the command.
     project_id: The project ID that was used in the command.
+    region_id: The region ID that was used in the command.
 
   Yields:
     The generated object.
 
   Raises:
-    ServiceException
+    dataflow_exceptions.ServiceException: An exception for errors raised by
+      the service.
   """
   try:
     while True:
       yield next(generator)
   except exceptions.HttpError as e:
-    raise MakeErrorMessage(e, job_id, project_id)
+    raise dataflow_exceptions.ServiceException(
+        MakeErrorMessage(e, job_id, project_id, region_id))
 
 
-def YieldFromList(service, request, limit=None, batch_size=100, field='items',
-                  batch_size_attribute='maxResults', predicate=None, job_id='',
-                  project_id=''):
+def YieldFromList(service,
+                  request,
+                  limit=None,
+                  batch_size=100,
+                  field='items',
+                  batch_size_attribute='maxResults',
+                  predicate=None,
+                  job_id='',
+                  project_id='',
+                  region_id=''):
+  """Returns a wrapped list_page.YieldFromList to catch any exceptions.
+
+  Args:
+    service: apitools_base.BaseApiService, A service with a .List() method.
+    request: protorpc.messages.Message, The request message
+        corresponding to the service's .List() method, with all the
+        attributes populated except the .maxResults and .pageToken
+        attributes.
+    limit: int, The maximum number of records to yield. None if all available
+        records should be yielded.
+    batch_size: int, The number of items to retrieve per request.
+    field: str, The field in the response that will be a list of items.
+    batch_size_attribute: str, The name of the attribute in a
+        response message holding the maximum number of results to be
+        returned. None if caller-specified batch size is unsupported.
+    predicate: lambda, A function that returns true for items to be yielded.
+    job_id: The job ID that was used in the command.
+    project_id: The project ID that was used in the command.
+    region_id: The region ID that was used in the command.
+
+  Returns:
+    The wrapped generator.
+
+  Raises:
+    dataflow_exceptions.ServiceException: if list request failed.
+  """
+  method = 'List'
+  if not region_id:
+    method = 'Aggregated'
+
   pager = list_pager.YieldFromList(
       service=service,
       request=request,
@@ -111,8 +149,9 @@ def YieldFromList(service, request, limit=None, batch_size=100, field='items',
       batch_size=batch_size,
       field=field,
       batch_size_attribute=batch_size_attribute,
-      predicate=predicate)
-  return YieldExceptionWrapper(pager, job_id, project_id)
+      predicate=predicate,
+      method=method)
+  return YieldExceptionWrapper(pager, job_id, project_id, region_id)
 
 
 def JobsUriFunc(resource):
@@ -127,22 +166,29 @@ def JobsUriFunc(resource):
 
   ref = resources.REGISTRY.Parse(
       resource.id,
-      params={'projectId': properties.VALUES.core.project.GetOrFail},
+      params={
+          'projectId': properties.VALUES.core.project.GetOrFail,
+          'location': resource.location
+      },
       collection=JOBS_COLLECTION)
   return ref.SelfLink()
 
 
-def JobsUriFromId(job_id):
+def JobsUriFromId(job_id, region_id):
   """Transform a job ID into a URL string.
 
   Args:
     job_id: The job ID
+    region_id: The region ID of the job's regional endpoint.
 
   Returns:
     URL to the job
   """
   ref = resources.REGISTRY.Parse(
       job_id,
-      params={'projectId': properties.VALUES.core.project.GetOrFail},
+      params={
+          'projectId': properties.VALUES.core.project.GetOrFail,
+          'location': region_id
+      },
       collection=JOBS_COLLECTION)
   return ref.SelfLink()

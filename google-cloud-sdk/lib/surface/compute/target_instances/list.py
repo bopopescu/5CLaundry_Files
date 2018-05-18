@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for listing target instances."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import lister
 from googlecloudsdk.api_lib.compute import utils
@@ -26,6 +28,7 @@ class List(base.ListCommand):
   def Args(parser):
     parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
     parser.display_info.AddUriFunc(utils.MakeGetUriFunc())
+    parser.display_info.AddCacheUpdater(flags.TargetInstancesCompleter)
     lister.AddZonalListerArgs(parser)
 
   def Run(self, args):

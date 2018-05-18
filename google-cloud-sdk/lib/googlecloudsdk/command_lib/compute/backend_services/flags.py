@@ -14,7 +14,8 @@
 
 """Flags and helpers for the compute backend-services commands."""
 
-import argparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import completers as compute_completers
@@ -25,8 +26,17 @@ from googlecloudsdk.command_lib.util import completers
 DEFAULT_LIST_FORMAT = """\
     table(
       name,
-      backends[].group.list():label=BACKENDS,
+      backends[].group.scoped_suffixes().list():label=BACKENDS,
       protocol
+    )"""
+
+DEFAULT_BETA_LIST_FORMAT = """\
+    table(
+      name,
+      backends[].group.scoped_suffixes().list():label=BACKENDS,
+      protocol,
+      loadBalancingScheme,
+      healthChecks.map().basename().list()
     )"""
 
 
@@ -58,16 +68,6 @@ class BackendServicesCompleter(completers.MultiResourceCompleter):
         **kwargs)
 
 
-class DeprecatedBackendServicesCompleter(
-    compute_completers.ListCommandCompleter):
-
-  def __init__(self, **kwargs):
-    super(DeprecatedBackendServicesCompleter, self).__init__(
-        collection='compute.backendServices',
-        list_command='compute backend-services list --uri',
-        **kwargs)
-
-
 ZONAL_INSTANCE_GROUP_ARG = compute_flags.ResourceArgument(
     name='--instance-group',
     resource_name='instance group',
@@ -86,6 +86,13 @@ MULTISCOPE_INSTANCE_GROUP_ARG = compute_flags.ResourceArgument(
     region_explanation=compute_flags.REGION_PROPERTY_EXPLANATION)
 
 
+NETWORK_ENDPOINT_GROUP_ARG = compute_flags.ResourceArgument(
+    name='--network-endpoint-group',
+    resource_name='network endpoint group',
+    zonal_collection='compute.networkEndpointGroups',
+    zone_explanation=compute_flags.ZONE_PROPERTY_EXPLANATION)
+
+
 GLOBAL_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
     name='backend_service_name',
     resource_name='backend service',
@@ -96,7 +103,7 @@ GLOBAL_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
 GLOBAL_MULTI_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
     name='backend_service_name',
     resource_name='backend service',
-    completer=DeprecatedBackendServicesCompleter,
+    completer=BackendServicesCompleter,
     plural=True,
     global_collection='compute.backendServices')
 
@@ -104,7 +111,7 @@ GLOBAL_MULTI_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
 GLOBAL_REGIONAL_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
     name='backend_service_name',
     resource_name='backend service',
-    completer=DeprecatedBackendServicesCompleter,
+    completer=BackendServicesCompleter,
     regional_collection='compute.regionBackendServices',
     global_collection='compute.backendServices')
 
@@ -112,7 +119,7 @@ GLOBAL_REGIONAL_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
 GLOBAL_REGIONAL_MULTI_BACKEND_SERVICE_ARG = compute_flags.ResourceArgument(
     name='backend_service_name',
     resource_name='backend service',
-    completer=DeprecatedBackendServicesCompleter,
+    completer=BackendServicesCompleter,
     plural=True,
     regional_collection='compute.regionBackendServices',
     global_collection='compute.backendServices')
@@ -123,7 +130,7 @@ def BackendServiceArgumentForUrlMap(required=True):
       resource_name='backend service',
       name='--default-service',
       required=required,
-      completer=DeprecatedBackendServicesCompleter,
+      completer=BackendServicesCompleter,
       global_collection='compute.backendServices',
       short_help=(
           'A backend service that will be used for requests for which this '
@@ -135,7 +142,7 @@ def BackendServiceArgumentForUrlMapPathMatcher(required=True):
       resource_name='backend service',
       name='--default-service',
       required=required,
-      completer=DeprecatedBackendServicesCompleter,
+      completer=BackendServicesCompleter,
       global_collection='compute.backendServices',
       short_help=(
           'A backend service that will be used for requests that the path '
@@ -147,7 +154,7 @@ def BackendServiceArgumentForTargetSslProxy(required=True):
       resource_name='backend service',
       name='--backend-service',
       required=required,
-      completer=DeprecatedBackendServicesCompleter,
+      completer=BackendServicesCompleter,
       global_collection='compute.backendServices',
       short_help=('.'),
       detailed_help="""\
@@ -161,7 +168,7 @@ def BackendServiceArgumentForTargetTcpProxy(required=True):
       resource_name='backend service',
       name='--backend-service',
       required=required,
-      completer=DeprecatedBackendServicesCompleter,
+      completer=BackendServicesCompleter,
       global_collection='compute.backendServices',
       short_help=('.'),
       detailed_help="""\
@@ -190,9 +197,33 @@ def AddConnectionDrainingTimeout(parser):
       accepted. Set timeout to zero to disable connection draining. Enable
       feature by specifying a timeout of up to one hour.
       If the flag is omitted API default value (0s) will be used.
-      Valid units for this flag are `s` for seconds, `m` for minutes, and
-      `h` for hours.
+      See $ gcloud topic datetimes for information on duration formats.
       """)
+
+
+def AddCustomRequestHeaders(parser, remove_all_flag=False, default=None):
+  """Adds custom request header flag to the argparse."""
+  group = parser.add_mutually_exclusive_group()
+  group.add_argument(
+      '--custom-request-header',
+      action='append',
+      help="""\
+      Specifies a HTTP Header to be added by your load balancer.
+      This flag can be repeated to specify multiple headers.
+      For example:
+
+        $ {command} NAME \
+            --custom-request-header "header-name: value" \
+            --custom-request-header "another-header:"
+      """)
+  if remove_all_flag:
+    group.add_argument(
+        '--no-custom-request-headers',
+        action='store_true',
+        default=default,
+        help="""\
+        Remove all custom request headers for the backend service.
+        """)
 
 
 def AddEnableCdn(parser, default):
@@ -293,7 +324,7 @@ def HealthCheckArgument(required=False):
   return compute_flags.ResourceArgument(
       resource_name='health check',
       name='--health-checks',
-      completer=compute_completers.DeprecatedHealthChecksCompleter,
+      completer=compute_completers.HealthChecksCompleter,
       plural=True,
       required=required,
       global_collection='compute.healthChecks',
@@ -308,7 +339,7 @@ def HttpHealthCheckArgument(required=False):
   return compute_flags.ResourceArgument(
       resource_name='http health check',
       name='--http-health-checks',
-      completer=compute_completers.DeprecatedHttpHealthChecksCompleter,
+      completer=compute_completers.HttpHealthChecksCompleter,
       plural=True,
       required=required,
       global_collection='compute.httpHealthChecks',
@@ -322,7 +353,7 @@ def HttpsHealthCheckArgument(required=False):
   return compute_flags.ResourceArgument(
       resource_name='https health check',
       name='--https-health-checks',
-      completer=compute_completers.DeprecatedHttpsHealthChecksCompleter,
+      completer=compute_completers.HttpsHealthChecksCompleter,
       plural=True,
       required=required,
       global_collection='compute.httpsHealthChecks',
@@ -397,34 +428,31 @@ def AddSessionAffinity(parser, internal_lb=False, target_pools=False,
             'port will go to the same VM in the backend while that VM remains '
             'healthy. This option cannot be used for HTTP(S) load balancing.'),
     })
-  if hidden:
-    help_str = argparse.SUPPRESS
-  else:
-    help_str = 'The type of session affinity to use for this backend service.'
+  help_str = 'The type of session affinity to use for this backend service.'
   parser.add_argument(
       '--session-affinity',
       choices=choices,
       # Tri-valued, None => don't include property.
       default='NONE' if target_pools else None,
       type=lambda x: x.upper(),
+      hidden=hidden,
       help=help_str)
 
 
 def AddAffinityCookieTtl(parser, hidden=False):
   """Adds affinity cookie Ttl flag to the argparse."""
-  if hidden:
-    affinity_cookie_ttl_help = argparse.SUPPRESS
-  else:
-    affinity_cookie_ttl_help = """\
-        If session-affinity is set to "generated_cookie", this flag sets
-        the TTL, in seconds, of the resulting cookie.  A setting of 0
-        indicates that the cookie should be transient.
-        """
+  affinity_cookie_ttl_help = """\
+      If session-affinity is set to "generated_cookie", this flag sets
+      the TTL, in seconds, of the resulting cookie.  A setting of 0
+      indicates that the cookie should be transient.
+      See $ gcloud topic datetimes for information on duration formats.
+      """
   parser.add_argument(
       '--affinity-cookie-ttl',
       type=arg_parsers.Duration(),
       default=None,  # Tri-valued, None => don't include property.
-      help=affinity_cookie_ttl_help
+      help=affinity_cookie_ttl_help,
+      hidden=hidden,
   )
 
 
@@ -449,20 +477,13 @@ def AddTimeout(parser, default='30s'):
       closes the connection or times out before sending response headers to the
       proxy. If the backend produces any response headers, the load balancer
       does not retry. If the backend does not reply at all, the load balancer
-      returns a `502 Bad Gateway` error to the client. Valid units for this flag
-      are `s` for seconds, `m` for minutes, and `h` for hours.
+      returns a `502 Bad Gateway` error to the client.
+      See $ gcloud topic datetimes for information on duration formats.
       """)
 
 
 def AddPortName(parser):
-  """Add port and port-name flags."""
-  # TODO(b/36051036): Remove port once port_name is in use. b/16486110
-  parser.add_argument(
-      '--port',
-      type=int,
-      help=('The TCP port to use when connecting to the backend. '
-            '--port is being deprecated in favor of --port-name.'))
-
+  """Add port-name flag."""
   parser.add_argument(
       '--port-name',
       help="""\
@@ -479,10 +500,61 @@ def AddPortName(parser):
       """)
 
 
-def AddProtocol(parser, default='HTTP'):
+def AddProtocol(parser, default='HTTP', choices=None):
   parser.add_argument(
       '--protocol',
-      choices=['HTTP', 'HTTPS', 'SSL', 'TCP', 'UDP'],
+      choices=choices or ['HTTP', 'HTTPS', 'SSL', 'TCP', 'UDP'],
       default=default,
       type=lambda x: x.upper(),
       help='The protocol for incoming requests.')
+
+
+def AddConnectionDrainOnFailover(parser, default):
+  """Adds the connection drain on failover argument to the argparse."""
+  parser.add_argument(
+      '--connection-drain-on-failover',
+      action='store_true',
+      default=default,
+      help="""\
+      Connection drain is enabled by default and on failover or failback
+      connections will be drained. If connection drain is disabled, the existing
+      connection state will be cleared immediately on a best effort basis on
+      failover or failback, all connections will then be served by the active
+      pool of instances. Not compatible with the --global flag, load balancing
+      scheme must be INTERNAL, and the protocol must be TCP.
+      """)
+
+
+def AddDropTrafficIfUnhealthy(parser, default):
+  """Adds the drop traffic if unhealthy argument to the argparse."""
+  parser.add_argument(
+      '--drop-traffic-if-unhealthy',
+      action='store_true',
+      default=default,
+      help="""\
+      Enable dropping of traffic if there are no healthy VMs detected in both
+      the primary and backup instance groups. Not compatible with the --global
+      flag and load balancing scheme must be INTERNAL.
+      """)
+
+
+def AddFailoverRatio(parser):
+  """Adds the failover ratio argument to the argparse."""
+  parser.add_argument(
+      '--failover-ratio',
+      type=arg_parsers.BoundedFloat(lower_bound=0.0, upper_bound=1.0),
+      help="""\
+      If the ratio of the healthy VMs in the primary backend is at or below this
+      number, traffic arriving at the load-balanced IP will be directed to the
+      failover backend(s). Not compatible with the --global flag.
+      """)
+
+
+def AddInstanceGroupAndNetworkEndpointGroupArgs(parser, verb):
+  backend_group = parser.add_group(required=True, mutex=True)
+  instance_group = backend_group.add_group('Instance Group')
+  neg_group = backend_group.add_group('Network Endpoint Group')
+  MULTISCOPE_INSTANCE_GROUP_ARG.AddArgument(
+      instance_group, operation_type='{} the backend service'.format(verb))
+  NETWORK_ENDPOINT_GROUP_ARG.AddArgument(
+      neg_group, operation_type='{} the backend service'.format(verb))

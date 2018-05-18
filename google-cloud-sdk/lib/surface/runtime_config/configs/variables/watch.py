@@ -14,6 +14,8 @@
 
 """The configs variables watch command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import socket
 
 from apitools.base.py import exceptions as apitools_exceptions
@@ -76,12 +78,15 @@ class Watch(base.Command):
     flags.AddRequiredConfigFlag(parser)
 
     parser.add_argument('--newer-than',
-                        help='''Return immediately if the stored
-                        variable is newer than this timestamp.''',
+                        help="""Return immediately if the stored variable is
+                        newer than this time. See $ gcloud topic datetimes
+                        for information on time formats.""",
                         type=arg_parsers.Datetime.Parse)
 
     parser.add_argument('--max-wait',
-                        help='An optional maximum number of seconds to wait.',
+                        help="""\
+        An optional maximum time to wait. For example, "30s".
+        See $ gcloud topic datetimes for information on duration formats.""",
                         type=arg_parsers.Duration(lower_bound='1s',
                                                   upper_bound='60s'))
 

@@ -15,11 +15,14 @@
 """argparse Actions for use with calliope.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
+import io
 import os
-import StringIO
 import sys
 
+from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import markdown
 from googlecloudsdk.calliope import parser_errors
 from googlecloudsdk.core import log
@@ -27,6 +30,7 @@ from googlecloudsdk.core import metrics
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.document_renderers import render_document
+import six
 
 
 class _AdditionalHelp(object):
@@ -68,7 +72,7 @@ def GetArgparseBuiltInAction(action):
   action_cls = dummy_actions_container._registry_get('action', action)
 
   if action_cls is None:
-    raise ValueError('unknown action "{0}"'.format(action_cls))
+    raise ValueError('unknown action "{0}"'.format(action))
 
   return action_cls
  # pylint:disable=protected-access
@@ -91,6 +95,7 @@ def FunctionExitAction(func):
       super(Action, self).__init__(**kwargs)
 
     def __call__(self, parser, namespace, values, option_string=None):
+      base.LogCommand(parser.prog, namespace)
       metrics.Loaded()
       func()
       sys.exit(0)
@@ -422,6 +427,7 @@ def RenderDocumentAction(command, default_style=None):
       Raises:
         parser_errors.ArgumentError: For unknown flag value attribute name.
       """
+      base.LogCommand(parser.prog, namespace)
       if default_style:
         # --help
         metrics.Loaded()
@@ -430,7 +436,7 @@ def RenderDocumentAction(command, default_style=None):
       title = None
 
       for attributes in values:
-        for name, value in attributes.iteritems():
+        for name, value in six.iteritems(attributes):
           if name == 'notes':
             notes = value
           elif name == 'style':
@@ -448,10 +454,10 @@ def RenderDocumentAction(command, default_style=None):
       # '--help' is set by the --help flag, the others by gcloud <style> ... .
       if style in ('--help', 'help', 'topic'):
         style = 'text'
-      md = StringIO.StringIO(markdown.Markdown(command))
-      out = (StringIO.StringIO() if console_io.IsInteractive(output=True)
+      md = io.StringIO(markdown.Markdown(command))
+      out = (io.StringIO() if console_io.IsInteractive(output=True)
              else None)
-      render_document.RenderDocument(style, md, out=out, notes=notes,
+      render_document.RenderDocument(style, md, out=out or log.out, notes=notes,
                                      title=title)
       metrics.Ran()
       if out:
@@ -491,41 +497,48 @@ def _PreActionHook(action, func, additional_help=None):
   if not callable(func):
     raise TypeError('func should be a callable of the form func(value)')
 
-  if not isinstance(action, basestring) and not issubclass(
+  if not isinstance(action, six.string_types) and not issubclass(
       action, argparse.Action):
     raise TypeError(('action should be either a subclass of argparse.Action '
                      'or a string representing one of the default argparse '
                      'Action Types'))
 
-  if isinstance(action, basestring):
-    try:
-      action_cls = GetArgparseBuiltInAction(action)
-    except ValueError:
-      raise TypeError('Invalid action {0}'.format(action))
-  else:
-    action_cls = action
-
   class Action(argparse.Action):
     """Action Wrapper Class."""
+    wrapped_action = action
+
+    @classmethod
+    def SetWrappedAction(cls, action):
+      # This looks potentially scary, but is OK because the Action class
+      # is enclosed within the _PreActionHook function.
+      cls.wrapped_action = action
+
+    def _GetActionClass(self):
+      if isinstance(self.wrapped_action, six.string_types):
+        action_cls = GetArgparseBuiltInAction(self.wrapped_action)
+      else:
+        action_cls = self.wrapped_action
+      return action_cls
 
     def __init__(self, *args, **kwargs):
       if additional_help:
-        kwargs['help'] = '{0} {1} \n\n{2}'.format(
+        original_help = kwargs.get('help', '').rstrip()
+        kwargs['help'] = '{0} {1}\n+\n{2}'.format(
             additional_help.label,
-            kwargs.pop('detailed_help', '') or kwargs.get('help', ''),
+            original_help,
             additional_help.message)
 
-      self.wrapped_action = action_cls(*args, **kwargs)
+      self._wrapped_action = self._GetActionClass()(*args, **kwargs)
       self.func = func
       # These parameters are necessary to ensure that the wrapper action
       # behaves the same as the action it is wrapping. These based off of
       # analysis of the constructor params (and their defaults) or the built in
       # argparse Action classes. This could change if argparse internals are
       # updated, but that would probably also affect much more than this.
-      kwargs['nargs'] = self.wrapped_action.nargs
-      kwargs['const'] = self.wrapped_action.const
-      kwargs['choices'] = self.wrapped_action.choices
-      kwargs['option_strings'] = self.wrapped_action.option_strings
+      kwargs['nargs'] = self._wrapped_action.nargs
+      kwargs['const'] = self._wrapped_action.const
+      kwargs['choices'] = self._wrapped_action.choices
+      kwargs['option_strings'] = self._wrapped_action.option_strings
       super(Action, self).__init__(*args, **kwargs)
 
     def __call__(self, parser, namespace, value, option_string=None):
@@ -537,7 +550,7 @@ def _PreActionHook(action, func, additional_help=None):
       else:
         self.func(value)
 
-      self.wrapped_action(parser, namespace, value, option_string)
+      self._wrapped_action(parser, namespace, value, option_string)
 
   return Action
 
@@ -583,6 +596,6 @@ def DeprecationAction(flag_name,
       if removed:
         raise parser_errors.ArgumentError(add_help.message)
       else:
-        log.warn(add_help.message)
+        log.warning(add_help.message)
 
   return _PreActionHook(action, DeprecationFunc, add_help)

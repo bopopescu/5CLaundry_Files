@@ -23,7 +23,6 @@ from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute.instances import flags as instances_flags
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class Update(base.UpdateCommand):
   r"""Update a Google Compute Engine virtual machine network interface.
 
@@ -68,7 +67,7 @@ class Update(base.UpdateCommand):
         messages.ComputeInstancesGetRequest(**instance_ref.AsDict()))
     for i in instance.networkInterfaces:
       if i.name == args.network_interface:
-        interface = i
+        fingerprint = i.fingerprint
         break
     else:
       raise exceptions.UnknownArgumentException(
@@ -78,21 +77,23 @@ class Update(base.UpdateCommand):
               args.network_interface, ', '.join(
                   [i.name for i in instance.networkInterfaces])))
 
-    interface.aliasIpRanges = (
-        alias_ip_range_utils.CreateAliasIpRangeMessagesFromString(
-            messages, True, args.aliases))
+    patch_network_interface = messages.NetworkInterface(
+        aliasIpRanges=(
+            alias_ip_range_utils.CreateAliasIpRangeMessagesFromString(
+                messages, True, args.aliases)),
+        fingerprint=fingerprint)
 
     request = messages.ComputeInstancesUpdateNetworkInterfaceRequest(
         project=instance_ref.project,
         instance=instance_ref.instance,
         zone=instance_ref.zone,
         networkInterface=args.network_interface,
-        networkInterfaceResource=interface)
+        networkInterfaceResource=patch_network_interface)
 
-    included_fields = []
-    if interface.aliasIpRanges is not None:
-      included_fields.append('aliasIpRanges')
-    with client.IncludeFields(included_fields):
+    cleared_fields = []
+    if not patch_network_interface.aliasIpRanges:
+      cleared_fields.append('aliasIpRanges')
+    with client.IncludeFields(cleared_fields):
       operation = client.instances.UpdateNetworkInterface(request)
     operation_ref = holder.resources.Parse(
         operation.selfLink, collection='compute.zoneOperations')

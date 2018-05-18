@@ -15,14 +15,25 @@
 
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os
 import os.path
 import tarfile
 
 from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.api_lib.util import apis as core_apis
+from googlecloudsdk.command_lib.util import gcloudignore
 from googlecloudsdk.core import log
 from googlecloudsdk.core.util import files
+
+_IGNORED_FILE_MESSAGE = """\
+Some files were not included in the source upload.
+
+Check the gcloud log [{log_file}] to see which files and the contents of the
+default gcloudignore file used (see `$ gcloud topic gcloudignore` to learn
+more).
+"""
 
 
 class FileMetadata(object):
@@ -65,14 +76,35 @@ class Snapshot(object):
     self.uncompressed_size = 0
     self._client = core_apis.GetClientInstance('storage', 'v1')
     self._messages = core_apis.GetMessagesModule('storage', 'v1')
+    file_chooser = gcloudignore.GetFileChooserForDir(self.src_dir,
+                                                     write_on_disk=False)
+    self.any_files_ignored = False
     for (dirpath, dirnames, filenames) in os.walk(self.src_dir):
+      relpath = os.path.relpath(dirpath, self.src_dir)
+      if (dirpath != self.src_dir and  # don't ever ignore the main source dir!
+          not file_chooser.IsIncluded(relpath, is_dir=True)):
+        self.any_files_ignored = True
+        continue
       for fname in filenames:
-        fpath = os.path.relpath(os.path.join(dirpath, fname), self.src_dir)
+        # Join file paths with Linux path separators, avoiding ./ prefix.
+        # GCB workers are Linux VMs so os.path.join produces incorrect output.
+        fpath = '/'.join([relpath, fname]) if relpath != '.' else fname
+        if not file_chooser.IsIncluded(fpath):
+          self.any_files_ignored = True
+          continue
         fm = FileMetadata(self.src_dir, fpath)
         self.files[fpath] = fm
         self.uncompressed_size += fm.size
-      for dname in dirnames:
-        dpath = os.path.relpath(os.path.join(dirpath, dname), self.src_dir)
+      # NOTICE: Modifying dirnames is explicitly allowed by os.walk(). The
+      # modified dirnames is used in the next loop iteration which is also
+      # the next os.walk() iteration.
+      for dname in dirnames[:]:  # Make a copy since we modify the original.
+        # Join dir paths with Linux path separators, avoiding ./ prefix.
+        # GCB workers are Linux VMs so os.path.join produces incorrect output.
+        dpath = '/'.join([relpath, dname]) if relpath != '.' else dname
+        if not file_chooser.IsIncluded(dpath, is_dir=True):
+          dirnames.remove(dname)  # Don't recurse into dpath at all.
+          continue
         self.dirs.append(dpath)
 
   def _MakeTarball(self, archive_path):
@@ -112,6 +144,14 @@ class Snapshot(object):
         archive_path = os.path.join(tmp, 'file.tgz')
         tf = self._MakeTarball(archive_path)
         tf.close()
+        ignore_file_path = os.path.join(self.src_dir,
+                                        gcloudignore.IGNORE_FILE_NAME)
+        if self.any_files_ignored:
+          if os.path.exists(ignore_file_path):
+            log.info('Using gcloudignore file [{}]'.format(ignore_file_path))
+          else:
+            log.status.Print(_IGNORED_FILE_MESSAGE.format(
+                log_file=log.GetLogFilePath()))
         log.status.write(
             'Uploading tarball of [{src_dir}] to '
             '[gs://{bucket}/{object}]\n'.format(

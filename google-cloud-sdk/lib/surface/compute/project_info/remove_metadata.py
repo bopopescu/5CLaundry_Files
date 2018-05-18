@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for removing project-wide metadata."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import encoding
 
 from googlecloudsdk.api_lib.compute import base_classes
@@ -61,7 +63,8 @@ class RemoveMetadata(base.UpdateCommand):
                 **project_ref.AsDict()))
 
   def Modify(self, client, args, existing):
-    new_object = encoding.CopyProtoMessage(existing)
+    new_object = encoding.JsonToMessage(
+        type(existing), encoding.MessageToJson(existing))
     existing_metadata = existing.commonInstanceMetadata
     new_object.commonInstanceMetadata = metadata_utils.RemoveEntries(
         client.messages,

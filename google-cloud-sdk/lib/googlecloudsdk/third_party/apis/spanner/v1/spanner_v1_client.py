@@ -24,7 +24,7 @@ class SpannerV1(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new spanner handle."""
     url = url or self.BASE_URL
     super(SpannerV1, self).__init__(
@@ -33,7 +33,8 @@ class SpannerV1(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
     self.projects_instanceConfigs = self.ProjectsInstanceConfigsService(self)
     self.projects_instances_databases_operations = self.ProjectsInstancesDatabasesOperationsService(self)
     self.projects_instances_databases_sessions = self.ProjectsInstancesDatabasesSessionsService(self)
@@ -53,7 +54,7 @@ class SpannerV1(base_api.BaseApiClient):
           }
 
     def Get(self, request, global_params=None):
-      """Gets information about a particular instance configuration.
+      r"""Gets information about a particular instance configuration.
 
       Args:
         request: (SpannerProjectsInstanceConfigsGetRequest) input message
@@ -80,7 +81,7 @@ class SpannerV1(base_api.BaseApiClient):
     )
 
     def List(self, request, global_params=None):
-      """Lists the supported instance configurations for a given project.
+      r"""Lists the supported instance configurations for a given project.
 
       Args:
         request: (SpannerProjectsInstanceConfigsListRequest) input message
@@ -117,7 +118,7 @@ class SpannerV1(base_api.BaseApiClient):
           }
 
     def Cancel(self, request, global_params=None):
-      """Starts asynchronous cancellation on a long-running operation.  The server.
+      r"""Starts asynchronous cancellation on a long-running operation.  The server.
 makes a best effort to cancel the operation, but success is not
 guaranteed.  If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.  Clients can use
@@ -153,7 +154,7 @@ corresponding to `Code.CANCELLED`.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a long-running operation. This method indicates that the client is.
+      r"""Deletes a long-running operation. This method indicates that the client is.
 no longer interested in the operation result. It does not cancel the
 operation. If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.
@@ -183,7 +184,7 @@ operation. If the server doesn't support this method, it returns
     )
 
     def Get(self, request, global_params=None):
-      """Gets the latest state of a long-running operation.  Clients can use this.
+      r"""Gets the latest state of a long-running operation.  Clients can use this.
 method to poll the operation result at intervals as recommended by the API
 service.
 
@@ -212,7 +213,7 @@ service.
     )
 
     def List(self, request, global_params=None):
-      """Lists operations that match the specified filter in the request. If the.
+      r"""Lists operations that match the specified filter in the request. If the.
 server doesn't support this method, it returns `UNIMPLEMENTED`.
 
 NOTE: the `name` binding allows API services to override the binding
@@ -258,7 +259,7 @@ is the parent resource, without the operations collection id.
           }
 
     def BeginTransaction(self, request, global_params=None):
-      """Begins a new transaction. This step can often be skipped:.
+      r"""Begins a new transaction. This step can often be skipped:.
 Read, ExecuteSql and
 Commit can begin a new transaction as a
 side-effect.
@@ -288,7 +289,7 @@ side-effect.
     )
 
     def Commit(self, request, global_params=None):
-      """Commits a transaction. The request includes the mutations to be.
+      r"""Commits a transaction. The request includes the mutations to be.
 applied to rows in the database.
 
 `Commit` might return an `ABORTED` error. This can occur at any time;
@@ -322,7 +323,7 @@ the transaction from the beginning, re-using the same session.
     )
 
     def Create(self, request, global_params=None):
-      """Creates a new session. A session can be used to perform.
+      r"""Creates a new session. A session can be used to perform.
 transactions that read and/or modify data in a Cloud Spanner database.
 Sessions are meant to be reused for many consecutive
 transactions.
@@ -360,14 +361,14 @@ periodically, e.g., `"SELECT 1"`.
         path_params=[u'database'],
         query_params=[],
         relative_path=u'v1/{+database}/sessions',
-        request_field='',
+        request_field=u'createSessionRequest',
         request_type_name=u'SpannerProjectsInstancesDatabasesSessionsCreateRequest',
         response_type_name=u'Session',
         supports_download=False,
     )
 
     def Delete(self, request, global_params=None):
-      """Ends a session, releasing server resources associated with it.
+      r"""Ends a session, releasing server resources associated with it.
 
       Args:
         request: (SpannerProjectsInstancesDatabasesSessionsDeleteRequest) input message
@@ -394,12 +395,12 @@ periodically, e.g., `"SELECT 1"`.
     )
 
     def ExecuteSql(self, request, global_params=None):
-      """Executes an SQL query, returning all rows in a single reply. This.
+      r"""Executes an SQL statement, returning all results in a single reply. This.
 method cannot be used to return a result set larger than 10 MiB;
 if the query yields more data than that, the query fails with
 a `FAILED_PRECONDITION` error.
 
-Queries inside read-write transactions might return `ABORTED`. If
+Operations inside read-write transactions might return `ABORTED`. If
 this occurs, the application should restart the transaction from
 the beginning. See Transaction for more details.
 
@@ -431,7 +432,7 @@ ExecuteStreamingSql instead.
     )
 
     def ExecuteStreamingSql(self, request, global_params=None):
-      """Like ExecuteSql, except returns the result.
+      r"""Like ExecuteSql, except returns the result.
 set as a stream. Unlike ExecuteSql, there
 is no limit on the size of the returned result set. However, no
 individual row in the result set can exceed 100 MiB, and no
@@ -462,7 +463,7 @@ column value can exceed 10 MiB.
     )
 
     def Get(self, request, global_params=None):
-      """Gets a session. Returns `NOT_FOUND` if the session does not exist.
+      r"""Gets a session. Returns `NOT_FOUND` if the session does not exist.
 This is mainly useful for determining whether a session is still
 alive.
 
@@ -490,8 +491,103 @@ alive.
         supports_download=False,
     )
 
+    def List(self, request, global_params=None):
+      r"""Lists all sessions in a given database.
+
+      Args:
+        request: (SpannerProjectsInstancesDatabasesSessionsListRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (ListSessionsResponse) The response message.
+      """
+      config = self.GetMethodConfig('List')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    List.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/instances/{instancesId}/databases/{databasesId}/sessions',
+        http_method=u'GET',
+        method_id=u'spanner.projects.instances.databases.sessions.list',
+        ordered_params=[u'database'],
+        path_params=[u'database'],
+        query_params=[u'filter', u'pageSize', u'pageToken'],
+        relative_path=u'v1/{+database}/sessions',
+        request_field='',
+        request_type_name=u'SpannerProjectsInstancesDatabasesSessionsListRequest',
+        response_type_name=u'ListSessionsResponse',
+        supports_download=False,
+    )
+
+    def PartitionQuery(self, request, global_params=None):
+      r"""Creates a set of partition tokens that can be used to execute a query.
+operation in parallel.  Each of the returned partition tokens can be used
+by ExecuteStreamingSql to specify a subset
+of the query result to read.  The same session and read-only transaction
+must be used by the PartitionQueryRequest used to create the
+partition tokens and the ExecuteSqlRequests that use the partition tokens.
+Partition tokens become invalid when the session used to create them
+is deleted or begins a new transaction.
+
+      Args:
+        request: (SpannerProjectsInstancesDatabasesSessionsPartitionQueryRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (PartitionResponse) The response message.
+      """
+      config = self.GetMethodConfig('PartitionQuery')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    PartitionQuery.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/instances/{instancesId}/databases/{databasesId}/sessions/{sessionsId}:partitionQuery',
+        http_method=u'POST',
+        method_id=u'spanner.projects.instances.databases.sessions.partitionQuery',
+        ordered_params=[u'session'],
+        path_params=[u'session'],
+        query_params=[],
+        relative_path=u'v1/{+session}:partitionQuery',
+        request_field=u'partitionQueryRequest',
+        request_type_name=u'SpannerProjectsInstancesDatabasesSessionsPartitionQueryRequest',
+        response_type_name=u'PartitionResponse',
+        supports_download=False,
+    )
+
+    def PartitionRead(self, request, global_params=None):
+      r"""Creates a set of partition tokens that can be used to execute a read.
+operation in parallel.  Each of the returned partition tokens can be used
+by StreamingRead to specify a subset of the read
+result to read.  The same session and read-only transaction must be used by
+the PartitionReadRequest used to create the partition tokens and the
+ReadRequests that use the partition tokens.
+Partition tokens become invalid when the session used to create them
+is deleted or begins a new transaction.
+
+      Args:
+        request: (SpannerProjectsInstancesDatabasesSessionsPartitionReadRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (PartitionResponse) The response message.
+      """
+      config = self.GetMethodConfig('PartitionRead')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    PartitionRead.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/instances/{instancesId}/databases/{databasesId}/sessions/{sessionsId}:partitionRead',
+        http_method=u'POST',
+        method_id=u'spanner.projects.instances.databases.sessions.partitionRead',
+        ordered_params=[u'session'],
+        path_params=[u'session'],
+        query_params=[],
+        relative_path=u'v1/{+session}:partitionRead',
+        request_field=u'partitionReadRequest',
+        request_type_name=u'SpannerProjectsInstancesDatabasesSessionsPartitionReadRequest',
+        response_type_name=u'PartitionResponse',
+        supports_download=False,
+    )
+
     def Read(self, request, global_params=None):
-      """Reads rows from the database using key lookups and scans, as a.
+      r"""Reads rows from the database using key lookups and scans, as a.
 simple key/value style alternative to
 ExecuteSql.  This method cannot be used to
 return a result set larger than 10 MiB; if the read matches more
@@ -530,7 +626,7 @@ StreamingRead instead.
     )
 
     def Rollback(self, request, global_params=None):
-      """Rolls back a transaction, releasing any locks it holds. It is a good.
+      r"""Rolls back a transaction, releasing any locks it holds. It is a good.
 idea to call this for any transaction that includes one or more
 Read or ExecuteSql requests and
 ultimately decides not to commit.
@@ -564,7 +660,7 @@ found. `Rollback` never returns `ABORTED`.
     )
 
     def StreamingRead(self, request, global_params=None):
-      """Like Read, except returns the result set as a.
+      r"""Like Read, except returns the result set as a.
 stream. Unlike Read, there is no limit on the
 size of the returned result set. However, no individual row in
 the result set can exceed 100 MiB, and no column value can exceed
@@ -605,7 +701,7 @@ the result set can exceed 100 MiB, and no column value can exceed
           }
 
     def Create(self, request, global_params=None):
-      """Creates a new Cloud Spanner database and starts to prepare it for serving.
+      r"""Creates a new Cloud Spanner database and starts to prepare it for serving.
 The returned long-running operation will
 have a name of the format `<database_name>/operations/<operation_id>` and
 can be used to track preparation of the database. The
@@ -639,7 +735,7 @@ Database, if successful.
     )
 
     def DropDatabase(self, request, global_params=None):
-      """Drops (aka deletes) a Cloud Spanner database.
+      r"""Drops (aka deletes) a Cloud Spanner database.
 
       Args:
         request: (SpannerProjectsInstancesDatabasesDropDatabaseRequest) input message
@@ -666,7 +762,7 @@ Database, if successful.
     )
 
     def Get(self, request, global_params=None):
-      """Gets the state of a Cloud Spanner database.
+      r"""Gets the state of a Cloud Spanner database.
 
       Args:
         request: (SpannerProjectsInstancesDatabasesGetRequest) input message
@@ -693,7 +789,7 @@ Database, if successful.
     )
 
     def GetDdl(self, request, global_params=None):
-      """Returns the schema of a Cloud Spanner database as a list of formatted.
+      r"""Returns the schema of a Cloud Spanner database as a list of formatted.
 DDL statements. This method does not show pending schema updates, those may
 be queried using the Operations API.
 
@@ -722,7 +818,7 @@ be queried using the Operations API.
     )
 
     def GetIamPolicy(self, request, global_params=None):
-      """Gets the access control policy for a database resource. Returns an empty.
+      r"""Gets the access control policy for a database resource. Returns an empty.
 policy if a database exists but does not have a policy set.
 
 Authorization requires `spanner.databases.getIamPolicy` permission on
@@ -753,7 +849,7 @@ resource.
     )
 
     def List(self, request, global_params=None):
-      """Lists Cloud Spanner databases.
+      r"""Lists Cloud Spanner databases.
 
       Args:
         request: (SpannerProjectsInstancesDatabasesListRequest) input message
@@ -780,7 +876,7 @@ resource.
     )
 
     def SetIamPolicy(self, request, global_params=None):
-      """Sets the access control policy on a database resource. Replaces any.
+      r"""Sets the access control policy on a database resource. Replaces any.
 existing policy.
 
 Authorization requires `spanner.databases.setIamPolicy` permission on
@@ -811,7 +907,7 @@ resource.
     )
 
     def TestIamPermissions(self, request, global_params=None):
-      """Returns permissions that the caller has on the specified database resource.
+      r"""Returns permissions that the caller has on the specified database resource.
 
 Attempting this RPC on a non-existent Cloud Spanner database will result in
 a NOT_FOUND error if the user has `spanner.databases.list` permission on
@@ -843,7 +939,7 @@ permissions.
     )
 
     def UpdateDdl(self, request, global_params=None):
-      """Updates the schema of a Cloud Spanner database by.
+      r"""Updates the schema of a Cloud Spanner database by.
 creating/altering/dropping tables, columns, indexes, etc. The returned
 long-running operation will have a name of
 the format `<database_name>/operations/<operation_id>` and can be used to
@@ -886,7 +982,7 @@ UpdateDatabaseDdlMetadata.  The operation has no response.
           }
 
     def Cancel(self, request, global_params=None):
-      """Starts asynchronous cancellation on a long-running operation.  The server.
+      r"""Starts asynchronous cancellation on a long-running operation.  The server.
 makes a best effort to cancel the operation, but success is not
 guaranteed.  If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.  Clients can use
@@ -922,7 +1018,7 @@ corresponding to `Code.CANCELLED`.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a long-running operation. This method indicates that the client is.
+      r"""Deletes a long-running operation. This method indicates that the client is.
 no longer interested in the operation result. It does not cancel the
 operation. If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.
@@ -952,7 +1048,7 @@ operation. If the server doesn't support this method, it returns
     )
 
     def Get(self, request, global_params=None):
-      """Gets the latest state of a long-running operation.  Clients can use this.
+      r"""Gets the latest state of a long-running operation.  Clients can use this.
 method to poll the operation result at intervals as recommended by the API
 service.
 
@@ -981,7 +1077,7 @@ service.
     )
 
     def List(self, request, global_params=None):
-      """Lists operations that match the specified filter in the request. If the.
+      r"""Lists operations that match the specified filter in the request. If the.
 server doesn't support this method, it returns `UNIMPLEMENTED`.
 
 NOTE: the `name` binding allows API services to override the binding
@@ -1027,7 +1123,7 @@ is the parent resource, without the operations collection id.
           }
 
     def Create(self, request, global_params=None):
-      """Creates an instance and begins preparing it to begin serving. The.
+      r"""Creates an instance and begins preparing it to begin serving. The.
 returned long-running operation
 can be used to track the progress of preparing the new
 instance. The instance name is assigned by the caller. If the
@@ -1087,7 +1183,7 @@ Instance, if successful.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes an instance.
+      r"""Deletes an instance.
 
 Immediately upon completion of the request:
 
@@ -1124,7 +1220,7 @@ Soon afterward:
     )
 
     def Get(self, request, global_params=None):
-      """Gets information about a particular instance.
+      r"""Gets information about a particular instance.
 
       Args:
         request: (SpannerProjectsInstancesGetRequest) input message
@@ -1151,7 +1247,7 @@ Soon afterward:
     )
 
     def GetIamPolicy(self, request, global_params=None):
-      """Gets the access control policy for an instance resource. Returns an empty.
+      r"""Gets the access control policy for an instance resource. Returns an empty.
 policy if an instance exists but does not have a policy set.
 
 Authorization requires `spanner.instances.getIamPolicy` on
@@ -1182,7 +1278,7 @@ resource.
     )
 
     def List(self, request, global_params=None):
-      """Lists all instances in the given project.
+      r"""Lists all instances in the given project.
 
       Args:
         request: (SpannerProjectsInstancesListRequest) input message
@@ -1209,7 +1305,7 @@ resource.
     )
 
     def Patch(self, request, global_params=None):
-      """Updates an instance, and begins allocating or releasing resources.
+      r"""Updates an instance, and begins allocating or releasing resources.
 as requested. The returned long-running
 operation can be used to track the
 progress of updating the instance. If the named instance does not
@@ -1275,7 +1371,7 @@ resource name.
     )
 
     def SetIamPolicy(self, request, global_params=None):
-      """Sets the access control policy on an instance resource. Replaces any.
+      r"""Sets the access control policy on an instance resource. Replaces any.
 existing policy.
 
 Authorization requires `spanner.instances.setIamPolicy` on
@@ -1306,7 +1402,7 @@ resource.
     )
 
     def TestIamPermissions(self, request, global_params=None):
-      """Returns permissions that the caller has on the specified instance resource.
+      r"""Returns permissions that the caller has on the specified instance resource.
 
 Attempting this RPC on a non-existent Cloud Spanner instance resource will
 result in a NOT_FOUND error if the user has `spanner.instances.list`

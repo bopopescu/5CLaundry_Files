@@ -14,12 +14,15 @@
 
 """Command to describe the access policy for a service."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
+_ERROR = ('The `service-management get-iam-policy` command has been '
+          'replaced by `endpoints services get-iam-policy`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class GetIamPolicy(base.ListCommand):
   """Describes the IAM policy for a service.
 
@@ -47,25 +50,10 @@ class GetIamPolicy(base.ListCommand):
     base.URI_FLAG.RemoveFromParser(parser)
 
   def Run(self, args):
-    """Run 'service-management get-iam-policy'.
+    """Stubs 'service-management get-iam-policy'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the access API call.
-
-    Raises:
-      HttpException: An http error response was received while executing api
-          request.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = messages.ServicemanagementServicesGetIamPolicyRequest(
-        servicesId=service)
-
-    return client.services.GetIamPolicy(request)
+    pass

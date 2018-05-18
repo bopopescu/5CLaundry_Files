@@ -17,6 +17,7 @@ import enum
 
 
 BASE_URL = 'https://runtimeconfig.googleapis.com/v1beta1/'
+DOCS_URL = 'https://cloud.google.com/deployment-manager/runtime-configurator/'
 
 
 class Collections(enum.Enum):
@@ -26,7 +27,8 @@ class Collections(enum.Enum):
       'projects',
       'projects/{projectsId}',
       {},
-      [u'projectsId']
+      [u'projectsId'],
+      True
   )
   PROJECTS_CONFIGS = (
       'projects.configs',
@@ -35,7 +37,8 @@ class Collections(enum.Enum):
           '':
               'projects/{projectsId}/configs/{configsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS_CONFIGS_OPERATIONS = (
       'projects.configs.operations',
@@ -45,7 +48,8 @@ class Collections(enum.Enum):
               'projects/{projectsId}/configs/{configsId}/operations/'
               '{operationsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS_CONFIGS_VARIABLES = (
       'projects.configs.variables',
@@ -55,7 +59,8 @@ class Collections(enum.Enum):
               'projects/{projectsId}/configs/{configsId}/variables/'
               '{variablesId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS_CONFIGS_WAITERS = (
       'projects.configs.waiters',
@@ -64,11 +69,14 @@ class Collections(enum.Enum):
           '':
               'projects/{projectsId}/configs/{configsId}/waiters/{waitersId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
 
-  def __init__(self, collection_name, path, flat_paths, params):
+  def __init__(self, collection_name, path, flat_paths, params,
+               enable_uri_parsing):
     self.collection_name = collection_name
     self.path = path
     self.flat_paths = flat_paths
     self.params = params
+    self.enable_uri_parsing = enable_uri_parsing

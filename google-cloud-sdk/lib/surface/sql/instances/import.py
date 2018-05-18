@@ -16,11 +16,13 @@
 Imports data into a Cloud SQL instance from a MySQL dump file in
 Google Cloud Storage.
 """
+# TODO(b/67917387): Deprecate this command when `sql import` goes to GA.
 
 from googlecloudsdk.api_lib.sql import api_util
 from googlecloudsdk.api_lib.sql import operations
 from googlecloudsdk.api_lib.sql import validate
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib import deprecation_utils
 from googlecloudsdk.command_lib.sql import flags
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
@@ -28,12 +30,18 @@ from googlecloudsdk.core.console import console_io
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+@deprecation_utils.DeprecateCommandAtVersion(
+    remove_version='205.0.0', remove=False, alt_command='gcloud sql import sql')
 class Import(base.Command):
   """Imports data into a Cloud SQL instance from Google Cloud Storage.
 
   Note: authorization is required. For more information on importing data
   into Google Cloud SQL see
   [](https://cloud.google.com/sql/docs/import-export/importing).
+
+  Cloud SQL supports importing CSV files and SQL dump files from both MySQL and
+  PostgreSQL. For more information on how to create these export formats, see
+  [](https://cloud.google.com/sql/docs/mysql/import-export/creating-sqldump-csv)
   """
 
   @staticmethod
@@ -77,11 +85,6 @@ class Import(base.Command):
     Returns:
       A dict object representing the operations resource describing the import
       operation if the import was successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client
@@ -95,7 +98,7 @@ class Import(base.Command):
 
     console_io.PromptContinue(
         message='Data from {0} will be imported to {1}.'.format(
-            args.uri[0], args.instance),
+            args.uri, args.instance),
         default=True,
         cancel_on_no=True)
 

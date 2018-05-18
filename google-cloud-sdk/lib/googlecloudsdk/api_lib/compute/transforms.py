@@ -40,10 +40,13 @@ Pythonicness of the Transform*() methods:
       Exceptions for arguments explicitly under the caller's control are OK.
 """
 
-import httplib
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import constants
 from googlecloudsdk.api_lib.compute import instance_utils
+from googlecloudsdk.api_lib.compute import path_simplifier
 from googlecloudsdk.core.resource import resource_transform
+import six
 
 
 def TransformFirewallRule(r, undefined=''):
@@ -59,16 +62,16 @@ def TransformFirewallRule(r, undefined=''):
   Returns:
     A compact string describing the firewall rule in r.
   """
-  protocol = r.get('IPProtocol', None)
+  protocol = resource_transform.GetKeyValue(r, 'IPProtocol', None)
   if protocol is None:
     return undefined
   rule = []
-  port_ranges = r.get('ports', None)
-  if port_ranges is None:
-    rule.append(protocol)
-  else:
+  port_ranges = resource_transform.GetKeyValue(r, 'ports', None)
+  try:
     for port_range in port_ranges:
       rule.append('{0}:{1}'.format(protocol, port_range))
+  except TypeError:
+    rule.append(protocol)
   return ','.join(rule)
 
 
@@ -82,11 +85,12 @@ def TransformImageAlias(r, undefined=''):
   Returns:
     A comma-separated list of alias names for the image in r.
   """
-  name = r.get('name', None)
+  name = resource_transform.GetKeyValue(r, 'name', None)
   if name is None:
     return undefined
   project = resource_transform.TransformScope(
-      r.get('selfLink', ''), 'projects').split('/')[0]
+      resource_transform.GetKeyValue(r, 'selfLink', ''),
+      'projects').split('/')[0]
   aliases = [alias for alias, value in constants.IMAGE_ALIASES.items()
              if name.startswith(value.name_prefix)
              and value.project == project]
@@ -104,8 +108,9 @@ def TransformLocation(r, undefined=''):
     The region or zone name.
   """
   for scope in ('zone', 'region'):
-    if scope in r:
-      return resource_transform.TransformBaseName(r[scope], undefined)
+    location = resource_transform.GetKeyValue(r, scope, None)
+    if location:
+      return resource_transform.TransformBaseName(location, undefined)
   return undefined
 
 
@@ -120,22 +125,24 @@ def TransformLocationScope(r, undefined=''):
     The location scope name, either region or zone.
   """
   for scope in ('zone', 'region'):
-    if scope in r:
+    location = resource_transform.GetKeyValue(r, scope, None)
+    if location:
       return scope
   return undefined
 
 
-def TransformMachineType(r):
+def TransformMachineType(r, undefined=''):
   """Return the formatted name for a machine type.
 
   Args:
     r: JSON-serializable object.
+    undefined: Returns this value if the resource cannot be formatted.
 
   Returns:
     The formatted name for a machine type.
   """
-  if not isinstance(r, basestring):
-    return r
+  if not isinstance(r, six.string_types):
+    return undefined
   custom_cpu, custom_ram = instance_utils.GetCpuRamFromCustomName(r)
   if not custom_cpu or not custom_ram:
     return r
@@ -180,8 +187,9 @@ def TransformOperationHttpStatus(r, undefined=''):
   Returns:
     The HTTP response code of the operation in r.
   """
-  if isinstance(r, dict) and r.get('status', None) == 'DONE':
-    return r.get('httpErrorStatusCode', None) or httplib.OK
+  if resource_transform.GetKeyValue(r, 'status', None) == 'DONE':
+    return (resource_transform.GetKeyValue(r, 'httpErrorStatusCode', None) or
+            200)  # httplib.OK
   return undefined
 
 
@@ -201,6 +209,24 @@ def TransformProject(r, undefined=''):
   return project or undefined
 
 
+def TransformName(r, undefined=''):
+  """Returns a resorce name from an URI.
+
+  Args:
+    r: JSON-serializable object.
+    undefined: Returns this value if the resource cannot be formatted.
+
+  Returns:
+    A project name for selfLink from r.
+  """
+  if r:
+    try:
+      return r.split('/')[-1]
+    except AttributeError:
+      pass
+  return undefined
+
+
 def TransformQuota(r, undefined=''):
   """Formats a quota as usage/limit.
 
@@ -211,12 +237,10 @@ def TransformQuota(r, undefined=''):
   Returns:
     The quota in r as usage/limit.
   """
-  if not r:
-    return undefined
-  usage = r.get('usage', None)
+  usage = resource_transform.GetKeyValue(r, 'usage', None)
   if usage is None:
     return undefined
-  limit = r.get('limit', None)
+  limit = resource_transform.GetKeyValue(r, 'limit', None)
   if limit is None:
     return undefined
   try:
@@ -224,7 +248,19 @@ def TransformQuota(r, undefined=''):
       return '{0}/{1}'.format(int(usage), int(limit))
     return '{0:.2f}/{1:.2f}'.format(usage, limit)
   except (TypeError, ValueError):
-    return undefined
+    pass
+  return undefined
+
+
+def TransformScopedSuffixes(uris, undefined=''):
+  """Get just the scoped part of the object the uri refers to."""
+
+  if uris:
+    try:
+      return sorted([path_simplifier.ScopedSuffix(uri) for uri in uris])
+    except TypeError:
+      pass
+  return undefined
 
 
 def TransformStatus(r, undefined=''):
@@ -237,8 +273,8 @@ def TransformStatus(r, undefined=''):
   Returns:
     The machine status in r with deprecation information if applicable.
   """
-  status = r.get('status', None)
-  deprecated = r.get('deprecated', '')
+  status = resource_transform.GetKeyValue(r, 'status', None)
+  deprecated = resource_transform.GetKeyValue(r, 'deprecated', '')
   if deprecated:
     return '{0} ({1})'.format(status, deprecated.get('state', ''))
   return status or undefined
@@ -259,6 +295,17 @@ def TransformZone(r, undefined=''):
   return project or undefined
 
 
+def TransformTypeSuffix(uri, undefined=''):
+  """Get the type and the name of the object the uri refers to."""
+
+  try:
+    # Since the path is assumed valid, we can just take the last two pieces.
+    return '/'.join(uri.split('/')[-2:]) or undefined
+  except (AttributeError, IndexError, TypeError):
+    pass
+  return undefined
+
+
 _TRANSFORMS = {
 
     'firewall_rule': TransformFirewallRule,
@@ -267,10 +314,13 @@ _TRANSFORMS = {
     'location_scope': TransformLocationScope,
     'machine_type': TransformMachineType,
     'next_maintenance': TransformNextMaintenance,
+    'name': TransformName,
     'operation_http_status': TransformOperationHttpStatus,
     'project': TransformProject,
     'quota': TransformQuota,
+    'scoped_suffixes': TransformScopedSuffixes,
     'status': TransformStatus,
+    'type_suffix': TransformTypeSuffix,
     'zone': TransformZone,
 }
 

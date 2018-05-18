@@ -14,6 +14,8 @@
 
 """The main command group for Google Cloud Functions."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 
 from googlecloudsdk.api_lib.functions import transforms
@@ -24,8 +26,26 @@ from googlecloudsdk.core import properties
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class Functions(base.Group):
-  """Manages Google Cloud Functions."""
+  """Manage Google Cloud Functions."""
 
   @staticmethod
   def Args(parser):
     parser.display_info.AddTransforms(transforms.GetTransforms())
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()
+
+
+@base.Hidden
+@base.ReleaseTracks(base.ReleaseTrack.GA)
+class FunctionsGA(base.Group):
+  """Manage Google Cloud Functions."""
+
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddTransforms(transforms.GetTransforms())
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

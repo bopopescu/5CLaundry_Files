@@ -83,10 +83,10 @@ Or (even easier) use a 'custom' runtime:
     runtime: custom
     $ gcloud beta app deploy
 """
+from __future__ import absolute_import
 import contextlib
 import os
-import urllib2
-
+import re
 import enum
 from googlecloudsdk.api_lib.cloudbuild import cloudbuild_util
 from googlecloudsdk.api_lib.cloudbuild import config as cloudbuild_config
@@ -96,14 +96,21 @@ from googlecloudsdk.calliope import exceptions as calliope_exceptions
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
-import yaml
+from googlecloudsdk.core import yaml
+import six.moves.urllib.error
+import six.moves.urllib.parse
+import six.moves.urllib.request
 
 
 # "test-{ga,beta}" runtimes are canaries for unit testing
-_WHITELISTED_RUNTIMES_GA = {'test-ga'}
+_WHITELISTED_RUNTIMES_GA = (
+    {'aspnetcore', 'php', 'nodejs', 'ruby', 'java',
+     re.compile(r'(python|python-.+)$'),
+     re.compile(r'(go|go1\..+)$'),
+     re.compile('^gs://'),
+     'test-ga', re.compile('test-re-[ab]')})
 _WHITELISTED_RUNTIMES_BETA = (
     _WHITELISTED_RUNTIMES_GA |
-    {'aspnetcore', 'java', 'nodejs', 'php', 'python', 'ruby'} |
     {'test-beta'})
 
 
@@ -148,6 +155,8 @@ class RuntimeBuilderStrategy(enum.Enum):
   def _GetWhitelist(self):
     """Return the whitelist of runtimes for this strategy.
 
+    The whitelist is kept as a constant within this module.
+
     Returns:
       list of str, the names of runtimes that are whitelisted for this strategy.
 
@@ -160,6 +169,16 @@ class RuntimeBuilderStrategy(enum.Enum):
       return _WHITELISTED_RUNTIMES_BETA
     raise ValueError(
         'RuntimeBuilderStrategy {} is not a whitelist strategy.'.format(self))
+
+  def _IsWhitelisted(self, runtime):
+    for whitelisted_runtime in self._GetWhitelist():
+      try:
+        if whitelisted_runtime.match(runtime):
+          return True
+      except AttributeError:
+        if runtime == whitelisted_runtime:
+          return True
+    return False
 
   def ShouldUseRuntimeBuilders(self, runtime, needs_dockerfile):
     """Returns True if runtime should use runtime builders under this strategy.
@@ -196,7 +215,7 @@ class RuntimeBuilderStrategy(enum.Enum):
     if self is self.ALWAYS:
       return True
     elif self is self.WHITELIST_BETA or self is self.WHITELIST_GA:
-      return runtime in self._GetWhitelist()
+      return self._IsWhitelisted(runtime)
     elif self is self.NEVER:
       return False
     else:
@@ -232,7 +251,7 @@ def _Read(uri):
   """
   try:
     if uri.startswith('file://'):
-      with contextlib.closing(urllib2.urlopen(uri)) as req:
+      with contextlib.closing(six.moves.urllib.request.urlopen(uri)) as req:
         yield req
     elif uri.startswith('gs://'):
       storage_client = storage_api.StorageClient()
@@ -241,7 +260,7 @@ def _Read(uri):
         yield f
     else:
       raise InvalidRuntimeBuilderURI(uri)
-  except (urllib2.HTTPError, urllib2.URLError,
+  except (six.moves.urllib.error.HTTPError, six.moves.urllib.error.URLError,
           calliope_exceptions.BadFileException) as e:
     log.debug('', exc_info=True)
     raise FileReadError(str(e))
@@ -260,9 +279,7 @@ class BuilderReference(object):
       deprecation_message: str, A message to print when using this builder or
         None if not deprecated.
     """
-    # TODO(b/37542869): We need the Admin API to be able to accept arbitrary
-    # runtimes names. Until then, just mark them as 'custom'.
-    self.runtime = 'custom' if runtime.startswith('gs://') else runtime
+    self.runtime = runtime
     self.build_file_uri = build_file_uri
     self.deprecation_message = deprecation_message
 
@@ -309,7 +326,7 @@ class BuilderReference(object):
   def WarnIfDeprecated(self):
     """Warns that this runtime is deprecated (if it has been marked as such)."""
     if self.deprecation_message:
-      log.warn(self.deprecation_message)
+      log.warning(self.deprecation_message)
 
   def __eq__(self, other):
     return (self.runtime == other.runtime and
@@ -373,7 +390,7 @@ class Manifest(object):
     """
     log.debug('Loading runtimes manifest from [%s]', uri)
     with _Read(uri) as f:
-      data = yaml.load(f)
+      data = yaml.load(f, file_hint=uri)
     return cls(uri, data)
 
   def __init__(self, uri, data):
@@ -397,7 +414,7 @@ class Manifest(object):
     Returns:
       [str], The runtime names.
     """
-    return self._data.get('runtimes', {}).keys()
+    return list(self._data.get('runtimes', {}).keys())
 
   def GetBuilderReference(self, runtime):
     """Gets the associated reference for the given runtime.

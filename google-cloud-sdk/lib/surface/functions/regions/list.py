@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""'functions locations list' command."""
+"""List regions available to Google Cloud Functions."""
 
-import sys
-from apitools.base.py import exceptions
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from apitools.base.py import exceptions as api_exceptions
 from apitools.base.py import list_pager
 
 from googlecloudsdk.api_lib.functions import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as base_exceptions
 from googlecloudsdk.command_lib.functions import flags
+from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
 
 
 class List(base.ListCommand):
-  """Returns a list of locations where functions can be deployed."""
+  """List regions available to Google Cloud Functions."""
 
   @staticmethod
   def Args(parser):
@@ -42,10 +44,9 @@ class List(base.ListCommand):
     try:
       for item in list_generator:
         yield item
-    except exceptions.HttpError as error:
+    except api_exceptions.HttpError as error:
       msg = util.GetHttpErrorMessage(error)
-      unused_type, unused_value, traceback = sys.exc_info()
-      raise base_exceptions.HttpException, msg, traceback
+      exceptions.reraise(base_exceptions.HttpException(msg))
 
   def _BuildRequest(self):
     messages = util.GetApiMessagesModule()

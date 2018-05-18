@@ -13,19 +13,33 @@
 # limitations under the License.
 
 """Command for listing Google Compute Engine routers."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute import lister
+from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute.routers import flags
 
 
-class List(base_classes.RegionalLister):
+class List(base.ListCommand):
   """List Google Compute Engine routers."""
 
-  @property
-  def service(self):
-    return self.compute.routers
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
+    lister.AddRegionsArg(parser)
+    parser.display_info.AddCacheUpdater(flags.RoutersCompleter)
 
-  @property
-  def resource_type(self):
-    return 'routers'
+  def Run(self, args):
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
+
+    request_data = lister.ParseRegionalFlags(args, holder.resources)
+
+    list_implementation = lister.RegionalLister(
+        client, client.apitools_client.routers)
+
+    return lister.Invoke(request_data, list_implementation)
 
 
 List.detailed_help = base_classes.GetRegionalListerHelp('routers')

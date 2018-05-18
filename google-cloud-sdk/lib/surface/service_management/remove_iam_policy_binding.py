@@ -14,21 +14,18 @@
 
 """Command to remove a principal from a service's access policy."""
 
-import httplib
-
-from googlecloudsdk.api_lib.service_management import services_util
-from googlecloudsdk.api_lib.util import http_retry
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.endpoints import common_flags
 from googlecloudsdk.command_lib.iam import iam_util
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
 
 
+_ERROR = ('The `service-management remove-iam-policy-binding` command has '
+          'been replaced by `endpoints services remove-iam-policy-binding`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class RemoveIamPolicyBinding(base.Command):
   """Removes an IAM policy binding from a service's access policy."""
-
-  detailed_help = iam_util.GetDetailedHelpForRemoveIamPolicyBinding(
-      'service', 'my-service', role='roles/servicemanagement.serviceConsumer')
 
   @staticmethod
   def Args(parser):
@@ -45,37 +42,11 @@ class RemoveIamPolicyBinding(base.Command):
 
     iam_util.AddArgsForRemoveIamPolicyBinding(parser)
 
-  @http_retry.RetryOnHttpStatus(httplib.CONFLICT)
   def Run(self, args):
-    """Run 'service-management remove-iam-policy-binding'.
+    """Stub for 'service-management remove-iam-policy-binding'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the access API call.
-
-    Raises:
-      ToolException: An error such as specifying a label that doesn't exist
-        or a principal that is already a member of the service or visibility
-        label.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = messages.ServicemanagementServicesGetIamPolicyRequest(
-        servicesId=service)
-
-    policy = client.services.GetIamPolicy(request)
-
-    iam_util.RemoveBindingFromIamPolicy(
-        policy, args.member, args.role)
-
-    # Send updated access policy to backend
-    request = messages.ServicemanagementServicesSetIamPolicyRequest(
-        servicesId=service,
-        setIamPolicyRequest=messages.SetIamPolicyRequest(policy=policy))
-    return client.services.SetIamPolicy(request)
+    pass

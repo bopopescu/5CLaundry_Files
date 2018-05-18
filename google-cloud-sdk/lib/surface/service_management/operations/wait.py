@@ -14,10 +14,8 @@
 
 """service-management operations wait command."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
 _DETAILED_HELP = {
@@ -36,6 +34,12 @@ _DETAILED_HELP = {
 }
 
 
+_ERROR = ('The `service-management operations wait` command has been '
+          'replaced by `endpoints operations wait` and '
+          '`services operations wait`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Wait(base.Command):
   """Waits for an operation to complete."""
 
@@ -56,21 +60,5 @@ class Wait(base.Command):
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      If successful, the response from the operations.Get API call.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    operation_id = arg_parsers.GetOperationIdFromArg(args.operation)
-
-    request = messages.ServicemanagementOperationsGetRequest(
-        operationsId=operation_id,)
-
-    operation = client.operations.Get(request)
-
-    return services_util.ProcessOperationResult(operation, async=False)
-
-
-Wait.detailed_help = _DETAILED_HELP
+    pass

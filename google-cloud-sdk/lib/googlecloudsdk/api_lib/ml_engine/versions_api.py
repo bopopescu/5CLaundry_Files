@@ -12,27 +12,41 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for dealing with ML versions API."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import encoding
 from apitools.base.py import list_pager
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.core import exceptions
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.util import text
-
-import yaml
 
 
 class InvalidVersionConfigFile(exceptions.Error):
   """Error indicating an invalid Version configuration file."""
 
 
+class NoFieldsSpecifiedError(exceptions.Error):
+  """Error indicating an invalid Version configuration file."""
+
+
+def GetMessagesModule(version='v1'):
+  return apis.GetMessagesModule('ml', version)
+
+
+def GetClientInstance(version='v1', no_http=False):
+  return apis.GetClientInstance('ml', version, no_http=no_http)
+
+
 class VersionsClient(object):
   """Client for the versions service of Cloud ML Engine."""
 
-  _ALLOWED_YAML_FIELDS = set(['description', 'deploymentUri', 'runtimeVersion',
-                              'manualScaling'])
+  _ALLOWED_YAML_FIELDS = set(['autoScaling', 'description', 'deploymentUri',
+                              'runtimeVersion', 'manualScaling', 'labels',
+                              'machineType', 'framework', 'pythonVersion'])
 
   def __init__(self, client=None, messages=None):
-    self.client = client or apis.GetClientInstance('ml', 'v1')
+    self.client = client or GetClientInstance()
     self.messages = messages or self.client.MESSAGES_MODULE
 
   @property
@@ -56,6 +70,27 @@ class VersionsClient(object):
         self._MakeCreateRequest(
             parent=model_ref.RelativeName(),
             version=version))
+
+  def Patch(self, version_ref, labels_update, description=None):
+    """Update a version."""
+    version = self.messages.GoogleCloudMlV1Version()
+    update_mask = []
+    if labels_update.needs_update:
+      version.labels = labels_update.labels
+      update_mask.append('labels')
+
+    if description:
+      version.description = description
+      update_mask.append('description')
+
+    if not update_mask:
+      raise NoFieldsSpecifiedError('No updates requested.')
+
+    return self.client.projects_models_versions.Patch(
+        self.messages.MlProjectsModelsVersionsPatchRequest(
+            name=version_ref.RelativeName(),
+            googleCloudMlV1Version=version,
+            updateMask=','.join(update_mask)))
 
   def Delete(self, version_ref):
     """Deletes a version from a model."""
@@ -85,7 +120,12 @@ class VersionsClient(object):
   def BuildVersion(self, name,
                    path=None,
                    deployment_uri=None,
-                   runtime_version=None):
+                   runtime_version=None,
+                   labels=None,
+                   machine_type=None,
+                   description=None,
+                   framework=None,
+                   python_version=None):
     """Create a Version object.
 
     The object is based on an optional YAML configuration file and the
@@ -101,6 +141,12 @@ class VersionsClient(object):
       path: str, the path to the YAML file.
       deployment_uri: str, the deploymentUri to set for the Version
       runtime_version: str, the runtimeVersion to set for the Version
+      labels: Version.LabelsValue, the labels to set for the version
+      machine_type: str, the machine type to serve the model version on.
+      description: str, the version description.
+      framework: FrameworkValueValuesEnum, the ML framework used to train this
+        version of the model.
+      python_version: str, The version of Python used to train the model.
 
     Returns:
       A Version object (for the corresponding API version).
@@ -112,12 +158,11 @@ class VersionsClient(object):
 
     if path:
       try:
-        with open(path) as config_file:
-          data = yaml.load(config_file)
-      except (IOError, OSError, yaml.error.YAMLError) as err:
+        data = yaml.load_path(path)
+      except (yaml.Error) as err:
         raise InvalidVersionConfigFile(
             'Could not read Version configuration file [{path}]:\n\n'
-            '{err}'.format(path=path, err=str(err)))
+            '{err}'.format(path=path, err=str(err.inner_error)))
       if data:
         version = encoding.DictToMessage(data, self.version_class)
 
@@ -138,6 +183,11 @@ class VersionsClient(object):
         'name': name,
         'deploymentUri': deployment_uri,
         'runtimeVersion': runtime_version,
+        'labels': labels,
+        'machineType': machine_type,
+        'description': description,
+        'framework': framework,
+        'pythonVersion': python_version
     }
     for field_name, value in additional_fields.items():
       if value is not None:

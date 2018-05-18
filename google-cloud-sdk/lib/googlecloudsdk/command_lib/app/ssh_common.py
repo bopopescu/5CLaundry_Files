@@ -14,8 +14,9 @@
 
 """Utilities for `app instances *` commands using SSH."""
 
-from googlecloudsdk.api_lib.app import exceptions as api_exceptions
-from googlecloudsdk.api_lib.app import util
+from __future__ import absolute_import
+from apitools.base.py import exceptions as apitools_exceptions
+from googlecloudsdk.api_lib.app import env
 from googlecloudsdk.api_lib.app import version_util
 from googlecloudsdk.command_lib.app import exceptions as command_exceptions
 from googlecloudsdk.command_lib.util.ssh import ssh
@@ -95,12 +96,12 @@ def PopulatePublicKey(api_client, service_id, version_id, instance_id,
   try:
     version = api_client.GetVersionResource(
         service=service_id, version=version_id)
-  except api_exceptions.NotFoundError:
+  except apitools_exceptions.HttpNotFoundError:
     raise command_exceptions.MissingVersionError(
         '{}/{}'.format(service_id, version_id))
   version = version_util.Version.FromVersionResource(version, None)
-  if version.environment is not util.Environment.FLEX:
-    if version.environment is util.Environment.MANAGED_VMS:
+  if version.environment is not env.FLEX:
+    if version.environment is env.MANAGED_VMS:
       environment = 'Managed VMs'
       msg = 'Use `gcloud compute ssh` for Managed VMs instances.'
     else:
@@ -119,11 +120,11 @@ def PopulatePublicKey(api_client, service_id, version_id, instance_id,
   rel_name = res.RelativeName()
   try:
     instance = api_client.GetInstanceResource(res)
-  except api_exceptions.NotFoundError:
+  except apitools_exceptions.HttpNotFoundError:
     raise command_exceptions.MissingInstanceError(rel_name)
 
   if not instance.vmDebugEnabled:
-    log.warn(_ENABLE_DEBUG_WARNING)
+    log.warning(_ENABLE_DEBUG_WARNING)
     console_io.PromptContinue(cancel_on_no=True, throw_if_unattended=True)
   user = ssh.GetDefaultSshUsername()
   remote = ssh.Remote(instance.vmIp, user=user)

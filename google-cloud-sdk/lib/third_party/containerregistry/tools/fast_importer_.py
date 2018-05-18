@@ -19,32 +19,50 @@ Unlike 'docker save' the format this uses is proprietary.
 
 
 import argparse
+import logging
 
 from containerregistry.client.v2_2 import docker_image as v2_2_image
 from containerregistry.client.v2_2 import save
+from containerregistry.tools import logging_setup
 from containerregistry.tools import patched
 
 parser = argparse.ArgumentParser(
     description='Import images from a tarball into our faaaaaast format.')
 
-parser.add_argument('--tarball', action='store',
-                    help=('The tarball containing the docker image to rewrite '
-                          'into our fast on-disk format.'))
+parser.add_argument(
+    '--tarball',
+    action='store',
+    help=('The tarball containing the docker image to rewrite '
+          'into our fast on-disk format.'))
 
-parser.add_argument('--directory', action='store',
-                    help='Where to save the image\'s files.')
+parser.add_argument(
+    '--format',
+    action='store',
+    default='tar',
+    choices=['tar', 'tar.gz'],
+    help='The form in which to save layers.')
 
-_THREADS = 8
+parser.add_argument(
+    '--directory', action='store', help='Where to save the image\'s files.')
+
+_THREADS = 32
 
 
 def main():
+  logging_setup.DefineCommandLineArgs(parser)
   args = parser.parse_args()
+  logging_setup.Init(args=args)
 
   if not args.tarball or not args.directory:
     raise Exception('--tarball and --directory are required arguments.')
 
+  method = save.uncompressed
+  if args.format == 'tar.gz':
+    method = save.fast
+
+  logging.info('Reading v2.2 image from tarball %r', args.tarball)
   with v2_2_image.FromTarball(args.tarball) as v2_2_img:
-    save.fast(v2_2_img, args.directory, threads=_THREADS)
+    method(v2_2_img, args.directory, threads=_THREADS)
 
 
 if __name__ == '__main__':

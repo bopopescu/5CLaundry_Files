@@ -20,7 +20,7 @@ from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import labels_doc_helper
 from googlecloudsdk.command_lib.compute import labels_flags
 from googlecloudsdk.command_lib.compute.instances import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
@@ -54,10 +54,12 @@ class InstancesRemoveLabels(base.UpdateCommand):
         for label in instance.labels.additionalProperties:
           remove_labels[label.key] = label.value
 
-    replacement = labels_util.UpdateLabels(
-        instance.labels,
+    labels_update = labels_util.Diff(subtractions=remove_labels).Apply(
         messages.InstancesSetLabelsRequest.LabelsValue,
-        remove_labels=remove_labels)
+        instance.labels)
+    if not labels_update.needs_update:
+      return instance
+
     request = messages.ComputeInstancesSetLabelsRequest(
         project=instance_ref.project,
         instance=instance_ref.instance,
@@ -65,10 +67,7 @@ class InstancesRemoveLabels(base.UpdateCommand):
         instancesSetLabelsRequest=
         messages.InstancesSetLabelsRequest(
             labelFingerprint=instance.labelFingerprint,
-            labels=replacement))
-
-    if not replacement:
-      return instance
+            labels=labels_update.labels))
 
     operation = client.instances.SetLabels(request)
     operation_ref = holder.resources.Parse(

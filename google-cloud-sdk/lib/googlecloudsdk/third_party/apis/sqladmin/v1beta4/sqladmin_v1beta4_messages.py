@@ -14,7 +14,7 @@ package = 'sqladmin'
 
 
 class AclEntry(_messages.Message):
-  """An entry for an Access Control list.
+  r"""An entry for an Access Control list.
 
   Fields:
     expirationTime: The time when this access control entry expires in RFC
@@ -31,13 +31,14 @@ class AclEntry(_messages.Message):
 
 
 class BackupConfiguration(_messages.Message):
-  """Database instance backup configuration.
+  r"""Database instance backup configuration.
 
   Fields:
     binaryLogEnabled: Whether binary log is enabled. If backup configuration
       is disabled, binary log must be disabled as well.
     enabled: Whether this configuration is enabled.
     kind: This is always sql#backupConfiguration.
+    replicationLogArchivingEnabled: Reserved for future use.
     startTime: Start time for the daily backup configuration in UTC timezone
       in the 24 hour format - HH:MM.
   """
@@ -45,11 +46,12 @@ class BackupConfiguration(_messages.Message):
   binaryLogEnabled = _messages.BooleanField(1)
   enabled = _messages.BooleanField(2)
   kind = _messages.StringField(3, default=u'sql#backupConfiguration')
-  startTime = _messages.StringField(4)
+  replicationLogArchivingEnabled = _messages.BooleanField(4)
+  startTime = _messages.StringField(5)
 
 
 class BackupRun(_messages.Message):
-  """A database instance backup run resource.
+  r"""A database instance backup run resource.
 
   Fields:
     description: The description of this run, only applicable to on-demand
@@ -89,7 +91,7 @@ class BackupRun(_messages.Message):
 
 
 class BackupRunsListResponse(_messages.Message):
-  """Backup run list results.
+  r"""Backup run list results.
 
   Fields:
     items: A list of backup runs in reverse chronological order of the
@@ -106,7 +108,7 @@ class BackupRunsListResponse(_messages.Message):
 
 
 class BinLogCoordinates(_messages.Message):
-  """Binary log coordinates.
+  r"""Binary log coordinates.
 
   Fields:
     binLogFileName: Name of the binary log file for a Cloud SQL instance.
@@ -120,7 +122,7 @@ class BinLogCoordinates(_messages.Message):
 
 
 class CloneContext(_messages.Message):
-  """Database instance clone context.
+  r"""Database instance clone context.
 
   Fields:
     binLogCoordinates: Binary log coordinates, if specified, indentify the the
@@ -130,15 +132,17 @@ class CloneContext(_messages.Message):
     destinationInstanceName: Name of the Cloud SQL instance to be created as a
       clone.
     kind: This is always sql#cloneContext.
+    pitrTimestampMs: Reserved for future use.
   """
 
   binLogCoordinates = _messages.MessageField('BinLogCoordinates', 1)
   destinationInstanceName = _messages.StringField(2)
   kind = _messages.StringField(3, default=u'sql#cloneContext')
+  pitrTimestampMs = _messages.IntegerField(4)
 
 
 class Database(_messages.Message):
-  """A database resource inside a Cloud SQL instance.
+  r"""A database resource inside a Cloud SQL instance.
 
   Fields:
     charset: The MySQL charset value.
@@ -165,7 +169,7 @@ class Database(_messages.Message):
 
 
 class DatabaseFlags(_messages.Message):
-  """MySQL flags for Cloud SQL instances.
+  r"""MySQL flags for Cloud SQL instances.
 
   Fields:
     name: The name of the flag. These flags are passed at instance startup, so
@@ -184,7 +188,7 @@ class DatabaseFlags(_messages.Message):
 
 
 class DatabaseInstance(_messages.Message):
-  """A Cloud SQL instance resource.
+  r"""A Cloud SQL instance resource.
 
   Messages:
     FailoverReplicaValue: The name and status of the failover replica. This
@@ -210,9 +214,10 @@ class DatabaseInstance(_messages.Message):
     etag: HTTP 1.1 Entity tag for the resource.
     failoverReplica: The name and status of the failover replica. This
       property is applicable only to Second Generation instances.
-    gceZone: The GCE zone that the instance is serving from. In case when the
-      instance is failed over to standby zone, this value may be different
-      with what user specified in the settings.
+    gceZone: The Compute Engine zone that the instance is currently serving
+      from. This value could be different from the zone that was specified
+      when the instance was created if the instance has failed over to its
+      secondary zone.
     instanceType: The instance type. This can be one of the following.
       CLOUD_SQL_INSTANCE: A Cloud SQL instance that is not replicating from a
       master. ON_PREMISES_INSTANCE: An instance running on the customer's
@@ -256,7 +261,7 @@ class DatabaseInstance(_messages.Message):
   """
 
   class FailoverReplicaValue(_messages.Message):
-    """The name and status of the failover replica. This property is
+    r"""The name and status of the failover replica. This property is
     applicable only to Second Generation instances.
 
     Fields:
@@ -300,7 +305,7 @@ class DatabaseInstance(_messages.Message):
 
 
 class DatabasesListResponse(_messages.Message):
-  """Database list response.
+  r"""Database list response.
 
   Fields:
     items: List of database resources in the instance.
@@ -311,8 +316,71 @@ class DatabasesListResponse(_messages.Message):
   kind = _messages.StringField(2, default=u'sql#databasesList')
 
 
+class DemoteMasterConfiguration(_messages.Message):
+  r"""Read-replica configuration for connecting to the on-premises master.
+
+  Fields:
+    kind: This is always sql#demoteMasterConfiguration.
+    mysqlReplicaConfiguration: MySQL specific configuration when replicating
+      from a MySQL on-premises master. Replication configuration information
+      such as the username, password, certificates, and keys are not stored in
+      the instance metadata. The configuration information is used only to set
+      up the replication connection and is stored by MySQL in a file named
+      master.info in the data directory.
+  """
+
+  kind = _messages.StringField(1, default=u'sql#demoteMasterConfiguration')
+  mysqlReplicaConfiguration = _messages.MessageField('DemoteMasterMySqlReplicaConfiguration', 2)
+
+
+class DemoteMasterContext(_messages.Message):
+  r"""Database instance demote master context.
+
+  Fields:
+    kind: This is always sql#demoteMasterContext.
+    masterInstanceName: The name of the instance which will act as on-premises
+      master in the replication setup.
+    replicaConfiguration: Configuration specific to read-replicas replicating
+      from the on-premises master.
+    verifyGtidConsistency: Verify GTID consistency for demote operation.
+      Default value: True. Second Generation instances only. Setting this flag
+      to false enables you to bypass GTID consistency check between on-
+      premises master and Cloud SQL instance during the demotion operation but
+      also exposes you to the risk of future replication failures. Change the
+      value only if you know the reason for the GTID divergence and are
+      confident that doing so will not cause any replication issues.
+  """
+
+  kind = _messages.StringField(1, default=u'sql#demoteMasterContext')
+  masterInstanceName = _messages.StringField(2)
+  replicaConfiguration = _messages.MessageField('DemoteMasterConfiguration', 3)
+  verifyGtidConsistency = _messages.BooleanField(4)
+
+
+class DemoteMasterMySqlReplicaConfiguration(_messages.Message):
+  r"""Read-replica configuration specific to MySQL databases.
+
+  Fields:
+    caCertificate: PEM representation of the trusted CA's x509 certificate.
+    clientCertificate: PEM representation of the slave's x509 certificate.
+    clientKey: PEM representation of the slave's private key. The
+      corresponsing public key is encoded in the client's certificate. The
+      format of the slave's private key can be either PKCS #1 or PKCS #8.
+    kind: This is always sql#demoteMasterMysqlReplicaConfiguration.
+    password: The password for the replication connection.
+    username: The username for the replication connection.
+  """
+
+  caCertificate = _messages.StringField(1)
+  clientCertificate = _messages.StringField(2)
+  clientKey = _messages.StringField(3)
+  kind = _messages.StringField(4, default=u'sql#demoteMasterMysqlReplicaConfiguration')
+  password = _messages.StringField(5)
+  username = _messages.StringField(6)
+
+
 class ExportContext(_messages.Message):
-  """Database instance export context.
+  r"""Database instance export context.
 
   Messages:
     CsvExportOptionsValue: Options for exporting data as CSV.
@@ -331,12 +399,13 @@ class ExportContext(_messages.Message):
     sqlExportOptions: Options for exporting data as SQL statements.
     uri: The path to the file in Google Cloud Storage where the export will be
       stored. The URI is in the form gs://bucketName/fileName. If the file
-      already exists, the operation fails. If fileType is SQL and the filename
-      ends with .gz, the contents are compressed.
+      already exists, the requests succeeds, but the operation fails. If
+      fileType is SQL and the filename ends with .gz, the contents are
+      compressed.
   """
 
   class CsvExportOptionsValue(_messages.Message):
-    """Options for exporting data as CSV.
+    r"""Options for exporting data as CSV.
 
     Fields:
       selectQuery: The select query used to extract the data.
@@ -345,7 +414,7 @@ class ExportContext(_messages.Message):
     selectQuery = _messages.StringField(1)
 
   class SqlExportOptionsValue(_messages.Message):
-    """Options for exporting data as SQL statements.
+    r"""Options for exporting data as SQL statements.
 
     Fields:
       schemaOnly: Export only schemas.
@@ -365,7 +434,7 @@ class ExportContext(_messages.Message):
 
 
 class FailoverContext(_messages.Message):
-  """Database instance failover context.
+  r"""Database instance failover context.
 
   Fields:
     kind: This is always sql#failoverContext.
@@ -379,7 +448,7 @@ class FailoverContext(_messages.Message):
 
 
 class Flag(_messages.Message):
-  """A Google Cloud SQL service flag resource.
+  r"""A Google Cloud SQL service flag resource.
 
   Fields:
     allowedStringValues: For STRING flags, a list of strings that the value
@@ -410,7 +479,7 @@ class Flag(_messages.Message):
 
 
 class FlagsListResponse(_messages.Message):
-  """Flags list response.
+  r"""Flags list response.
 
   Fields:
     items: List of flags.
@@ -422,7 +491,7 @@ class FlagsListResponse(_messages.Message):
 
 
 class ImportContext(_messages.Message):
-  """Database instance import context.
+  r"""Database instance import context.
 
   Messages:
     CsvImportOptionsValue: Options for importing data as CSV.
@@ -444,7 +513,7 @@ class ImportContext(_messages.Message):
   """
 
   class CsvImportOptionsValue(_messages.Message):
-    """Options for importing data as CSV.
+    r"""Options for importing data as CSV.
 
     Fields:
       columns: The columns to which CSV data is imported. If not specified,
@@ -464,7 +533,7 @@ class ImportContext(_messages.Message):
 
 
 class InstancesCloneRequest(_messages.Message):
-  """Database instance clone request.
+  r"""Database instance clone request.
 
   Fields:
     cloneContext: Contains details about the clone operation.
@@ -473,8 +542,18 @@ class InstancesCloneRequest(_messages.Message):
   cloneContext = _messages.MessageField('CloneContext', 1)
 
 
+class InstancesDemoteMasterRequest(_messages.Message):
+  r"""Database demote master request.
+
+  Fields:
+    demoteMasterContext: Contains details about the demoteMaster operation.
+  """
+
+  demoteMasterContext = _messages.MessageField('DemoteMasterContext', 1)
+
+
 class InstancesExportRequest(_messages.Message):
-  """Database instance export request.
+  r"""Database instance export request.
 
   Fields:
     exportContext: Contains details about the export operation.
@@ -484,7 +563,7 @@ class InstancesExportRequest(_messages.Message):
 
 
 class InstancesFailoverRequest(_messages.Message):
-  """Instance failover request.
+  r"""Instance failover request.
 
   Fields:
     failoverContext: Failover Context.
@@ -494,7 +573,7 @@ class InstancesFailoverRequest(_messages.Message):
 
 
 class InstancesImportRequest(_messages.Message):
-  """Database instance import request.
+  r"""Database instance import request.
 
   Fields:
     importContext: Contains details about the import operation.
@@ -504,7 +583,7 @@ class InstancesImportRequest(_messages.Message):
 
 
 class InstancesListResponse(_messages.Message):
-  """Database instances list response.
+  r"""Database instances list response.
 
   Fields:
     items: List of database instance resources.
@@ -519,8 +598,22 @@ class InstancesListResponse(_messages.Message):
   nextPageToken = _messages.StringField(3)
 
 
+class InstancesListServerCasResponse(_messages.Message):
+  r"""Instances ListServerCas response.
+
+  Fields:
+    activeVersion: A string attribute.
+    certs: List of server CA certificates for the instance.
+    kind: This is always sql#instancesListServerCas.
+  """
+
+  activeVersion = _messages.StringField(1)
+  certs = _messages.MessageField('SslCert', 2, repeated=True)
+  kind = _messages.StringField(3, default=u'sql#instancesListServerCas')
+
+
 class InstancesRestoreBackupRequest(_messages.Message):
-  """Database instance restore backup request.
+  r"""Database instance restore backup request.
 
   Fields:
     restoreBackupContext: Parameters required to perform the restore backup
@@ -530,8 +623,19 @@ class InstancesRestoreBackupRequest(_messages.Message):
   restoreBackupContext = _messages.MessageField('RestoreBackupContext', 1)
 
 
+class InstancesRotateServerCaRequest(_messages.Message):
+  r"""Rotate Server CA request.
+
+  Fields:
+    rotateServerCaContext: Contains details about the rotate server CA
+      operation.
+  """
+
+  rotateServerCaContext = _messages.MessageField('RotateServerCaContext', 1)
+
+
 class InstancesTruncateLogRequest(_messages.Message):
-  """Instance truncate log request.
+  r"""Instance truncate log request.
 
   Fields:
     truncateLogContext: Contains details about the truncate log operation.
@@ -541,7 +645,7 @@ class InstancesTruncateLogRequest(_messages.Message):
 
 
 class IpConfiguration(_messages.Message):
-  """IP Management configuration.
+  r"""IP Management configuration.
 
   Fields:
     authorizedNetworks: The list of external networks that are allowed to
@@ -557,7 +661,7 @@ class IpConfiguration(_messages.Message):
 
 
 class IpMapping(_messages.Message):
-  """Database instance IP Mapping.
+  r"""Database instance IP Mapping.
 
   Fields:
     ipAddress: The IP address assigned.
@@ -575,7 +679,7 @@ class IpMapping(_messages.Message):
 
 
 class LocationPreference(_messages.Message):
-  """Preferred location. This specifies where a Cloud SQL instance should
+  r"""Preferred location. This specifies where a Cloud SQL instance should
   preferably be located, either in a specific Compute Engine zone, or co-
   located with an App Engine application. Note that if the preferred location
   is not available, the instance will be located as close as possible within
@@ -595,14 +699,15 @@ class LocationPreference(_messages.Message):
 
 
 class MaintenanceWindow(_messages.Message):
-  """Maintenance window. This specifies when a v2 Cloud SQL instance should
+  r"""Maintenance window. This specifies when a v2 Cloud SQL instance should
   preferably be restarted for system maintenance puruposes.
 
   Fields:
     day: day of week (1-7), starting on Monday.
     hour: hour of day - 0 to 23.
     kind: This is always sql#maintenanceWindow.
-    updateTrack: A string attribute.
+    updateTrack: Maintenance timing setting: canary (Earlier) or stable
+      (Later).  Learn more.
   """
 
   day = _messages.IntegerField(1, variant=_messages.Variant.INT32)
@@ -612,7 +717,7 @@ class MaintenanceWindow(_messages.Message):
 
 
 class MySqlReplicaConfiguration(_messages.Message):
-  """Read-replica configuration specific to MySQL databases.
+  r"""Read-replica configuration specific to MySQL databases.
 
   Fields:
     caCertificate: PEM representation of the trusted CA's x509 certificate.
@@ -651,7 +756,7 @@ class MySqlReplicaConfiguration(_messages.Message):
 
 
 class OnPremisesConfiguration(_messages.Message):
-  """On-premises instance configuration.
+  r"""On-premises instance configuration.
 
   Fields:
     hostPort: The host and port of the on-premises instance in host:port
@@ -664,7 +769,7 @@ class OnPremisesConfiguration(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """An Operations resource contains information about database instance
+  r"""An Operations resource contains information about database instance
   operations such as create, delete, and restart. Operations resources are
   created in response to operations that were initiated; you never create them
   directly.
@@ -715,7 +820,7 @@ class Operation(_messages.Message):
 
 
 class OperationError(_messages.Message):
-  """Database instance operation error.
+  r"""Database instance operation error.
 
   Fields:
     code: Identifies the specific error that occurred.
@@ -729,7 +834,7 @@ class OperationError(_messages.Message):
 
 
 class OperationErrors(_messages.Message):
-  """Database instance operation errors list wrapper.
+  r"""Database instance operation errors list wrapper.
 
   Fields:
     errors: The list of errors encountered while processing this operation.
@@ -741,7 +846,7 @@ class OperationErrors(_messages.Message):
 
 
 class OperationsListResponse(_messages.Message):
-  """Database instance list operations response.
+  r"""Database instance list operations response.
 
   Fields:
     items: List of operation resources.
@@ -757,7 +862,7 @@ class OperationsListResponse(_messages.Message):
 
 
 class ReplicaConfiguration(_messages.Message):
-  """Read-replica configuration for connecting to the master.
+  r"""Read-replica configuration for connecting to the master.
 
   Fields:
     failoverTarget: Specifies if the replica is the failover target. If the
@@ -781,7 +886,7 @@ class ReplicaConfiguration(_messages.Message):
 
 
 class RestoreBackupContext(_messages.Message):
-  """Database instance restore from backup context.
+  r"""Database instance restore from backup context.
 
   Fields:
     backupRunId: The ID of the backup run to restore from.
@@ -794,8 +899,22 @@ class RestoreBackupContext(_messages.Message):
   kind = _messages.StringField(3, default=u'sql#restoreBackupContext')
 
 
+class RotateServerCaContext(_messages.Message):
+  r"""Instance rotate server CA context.
+
+  Fields:
+    kind: This is always sql#rotateServerCaContext.
+    nextVersion: The fingerprint of the next version to be rotated to. If left
+      unspecified, will be rotated to the most recently added server CA
+      version.
+  """
+
+  kind = _messages.StringField(1, default=u'sql#rotateServerCaContext')
+  nextVersion = _messages.StringField(2)
+
+
 class Settings(_messages.Message):
-  """Database instance settings.
+  r"""Database instance settings.
 
   Messages:
     UserLabelsValue: User-provided labels, represented as a dictionary where
@@ -804,18 +923,21 @@ class Settings(_messages.Message):
   Fields:
     activationPolicy: The activation policy specifies when the instance is
       activated; it is applicable only when the instance state is RUNNABLE.
-      The activation policy cannot be updated together with other settings for
-      Second Generation instances. Valid values: ALWAYS: The instance is on;
-      it is not deactivated by inactivity. NEVER: The instance is off; it is
-      not activated, even if a connection request arrives. ON_DEMAND: The
-      instance responds to incoming requests, and turns itself off when not in
-      use. Instances with PER_USE pricing turn off after 15 minutes of
-      inactivity. Instances with PER_PACKAGE pricing turn off after 12 hours
-      of inactivity.
+      Valid values: ALWAYS: The instance is on, and remains so even in the
+      absence of connection requests. NEVER: The instance is off; it is not
+      activated, even if a connection request arrives. ON_DEMAND: First
+      Generation instances only. The instance responds to incoming requests,
+      and turns itself off when not in use. Instances with PER_USE pricing
+      turn off after 15 minutes of inactivity. Instances with PER_PACKAGE
+      pricing turn off after 12 hours of inactivity.
     authorizedGaeApplications: The App Engine app IDs that can access this
       instance. This property is only applicable to First Generation
       instances.
-    availabilityType: Reserved for future use.
+    availabilityType: Availability type (PostgreSQL instances only). Potential
+      values: ZONAL: The instance serves data from only one zone. Outages in
+      that zone affect data accessibility. REGIONAL: The instance can serve
+      data from more than one zone in a region (it is highly available). For
+      more information, see Overview of the High Availability Configuration.
     backupConfiguration: The daily backup configuration for the instance.
     crashSafeReplicationEnabled: Configuration specific to read replica
       instances. Indicates whether database flags for crash-safe replication
@@ -836,8 +958,8 @@ class Settings(_messages.Message):
     kind: This is always sql#settings.
     locationPreference: The location preference settings. This allows the
       instance to be located as near as possible to either an App Engine app
-      or GCE zone for better performance. App Engine co-location is only
-      applicable to First Generation instances.
+      or Compute Engine zone for better performance. App Engine co-location is
+      only applicable to First Generation instances.
     maintenanceWindow: The maintenance window for this instance. This
       specifies when the instance may be restarted for maintenance purposes.
       Applies only to Second Generation instances.
@@ -864,8 +986,8 @@ class Settings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class UserLabelsValue(_messages.Message):
-    """User-provided labels, represented as a dictionary where each label is a
-    single key value pair.
+    r"""User-provided labels, represented as a dictionary where each label is
+    a single key value pair.
 
     Messages:
       AdditionalProperty: An additional property for a UserLabelsValue object.
@@ -876,7 +998,7 @@ class Settings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a UserLabelsValue object.
+      r"""An additional property for a UserLabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -911,7 +1033,7 @@ class Settings(_messages.Message):
 
 
 class SqlBackupRunsDeleteRequest(_messages.Message):
-  """A SqlBackupRunsDeleteRequest object.
+  r"""A SqlBackupRunsDeleteRequest object.
 
   Fields:
     id: The ID of the Backup Run to delete. To find a Backup Run ID, use the
@@ -926,7 +1048,7 @@ class SqlBackupRunsDeleteRequest(_messages.Message):
 
 
 class SqlBackupRunsGetRequest(_messages.Message):
-  """A SqlBackupRunsGetRequest object.
+  r"""A SqlBackupRunsGetRequest object.
 
   Fields:
     id: The ID of this Backup Run.
@@ -940,7 +1062,7 @@ class SqlBackupRunsGetRequest(_messages.Message):
 
 
 class SqlBackupRunsInsertRequest(_messages.Message):
-  """A SqlBackupRunsInsertRequest object.
+  r"""A SqlBackupRunsInsertRequest object.
 
   Fields:
     backupRun: A BackupRun resource to be passed as the request body.
@@ -954,7 +1076,7 @@ class SqlBackupRunsInsertRequest(_messages.Message):
 
 
 class SqlBackupRunsListRequest(_messages.Message):
-  """A SqlBackupRunsListRequest object.
+  r"""A SqlBackupRunsListRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -971,7 +1093,7 @@ class SqlBackupRunsListRequest(_messages.Message):
 
 
 class SqlDatabasesDeleteRequest(_messages.Message):
-  """A SqlDatabasesDeleteRequest object.
+  r"""A SqlDatabasesDeleteRequest object.
 
   Fields:
     database: Name of the database to be deleted in the instance.
@@ -985,7 +1107,7 @@ class SqlDatabasesDeleteRequest(_messages.Message):
 
 
 class SqlDatabasesGetRequest(_messages.Message):
-  """A SqlDatabasesGetRequest object.
+  r"""A SqlDatabasesGetRequest object.
 
   Fields:
     database: Name of the database in the instance.
@@ -999,7 +1121,7 @@ class SqlDatabasesGetRequest(_messages.Message):
 
 
 class SqlDatabasesListRequest(_messages.Message):
-  """A SqlDatabasesListRequest object.
+  r"""A SqlDatabasesListRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1011,7 +1133,7 @@ class SqlDatabasesListRequest(_messages.Message):
 
 
 class SqlDatabasesPatchRequest(_messages.Message):
-  """A SqlDatabasesPatchRequest object.
+  r"""A SqlDatabasesPatchRequest object.
 
   Fields:
     database: Name of the database to be updated in the instance.
@@ -1027,7 +1149,7 @@ class SqlDatabasesPatchRequest(_messages.Message):
 
 
 class SqlDatabasesUpdateRequest(_messages.Message):
-  """A SqlDatabasesUpdateRequest object.
+  r"""A SqlDatabasesUpdateRequest object.
 
   Fields:
     database: Name of the database to be updated in the instance.
@@ -1043,7 +1165,7 @@ class SqlDatabasesUpdateRequest(_messages.Message):
 
 
 class SqlFlagsListRequest(_messages.Message):
-  """A SqlFlagsListRequest object.
+  r"""A SqlFlagsListRequest object.
 
   Fields:
     databaseVersion: Database version for flag retrieval. Flags are specific
@@ -1053,8 +1175,20 @@ class SqlFlagsListRequest(_messages.Message):
   databaseVersion = _messages.StringField(1)
 
 
+class SqlInstancesAddServerCaRequest(_messages.Message):
+  r"""A SqlInstancesAddServerCaRequest object.
+
+  Fields:
+    instance: Cloud SQL instance ID. This does not include the project ID.
+    project: Project ID of the project that contains the instance.
+  """
+
+  instance = _messages.StringField(1, required=True)
+  project = _messages.StringField(2, required=True)
+
+
 class SqlInstancesCloneRequest(_messages.Message):
-  """A SqlInstancesCloneRequest object.
+  r"""A SqlInstancesCloneRequest object.
 
   Fields:
     instance: The ID of the Cloud SQL instance to be cloned (source). This
@@ -1070,7 +1204,7 @@ class SqlInstancesCloneRequest(_messages.Message):
 
 
 class SqlInstancesDeleteRequest(_messages.Message):
-  """A SqlInstancesDeleteRequest object.
+  r"""A SqlInstancesDeleteRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1082,8 +1216,23 @@ class SqlInstancesDeleteRequest(_messages.Message):
   project = _messages.StringField(2, required=True)
 
 
+class SqlInstancesDemoteMasterRequest(_messages.Message):
+  r"""A SqlInstancesDemoteMasterRequest object.
+
+  Fields:
+    instance: Cloud SQL instance name.
+    instancesDemoteMasterRequest: A InstancesDemoteMasterRequest resource to
+      be passed as the request body.
+    project: ID of the project that contains the instance.
+  """
+
+  instance = _messages.StringField(1, required=True)
+  instancesDemoteMasterRequest = _messages.MessageField('InstancesDemoteMasterRequest', 2)
+  project = _messages.StringField(3, required=True)
+
+
 class SqlInstancesExportRequest(_messages.Message):
-  """A SqlInstancesExportRequest object.
+  r"""A SqlInstancesExportRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1099,7 +1248,7 @@ class SqlInstancesExportRequest(_messages.Message):
 
 
 class SqlInstancesFailoverRequest(_messages.Message):
-  """A SqlInstancesFailoverRequest object.
+  r"""A SqlInstancesFailoverRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1114,7 +1263,7 @@ class SqlInstancesFailoverRequest(_messages.Message):
 
 
 class SqlInstancesGetRequest(_messages.Message):
-  """A SqlInstancesGetRequest object.
+  r"""A SqlInstancesGetRequest object.
 
   Fields:
     instance: Database instance ID. This does not include the project ID.
@@ -1126,7 +1275,7 @@ class SqlInstancesGetRequest(_messages.Message):
 
 
 class SqlInstancesImportRequest(_messages.Message):
-  """A SqlInstancesImportRequest object.
+  r"""A SqlInstancesImportRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1141,7 +1290,7 @@ class SqlInstancesImportRequest(_messages.Message):
 
 
 class SqlInstancesListRequest(_messages.Message):
-  """A SqlInstancesListRequest object.
+  r"""A SqlInstancesListRequest object.
 
   Fields:
     filter: An expression for filtering the results of the request, such as by
@@ -1158,8 +1307,20 @@ class SqlInstancesListRequest(_messages.Message):
   project = _messages.StringField(4, required=True)
 
 
+class SqlInstancesListServerCasRequest(_messages.Message):
+  r"""A SqlInstancesListServerCasRequest object.
+
+  Fields:
+    instance: Cloud SQL instance ID. This does not include the project ID.
+    project: Project ID of the project that contains the instance.
+  """
+
+  instance = _messages.StringField(1, required=True)
+  project = _messages.StringField(2, required=True)
+
+
 class SqlInstancesPatchRequest(_messages.Message):
-  """A SqlInstancesPatchRequest object.
+  r"""A SqlInstancesPatchRequest object.
 
   Fields:
     databaseInstance: A DatabaseInstance resource to be passed as the request
@@ -1174,7 +1335,7 @@ class SqlInstancesPatchRequest(_messages.Message):
 
 
 class SqlInstancesPromoteReplicaRequest(_messages.Message):
-  """A SqlInstancesPromoteReplicaRequest object.
+  r"""A SqlInstancesPromoteReplicaRequest object.
 
   Fields:
     instance: Cloud SQL read replica instance name.
@@ -1186,7 +1347,7 @@ class SqlInstancesPromoteReplicaRequest(_messages.Message):
 
 
 class SqlInstancesResetSslConfigRequest(_messages.Message):
-  """A SqlInstancesResetSslConfigRequest object.
+  r"""A SqlInstancesResetSslConfigRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1198,7 +1359,7 @@ class SqlInstancesResetSslConfigRequest(_messages.Message):
 
 
 class SqlInstancesRestartRequest(_messages.Message):
-  """A SqlInstancesRestartRequest object.
+  r"""A SqlInstancesRestartRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1211,7 +1372,7 @@ class SqlInstancesRestartRequest(_messages.Message):
 
 
 class SqlInstancesRestoreBackupRequest(_messages.Message):
-  """A SqlInstancesRestoreBackupRequest object.
+  r"""A SqlInstancesRestoreBackupRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1225,8 +1386,23 @@ class SqlInstancesRestoreBackupRequest(_messages.Message):
   project = _messages.StringField(3, required=True)
 
 
+class SqlInstancesRotateServerCaRequest(_messages.Message):
+  r"""A SqlInstancesRotateServerCaRequest object.
+
+  Fields:
+    instance: Cloud SQL instance ID. This does not include the project ID.
+    instancesRotateServerCaRequest: A InstancesRotateServerCaRequest resource
+      to be passed as the request body.
+    project: Project ID of the project that contains the instance.
+  """
+
+  instance = _messages.StringField(1, required=True)
+  instancesRotateServerCaRequest = _messages.MessageField('InstancesRotateServerCaRequest', 2)
+  project = _messages.StringField(3, required=True)
+
+
 class SqlInstancesStartReplicaRequest(_messages.Message):
-  """A SqlInstancesStartReplicaRequest object.
+  r"""A SqlInstancesStartReplicaRequest object.
 
   Fields:
     instance: Cloud SQL read replica instance name.
@@ -1238,7 +1414,7 @@ class SqlInstancesStartReplicaRequest(_messages.Message):
 
 
 class SqlInstancesStopReplicaRequest(_messages.Message):
-  """A SqlInstancesStopReplicaRequest object.
+  r"""A SqlInstancesStopReplicaRequest object.
 
   Fields:
     instance: Cloud SQL read replica instance name.
@@ -1250,7 +1426,7 @@ class SqlInstancesStopReplicaRequest(_messages.Message):
 
 
 class SqlInstancesTruncateLogRequest(_messages.Message):
-  """A SqlInstancesTruncateLogRequest object.
+  r"""A SqlInstancesTruncateLogRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1265,7 +1441,7 @@ class SqlInstancesTruncateLogRequest(_messages.Message):
 
 
 class SqlInstancesUpdateRequest(_messages.Message):
-  """A SqlInstancesUpdateRequest object.
+  r"""A SqlInstancesUpdateRequest object.
 
   Fields:
     databaseInstance: A DatabaseInstance resource to be passed as the request
@@ -1280,7 +1456,7 @@ class SqlInstancesUpdateRequest(_messages.Message):
 
 
 class SqlOperationsGetRequest(_messages.Message):
-  """A SqlOperationsGetRequest object.
+  r"""A SqlOperationsGetRequest object.
 
   Fields:
     operation: Instance operation ID.
@@ -1292,7 +1468,7 @@ class SqlOperationsGetRequest(_messages.Message):
 
 
 class SqlOperationsListRequest(_messages.Message):
-  """A SqlOperationsListRequest object.
+  r"""A SqlOperationsListRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1309,7 +1485,7 @@ class SqlOperationsListRequest(_messages.Message):
 
 
 class SqlSslCertsCreateEphemeralRequest(_messages.Message):
-  """A SqlSslCertsCreateEphemeralRequest object.
+  r"""A SqlSslCertsCreateEphemeralRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1324,7 +1500,7 @@ class SqlSslCertsCreateEphemeralRequest(_messages.Message):
 
 
 class SqlSslCertsDeleteRequest(_messages.Message):
-  """A SqlSslCertsDeleteRequest object.
+  r"""A SqlSslCertsDeleteRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1339,7 +1515,7 @@ class SqlSslCertsDeleteRequest(_messages.Message):
 
 
 class SqlSslCertsGetRequest(_messages.Message):
-  """A SqlSslCertsGetRequest object.
+  r"""A SqlSslCertsGetRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1353,7 +1529,7 @@ class SqlSslCertsGetRequest(_messages.Message):
 
 
 class SqlSslCertsInsertRequest(_messages.Message):
-  """A SqlSslCertsInsertRequest object.
+  r"""A SqlSslCertsInsertRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1369,7 +1545,7 @@ class SqlSslCertsInsertRequest(_messages.Message):
 
 
 class SqlSslCertsListRequest(_messages.Message):
-  """A SqlSslCertsListRequest object.
+  r"""A SqlSslCertsListRequest object.
 
   Fields:
     instance: Cloud SQL instance ID. This does not include the project ID.
@@ -1381,7 +1557,7 @@ class SqlSslCertsListRequest(_messages.Message):
 
 
 class SqlTiersListRequest(_messages.Message):
-  """A SqlTiersListRequest object.
+  r"""A SqlTiersListRequest object.
 
   Fields:
     project: Project ID of the project for which to list tiers.
@@ -1391,7 +1567,7 @@ class SqlTiersListRequest(_messages.Message):
 
 
 class SqlUsersDeleteRequest(_messages.Message):
-  """A SqlUsersDeleteRequest object.
+  r"""A SqlUsersDeleteRequest object.
 
   Fields:
     host: Host of the user in the instance.
@@ -1407,7 +1583,7 @@ class SqlUsersDeleteRequest(_messages.Message):
 
 
 class SqlUsersListRequest(_messages.Message):
-  """A SqlUsersListRequest object.
+  r"""A SqlUsersListRequest object.
 
   Fields:
     instance: Database instance ID. This does not include the project ID.
@@ -1419,7 +1595,7 @@ class SqlUsersListRequest(_messages.Message):
 
 
 class SqlUsersUpdateRequest(_messages.Message):
-  """A SqlUsersUpdateRequest object.
+  r"""A SqlUsersUpdateRequest object.
 
   Fields:
     host: Host of the user in the instance.
@@ -1437,7 +1613,7 @@ class SqlUsersUpdateRequest(_messages.Message):
 
 
 class SslCert(_messages.Message):
-  """SslCerts Resource
+  r"""SslCerts Resource
 
   Fields:
     cert: PEM representation.
@@ -1465,7 +1641,7 @@ class SslCert(_messages.Message):
 
 
 class SslCertDetail(_messages.Message):
-  """SslCertDetail.
+  r"""SslCertDetail.
 
   Fields:
     certInfo: The public information about the cert.
@@ -1478,7 +1654,7 @@ class SslCertDetail(_messages.Message):
 
 
 class SslCertsCreateEphemeralRequest(_messages.Message):
-  """SslCerts create ephemeral certificate request.
+  r"""SslCerts create ephemeral certificate request.
 
   Fields:
     public_key: PEM encoded public key to include in the signed certificate.
@@ -1488,7 +1664,7 @@ class SslCertsCreateEphemeralRequest(_messages.Message):
 
 
 class SslCertsInsertRequest(_messages.Message):
-  """SslCerts insert request.
+  r"""SslCerts insert request.
 
   Fields:
     commonName: User supplied name. Must be a distinct name from the other
@@ -1500,12 +1676,12 @@ class SslCertsInsertRequest(_messages.Message):
 
 
 class SslCertsInsertResponse(_messages.Message):
-  """SslCert insert response.
+  r"""SslCert insert response.
 
   Fields:
-    clientCert: The new client certificate and private key. The new
-      certificate will not work until the instance is restarted for First
-      Generation instances.
+    clientCert: The new client certificate and private key. For First
+      Generation instances, the new certificate does not take effect until the
+      instance is restarted.
     kind: This is always sql#sslCertsInsert.
     operation: The operation to track the ssl certs insert request.
     serverCaCert: The server Certificate Authority's certificate. If this is
@@ -1520,7 +1696,7 @@ class SslCertsInsertResponse(_messages.Message):
 
 
 class SslCertsListResponse(_messages.Message):
-  """SslCerts list response.
+  r"""SslCerts list response.
 
   Fields:
     items: List of client certificates for the instance.
@@ -1532,7 +1708,7 @@ class SslCertsListResponse(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     AltValueValuesEnum: Data format for the response.
@@ -1545,17 +1721,15 @@ class StandardQueryParameters(_messages.Message):
       token.
     oauth_token: OAuth 2.0 token for the current user.
     prettyPrint: Returns response with indentations and line breaks.
-    quotaUser: Available to use for quota purposes for server-side
-      applications. Can be any arbitrary string assigned to a user, but should
-      not exceed 40 characters. Overrides userIp if both are provided.
+    quotaUser: An opaque string that represents a user for quota purposes.
+      Must not exceed 40 characters.
     trace: A tracing token of the form "token:<tokenid>" to include in api
       requests.
-    userIp: IP address of the site where the request originates. Use this if
-      you want to enforce per-user limits.
+    userIp: Deprecated. Please use quotaUser instead.
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for the response.
+    r"""Data format for the response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1573,7 +1747,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Tier(_messages.Message):
-  """A Google Cloud SQL service tier resource.
+  r"""A Google Cloud SQL service tier resource.
 
   Fields:
     DiskQuota: The maximum disk size of this tier in bytes.
@@ -1592,7 +1766,7 @@ class Tier(_messages.Message):
 
 
 class TiersListResponse(_messages.Message):
-  """Tiers list response.
+  r"""Tiers list response.
 
   Fields:
     items: List of tiers.
@@ -1604,7 +1778,7 @@ class TiersListResponse(_messages.Message):
 
 
 class TruncateLogContext(_messages.Message):
-  """Database Instance truncate log context.
+  r"""Database Instance truncate log context.
 
   Fields:
     kind: This is always sql#truncateLogContext.
@@ -1617,7 +1791,7 @@ class TruncateLogContext(_messages.Message):
 
 
 class User(_messages.Message):
-  """A Cloud SQL user resource.
+  r"""A Cloud SQL user resource.
 
   Fields:
     etag: HTTP 1.1 Entity tag for the resource.
@@ -1647,7 +1821,7 @@ class User(_messages.Message):
 
 
 class UsersListResponse(_messages.Message):
-  """User list response.
+  r"""User list response.
 
   Fields:
     items: List of user resources in the instance.

@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This package provides tools for appending layers to docker images."""
 
 
@@ -22,6 +21,7 @@ import json
 from containerregistry.client import docker_name
 from containerregistry.client.v2_2 import docker_http
 from containerregistry.client.v2_2 import docker_image
+from containerregistry.transform.v2_2 import metadata
 
 # _EMPTY_LAYER_TAR_ID is the sha256 of an empty tarball.
 _EMPTY_LAYER_TAR_ID = (
@@ -36,23 +36,28 @@ class Layer(docker_image.DockerImage):
   adds environment variables and exposes a port.
   """
 
-  def __init__(
-      self,
-      base,
-      tar_gz):
+  def __init__(self,
+               base,
+               tar_gz,
+               diff_id = None,
+               overrides = None):
     """Creates a new layer on top of a base with optional tar.gz.
 
     Args:
       base: a base DockerImage for a new layer.
       tar_gz: an optional gzipped tarball passed as a string with filesystem
           changeset.
+      diff_id: an optional string containing the digest of the
+          uncompressed tar_gz.
+      overrides: an optional metadata.Overrides object of properties to override
+          on the base image.
     """
     self._base = base
     manifest = json.loads(self._base.manifest())
     config_file = json.loads(self._base.config_file())
-    cfg = {
-        'created_by': docker_name.USER_AGENT,
-    }
+
+    overrides = overrides or metadata.Overrides()
+    overrides = overrides.Override(created_by=docker_name.USER_AGENT)
 
     if tar_gz:
       self._blob = tar_gz
@@ -62,15 +67,17 @@ class Layer(docker_image.DockerImage):
           'mediaType': docker_http.MANIFEST_SCHEMA2_MIME,
           'size': len(self._blob),
       })
-      config_file['rootfs']['diff_ids'].append(
-          'sha256:' + hashlib.sha256(
-              self.uncompressed_blob(self._blob_sum)).hexdigest())
-    else:
-      self._blob_sum = _EMPTY_LAYER_TAR_ID
-      self._blob = ''
-      cfg['empty_layer'] = 'true'
+      if not diff_id:
+        diff_id = 'sha256:' + hashlib.sha256(
+            self.uncompressed_blob(self._blob_sum)).hexdigest()
 
-    config_file['history'].insert(0, cfg)
+      # Takes naked hex.
+      overrides = overrides.Override(layers=[diff_id[len('sha256:'):]])
+    else:
+      # The empty layer.
+      overrides = overrides.Override(layers=[hashlib.sha256('').hexdigest()])
+
+    config_file = metadata.Override(config_file, overrides)
 
     self._config_file = json.dumps(config_file, sort_keys=True)
     manifest['config']['digest'] = (

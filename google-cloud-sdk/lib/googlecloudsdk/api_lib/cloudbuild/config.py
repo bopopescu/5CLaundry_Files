@@ -14,22 +14,27 @@
 """Parse cloudbuild config files.
 
 """
-import base64
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os
+import re
 
 from apitools.base.protorpclite import messages as proto_messages
 from apitools.base.py import encoding as apitools_encoding
 
 from googlecloudsdk.api_lib.cloudbuild import cloudbuild_util
 from googlecloudsdk.core import exceptions
-import yaml
-import yaml.parser
+from googlecloudsdk.core import yaml
+import six
 
 
 # Don't apply camel case to keys for dict or list values with these field names.
 # These correspond to map fields in our proto message, where we expect keys to
 # be sent exactly as the user typed them, without transformation to camelCase.
 _SKIP_CAMEL_CASE = ['secretEnv', 'secret_env', 'substitutions']
+
+# Regex for a valid user-defined substitution variable.
+_BUILTIN_SUBSTITUTION_REGEX = re.compile('^_[A-Z0-9_]+$')
 
 
 class NotFoundException(exceptions.Error):
@@ -119,7 +124,7 @@ def _SnakeToCamel(msg):
     return {
         _SnakeToCamelString(key):
         _SnakeToCamel(val) if key not in _SKIP_CAMEL_CASE else val
-        for key, val in msg.iteritems()
+        for key, val in six.iteritems(msg)
     }
   elif isinstance(msg, list):
     return [_SnakeToCamel(elem) for elem in msg]
@@ -194,32 +199,35 @@ def LoadCloudbuildConfigFromStream(stream, messages, params=None,
   """
   # Turn the data into a dict
   try:
-    structured_data = yaml.safe_load(stream)
-    if not isinstance(structured_data, dict):
-      raise ParserError(path, 'Could not parse into a message.')
-  except yaml.parser.ParserError as pe:
-    raise ParserError(path, pe)
+    structured_data = yaml.load(stream, file_hint=path)
+  except yaml.Error as e:
+    raise ParserError(path, e.inner_error)
+  if not isinstance(structured_data, dict):
+    raise ParserError(path, 'Could not parse into a message.')
 
   # Transform snake_case into camelCase.
-  structured_data = _SnakeToCamel(structured_data)
+  structured_data = _SnakeToCamel(structured_data)  # type: dict
 
   # Then, turn the dict into a proto message.
   try:
     build = _UnpackCheckUnused(structured_data, messages.Build)
-  except ValueError as e:
+  except Exception as e:
+    # Catch all exceptions here beacuse a valid YAML can sometimes not be a
+    # valid message, so we need to catch all errors in the dict to message
+    # conversion.
     raise BadConfigException(path, '%s' % e)
 
   subst = structured_data.get('substitutions', {})
+  # Validate the substitution keys in the message.
+  for key in six.iterkeys(subst):
+    if not _BUILTIN_SUBSTITUTION_REGEX.match(key):
+      raise BadConfigException(
+          path,
+          'config cannot specify built-in substitutions')
+  # Merge the substitutions passed in the flag.
   if params:
     subst.update(params)
   build.substitutions = cloudbuild_util.EncodeSubstitutions(subst, messages)
-
-  # Re-base64-encode secrets[].secretEnv values, which apitools' DictToMessage
-  # "helpfully" base64-decodes since it can tell it's a bytes field. We need to
-  # send a base64-encoded string in the JSON request, not raw bytes.
-  for s in build.secrets:
-    for i in s.secretEnv.additionalProperties:
-      i.value = base64.b64encode(i.value)
 
   # Some problems can be caught before talking to the cloudbuild service.
   if build.source:

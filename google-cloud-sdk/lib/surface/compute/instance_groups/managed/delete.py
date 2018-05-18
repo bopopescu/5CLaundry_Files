@@ -14,6 +14,8 @@
 
 """Command for deleting managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import managed_instance_groups_utils
 from googlecloudsdk.api_lib.compute import path_simplifier
@@ -47,7 +49,7 @@ class Delete(base.DeleteCommand):
     Returns:
       Messages, which will be sent to delete autoscalers.
     """
-    mig_requests = zip(*mig_requests)[2] if mig_requests else []
+    mig_requests = list(zip(*mig_requests))[2] if mig_requests else []
     zone_migs = [(request.instanceGroupManager, 'zone',
                   managed_instance_groups_utils.CreateZoneRef(
                       holder.resources, request)) for request in mig_requests
@@ -57,8 +59,8 @@ class Delete(base.DeleteCommand):
                         holder.resources, request)) for request in mig_requests
                    if hasattr(request, 'region') and request.region is not None]
 
-    zones = zip(*zone_migs)[2] if zone_migs else []
-    regions = zip(*region_migs)[2] if region_migs else []
+    zones = list(zip(*zone_migs))[2] if zone_migs else []
+    regions = list(zip(*region_migs))[2] if region_migs else []
 
     client = holder.client.apitools_client
     messages = client.MESSAGES_MODULE
@@ -138,21 +140,23 @@ class Delete(base.DeleteCommand):
     requests = list(self._CreateDeleteRequests(
         holder.client.apitools_client, igm_refs))
 
+    resources = []
     # Delete autoscalers first.
     errors = []
     autoscaler_delete_requests = self._GenerateAutoscalerDeleteRequests(
         holder, project, mig_requests=requests)
-    with progress_tracker.ProgressTracker(
-        'Deleting ' + text.Pluralize(
-            len(autoscaler_delete_requests), 'autoscaler'),
-        autotick=False,
-    ) as tracker:
-      resources = holder.client.MakeRequests(
-          autoscaler_delete_requests,
-          errors,
-          progress_tracker=tracker)
-    if errors:
-      utils.RaiseToolException(errors)
+    if autoscaler_delete_requests:
+      with progress_tracker.ProgressTracker(
+          'Deleting ' + text.Pluralize(
+              len(autoscaler_delete_requests), 'autoscaler'),
+          autotick=False,
+      ) as tracker:
+        resources = holder.client.MakeRequests(
+            autoscaler_delete_requests,
+            errors,
+            progress_tracker=tracker)
+      if errors:
+        utils.RaiseToolException(errors)
 
     # Now delete instance group managers.
     errors = []

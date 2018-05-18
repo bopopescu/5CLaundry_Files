@@ -17,9 +17,12 @@ These utility functions enable easy replacement of parameters into
 ReplicaPool template files.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import exceptions
-import yaml
+from googlecloudsdk.core import yaml
+import six
 
 
 def AddTemplateParamArgs(parser):
@@ -53,14 +56,14 @@ def ParseTemplate(template_file, params=None, params_from_file=None):
     The parsed template dict
 
   Raises:
-    BadFileException: When the template file cannot be read
-    ToolException: If any params are not provided or the YAML file is invalid
+    yaml.Error: When the template file cannot be read or parsed.
+    ToolException: If any params are not provided or the YAML file is invalid.
   """
   params = params or {}
   params_from_file = params_from_file or {}
 
   joined_params = dict(params)
-  for key, file_path in params_from_file.iteritems():
+  for key, file_path in six.iteritems(params_from_file):
     if key in joined_params:
       raise exceptions.ToolException('Duplicate param key: ' + key)
     try:
@@ -71,11 +74,7 @@ def ParseTemplate(template_file, params=None, params_from_file=None):
           'Could not load param key "{0}" from file "{1}": {2}'.format(
               key, file_path, e.strerror))
 
-  try:
-    with open(template_file) as opened_file:
-      template = yaml.load(opened_file)
-  except IOError as e:
-    raise exceptions.BadFileException(e)
+  template = yaml.load_path(template_file)
 
   if not isinstance(template, dict) or 'template' not in template:
     raise exceptions.ToolException(
@@ -109,7 +108,7 @@ def ReplaceTemplateParams(node, params):
     references found in the node that were not provided and used_params were
     the params that we actually used.
   """
-  if isinstance(node, basestring):
+  if isinstance(node, six.string_types):
     if node.startswith('{{') and node.endswith('}}'):
       param = node[2:-2].strip()
       if param in params:

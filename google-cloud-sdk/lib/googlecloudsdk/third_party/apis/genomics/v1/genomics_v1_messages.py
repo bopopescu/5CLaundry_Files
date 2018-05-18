@@ -13,7 +13,7 @@ package = 'genomics'
 
 
 class Annotation(_messages.Message):
-  """An annotation describes a region of reference genome. The value of an
+  r"""An annotation describes a region of reference genome. The value of an
   annotation may be one of several canonical types, supplemented by arbitrary
   info tags. An annotation is not inherently associated with a specific sample
   or individual (though a client could choose to use annotations in this way).
@@ -58,8 +58,8 @@ class Annotation(_messages.Message):
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """The data type for this annotation. Must match the containing annotation
-    set's type.
+    r"""The data type for this annotation. Must match the containing
+    annotation set's type.
 
     Values:
       ANNOTATION_TYPE_UNSPECIFIED: <no description>
@@ -82,7 +82,7 @@ class Annotation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional read alignment information. This must be of the
+    r"""A map of additional read alignment information. This must be of the
     form map<string, string[]> (string key mapping to a list of string
     values).
 
@@ -94,7 +94,7 @@ class Annotation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -121,7 +121,7 @@ class Annotation(_messages.Message):
 
 
 class AnnotationSet(_messages.Message):
-  """An annotation set is a logical grouping of annotations that share
+  r"""An annotation set is a logical grouping of annotations that share
   consistent type information and provenance. Examples of annotation sets
   include 'all genes from refseq', and 'all variant annotations from ClinVar'.
 
@@ -149,7 +149,7 @@ class AnnotationSet(_messages.Message):
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """The type of annotations contained within this set.
+    r"""The type of annotations contained within this set.
 
     Values:
       ANNOTATION_TYPE_UNSPECIFIED: <no description>
@@ -172,7 +172,7 @@ class AnnotationSet(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional read alignment information. This must be of the
+    r"""A map of additional read alignment information. This must be of the
     form map<string, string[]> (string key mapping to a list of string
     values).
 
@@ -184,7 +184,7 @@ class AnnotationSet(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -206,7 +206,7 @@ class AnnotationSet(_messages.Message):
 
 
 class BatchCreateAnnotationsRequest(_messages.Message):
-  """A BatchCreateAnnotationsRequest object.
+  r"""A BatchCreateAnnotationsRequest object.
 
   Fields:
     annotations: The annotations to be created. At most 4096 can be specified
@@ -226,7 +226,7 @@ class BatchCreateAnnotationsRequest(_messages.Message):
 
 
 class BatchCreateAnnotationsResponse(_messages.Message):
-  """A BatchCreateAnnotationsResponse object.
+  r"""A BatchCreateAnnotationsResponse object.
 
   Fields:
     entries: The resulting per-annotation entries, ordered consistently with
@@ -237,7 +237,7 @@ class BatchCreateAnnotationsResponse(_messages.Message):
 
 
 class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+  r"""Associates `members` with a `role`.
 
   Fields:
     members: Specifies the identities requesting access for a Cloud Platform
@@ -247,8 +247,8 @@ class Binding(_messages.Message):
       identifier that represents anyone    who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
       represents a specific Google    account. For example, `alice@gmail.com`
-      or `joe@example.com`.   * `serviceAccount:{emailid}`: An email address
-      that represents a service    account. For example, `my-other-
+      .   * `serviceAccount:{emailid}`: An email address that represents a
+      service    account. For example, `my-other-
       app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
       that represents a Google group.    For example, `admins@example.com`.
       * `domain:{domain}`: A Google Apps domain name that represents all the
@@ -262,10 +262,8 @@ class Binding(_messages.Message):
 
 
 class CallSet(_messages.Message):
-  """A call set is a collection of variant calls, typically for one sample. It
-  belongs to a variant set.  For more genomics resource definitions, see
-  [Fundamentals of Google Genomics](https://cloud.google.com/genomics
-  /fundamentals-of-google-genomics)
+  r"""A call set is a collection of variant calls, typically for one sample.
+  It belongs to a variant set.
 
   Messages:
     InfoValue: A map of additional call set information. This must be of the
@@ -289,7 +287,7 @@ class CallSet(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional call set information. This must be of the form
+    r"""A map of additional call set information. This must be of the form
     map<string, string[]> (string key mapping to a list of string values).
 
     Messages:
@@ -300,7 +298,7 @@ class CallSet(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -321,11 +319,11 @@ class CallSet(_messages.Message):
 
 
 class CancelOperationRequest(_messages.Message):
-  """The request message for Operations.CancelOperation."""
+  r"""The request message for Operations.CancelOperation."""
 
 
 class CigarUnit(_messages.Message):
-  """A single CIGAR operation.
+  r"""A single CIGAR operation.
 
   Enums:
     OperationValueValuesEnum:
@@ -341,7 +339,7 @@ class CigarUnit(_messages.Message):
   """
 
   class OperationValueValuesEnum(_messages.Enum):
-    """OperationValueValuesEnum enum type.
+    r"""OperationValueValuesEnum enum type.
 
     Values:
       OPERATION_UNSPECIFIED: <no description>
@@ -399,7 +397,7 @@ class CigarUnit(_messages.Message):
 
 
 class ClinicalCondition(_messages.Message):
-  """A ClinicalCondition object.
+  r"""A ClinicalCondition object.
 
   Fields:
     conceptId: The MedGen concept id associated with this gene. Search for
@@ -417,7 +415,7 @@ class ClinicalCondition(_messages.Message):
 
 
 class CodingSequence(_messages.Message):
-  """A CodingSequence object.
+  r"""A CodingSequence object.
 
   Fields:
     end: The end of the coding sequence on this annotation's reference
@@ -433,7 +431,7 @@ class CodingSequence(_messages.Message):
 
 
 class ComputeEngine(_messages.Message):
-  """Describes a Compute Engine resource that is being managed by a running
+  r"""Describes a Compute Engine resource that is being managed by a running
   pipeline.
 
   Fields:
@@ -449,8 +447,81 @@ class ComputeEngine(_messages.Message):
   zone = _messages.StringField(4)
 
 
+class ContainerStartedEvent(_messages.Message):
+  r"""This event is generated when a container starts.
+
+  Messages:
+    PortMappingsValue: The container to host port mappings installed for this
+      container.  This set will contain any ports exposed using the
+      PUBLISH_EXPOSED_PORTS flag as well as any specified in the Action
+      definition.
+
+  Fields:
+    actionId: The numeric ID of the action that started this container.
+    ipAddress: The public IP address that can be used to connect to the
+      container.  This field is only populated when at least one port mapping
+      is present.  If the instance was created with a private address this
+      field will be empty even if port mappings exist.
+    portMappings: The container to host port mappings installed for this
+      container.  This set will contain any ports exposed using the
+      PUBLISH_EXPOSED_PORTS flag as well as any specified in the Action
+      definition.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class PortMappingsValue(_messages.Message):
+    r"""The container to host port mappings installed for this container.
+    This set will contain any ports exposed using the PUBLISH_EXPOSED_PORTS
+    flag as well as any specified in the Action definition.
+
+    Messages:
+      AdditionalProperty: An additional property for a PortMappingsValue
+        object.
+
+    Fields:
+      additionalProperties: Additional properties of type PortMappingsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a PortMappingsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A integer attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  ipAddress = _messages.StringField(2)
+  portMappings = _messages.MessageField('PortMappingsValue', 3)
+
+
+class ContainerStoppedEvent(_messages.Message):
+  r"""This event is generated when a container exits.
+
+  Fields:
+    actionId: The numeric ID of the action that started this container.
+    exitStatus: The exit status of the container.
+    stderr: The tail end of any content written to standard error by the
+      container. To prevent this from being recorded if the action is known to
+      emit large amounts of debugging noise or sensitive information, set the
+      DISABLE_STANDARD_ERROR_CAPTURE flag.  Note that only a small amount of
+      the end of the stream is captured here. The entire stream is stored in
+      the /google/logs directory mounted into each action, and may be copied
+      off the machine as described elsewhere.
+  """
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  exitStatus = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  stderr = _messages.StringField(3)
+
+
 class CoverageBucket(_messages.Message):
-  """A bucket over which read coverage has been precomputed. A bucket
+  r"""A bucket over which read coverage has been precomputed. A bucket
   corresponds to a specific range of the reference sequence.
 
   Fields:
@@ -464,9 +535,7 @@ class CoverageBucket(_messages.Message):
 
 
 class Dataset(_messages.Message):
-  """A Dataset is a collection of genomic data.  For more genomics resource
-  definitions, see [Fundamentals of Google
-  Genomics](https://cloud.google.com/genomics/fundamentals-of-google-genomics)
+  r"""A Dataset is a collection of genomic data.
 
   Fields:
     createTime: The time this dataset was created, in seconds from the epoch.
@@ -481,8 +550,26 @@ class Dataset(_messages.Message):
   projectId = _messages.StringField(4)
 
 
+class DelayedEvent(_messages.Message):
+  r"""This event is generated whenever a resource limitation or transient
+  error delays execution of a pipeline that was otherwise ready to run.
+
+  Fields:
+    cause: A textual description of the cause of the delay.  The string may
+      change without notice since it is often generated by another service
+      (such as Compute Engine).
+    metrics: If the delay was caused by a resource shortage, this field lists
+      the Compute Engine metrics that are preventing this operation from
+      running (for example, CPUS or INSTANCES).  If the particular metric is
+      not known, a single UNKNOWN metric will be present.
+  """
+
+  cause = _messages.StringField(1)
+  metrics = _messages.StringField(2, repeated=True)
+
+
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -492,7 +579,7 @@ class Empty(_messages.Message):
 
 
 class Entry(_messages.Message):
-  """A Entry object.
+  r"""A Entry object.
 
   Fields:
     annotation: The created annotation, if creation was successful.
@@ -503,8 +590,53 @@ class Entry(_messages.Message):
   status = _messages.MessageField('Status', 2)
 
 
+class Event(_messages.Message):
+  r"""Event carries information about events that occur during pipeline
+  execution.
+
+  Messages:
+    DetailsValue: Machine readable details about the event.
+
+  Fields:
+    description: A human readable description of the event.  Note that these
+      strings may change at any time without notice.  Any application logic
+      must use the information in the details field.
+    details: Machine readable details about the event.
+    timestamp: The time that the event occurred.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class DetailsValue(_messages.Message):
+    r"""Machine readable details about the event.
+
+    Messages:
+      AdditionalProperty: An additional property for a DetailsValue object.
+
+    Fields:
+      additionalProperties: Properties of the object. Contains field @type
+        with type URL.
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a DetailsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A extra_types.JsonValue attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.MessageField('extra_types.JsonValue', 2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  description = _messages.StringField(1)
+  details = _messages.MessageField('DetailsValue', 2)
+  timestamp = _messages.StringField(3)
+
+
 class Exon(_messages.Message):
-  """A Exon object.
+  r"""A Exon object.
 
   Fields:
     end: The end position of the exon on this annotation's reference sequence,
@@ -530,7 +662,7 @@ class Exon(_messages.Message):
 
 
 class Experiment(_messages.Message):
-  """A Experiment object.
+  r"""A Experiment object.
 
   Fields:
     instrumentModel: The instrument model used as part of this experiment.
@@ -552,7 +684,7 @@ class Experiment(_messages.Message):
 
 
 class ExportReadGroupSetRequest(_messages.Message):
-  """The read group set export request.
+  r"""The read group set export request.
 
   Fields:
     exportUri: Required. A Google Cloud Storage URI for the exported BAM file.
@@ -571,7 +703,7 @@ class ExportReadGroupSetRequest(_messages.Message):
 
 
 class ExportVariantSetRequest(_messages.Message):
-  """The variant data export request.
+  r"""The variant data export request.
 
   Enums:
     FormatValueValuesEnum: The format for the exported data.
@@ -592,7 +724,7 @@ class ExportVariantSetRequest(_messages.Message):
   """
 
   class FormatValueValuesEnum(_messages.Enum):
-    """The format for the exported data.
+    r"""The format for the exported data.
 
     Values:
       FORMAT_UNSPECIFIED: <no description>
@@ -609,7 +741,7 @@ class ExportVariantSetRequest(_messages.Message):
 
 
 class ExternalId(_messages.Message):
-  """A ExternalId object.
+  r"""A ExternalId object.
 
   Fields:
     id: The id used by the source of this data.
@@ -620,8 +752,130 @@ class ExternalId(_messages.Message):
   sourceName = _messages.StringField(2)
 
 
+class FailedEvent(_messages.Message):
+  r"""This event is generated when the execution of a pipeline has failed.
+  Note that other events may continue to occur after this event.
+
+  Enums:
+    CodeValueValuesEnum: The Google standard error code that best describes
+      this failure.
+
+  Fields:
+    cause: The human readable description of the cause of the failure.
+    code: The Google standard error code that best describes this failure.
+  """
+
+  class CodeValueValuesEnum(_messages.Enum):
+    r"""The Google standard error code that best describes this failure.
+
+    Values:
+      OK: Not an error; returned on success  HTTP Mapping: 200 OK
+      CANCELLED: The operation was cancelled, typically by the caller.  HTTP
+        Mapping: 499 Client Closed Request
+      UNKNOWN: Unknown error.  For example, this error may be returned when a
+        `Status` value received from another address space belongs to an error
+        space that is not known in this address space.  Also errors raised by
+        APIs that do not return enough error information may be converted to
+        this error.  HTTP Mapping: 500 Internal Server Error
+      INVALID_ARGUMENT: The client specified an invalid argument.  Note that
+        this differs from `FAILED_PRECONDITION`.  `INVALID_ARGUMENT` indicates
+        arguments that are problematic regardless of the state of the system
+        (e.g., a malformed file name).  HTTP Mapping: 400 Bad Request
+      DEADLINE_EXCEEDED: The deadline expired before the operation could
+        complete. For operations that change the state of the system, this
+        error may be returned even if the operation has completed
+        successfully.  For example, a successful response from a server could
+        have been delayed long enough for the deadline to expire.  HTTP
+        Mapping: 504 Gateway Timeout
+      NOT_FOUND: Some requested entity (e.g., file or directory) was not
+        found.  Note to server developers: if a request is denied for an
+        entire class of users, such as gradual feature rollout or undocumented
+        whitelist, `NOT_FOUND` may be used. If a request is denied for some
+        users within a class of users, such as user-based access control,
+        `PERMISSION_DENIED` must be used.  HTTP Mapping: 404 Not Found
+      ALREADY_EXISTS: The entity that a client attempted to create (e.g., file
+        or directory) already exists.  HTTP Mapping: 409 Conflict
+      PERMISSION_DENIED: The caller does not have permission to execute the
+        specified operation. `PERMISSION_DENIED` must not be used for
+        rejections caused by exhausting some resource (use
+        `RESOURCE_EXHAUSTED` instead for those errors). `PERMISSION_DENIED`
+        must not be used if the caller can not be identified (use
+        `UNAUTHENTICATED` instead for those errors). This error code does not
+        imply the request is valid or the requested entity exists or satisfies
+        other pre-conditions.  HTTP Mapping: 403 Forbidden
+      UNAUTHENTICATED: The request does not have valid authentication
+        credentials for the operation.  HTTP Mapping: 401 Unauthorized
+      RESOURCE_EXHAUSTED: Some resource has been exhausted, perhaps a per-user
+        quota, or perhaps the entire file system is out of space.  HTTP
+        Mapping: 429 Too Many Requests
+      FAILED_PRECONDITION: The operation was rejected because the system is
+        not in a state required for the operation's execution.  For example,
+        the directory to be deleted is non-empty, an rmdir operation is
+        applied to a non-directory, etc.  Service implementors can use the
+        following guidelines to decide between `FAILED_PRECONDITION`,
+        `ABORTED`, and `UNAVAILABLE`:  (a) Use `UNAVAILABLE` if the client can
+        retry just the failing call.  (b) Use `ABORTED` if the client should
+        retry at a higher level      (e.g., when a client-specified test-and-
+        set fails, indicating the      client should restart a read-modify-
+        write sequence).  (c) Use `FAILED_PRECONDITION` if the client should
+        not retry until      the system state has been explicitly fixed.
+        E.g., if an "rmdir"      fails because the directory is non-empty,
+        `FAILED_PRECONDITION`      should be returned since the client should
+        not retry unless      the files are deleted from the directory.  HTTP
+        Mapping: 400 Bad Request
+      ABORTED: The operation was aborted, typically due to a concurrency issue
+        such as a sequencer check failure or transaction abort.  See the
+        guidelines above for deciding between `FAILED_PRECONDITION`,
+        `ABORTED`, and `UNAVAILABLE`.  HTTP Mapping: 409 Conflict
+      OUT_OF_RANGE: The operation was attempted past the valid range.  E.g.,
+        seeking or reading past end-of-file.  Unlike `INVALID_ARGUMENT`, this
+        error indicates a problem that may be fixed if the system state
+        changes. For example, a 32-bit file system will generate
+        `INVALID_ARGUMENT` if asked to read at an offset that is not in the
+        range [0,2^32-1], but it will generate `OUT_OF_RANGE` if asked to read
+        from an offset past the current file size.  There is a fair bit of
+        overlap between `FAILED_PRECONDITION` and `OUT_OF_RANGE`.  We
+        recommend using `OUT_OF_RANGE` (the more specific error) when it
+        applies so that callers who are iterating through a space can easily
+        look for an `OUT_OF_RANGE` error to detect when they are done.  HTTP
+        Mapping: 400 Bad Request
+      UNIMPLEMENTED: The operation is not implemented or is not
+        supported/enabled in this service.  HTTP Mapping: 501 Not Implemented
+      INTERNAL: Internal errors.  This means that some invariants expected by
+        the underlying system have been broken.  This error code is reserved
+        for serious errors.  HTTP Mapping: 500 Internal Server Error
+      UNAVAILABLE: The service is currently unavailable.  This is most likely
+        a transient condition, which can be corrected by retrying with a
+        backoff.  See the guidelines above for deciding between
+        `FAILED_PRECONDITION`, `ABORTED`, and `UNAVAILABLE`.  HTTP Mapping:
+        503 Service Unavailable
+      DATA_LOSS: Unrecoverable data loss or corruption.  HTTP Mapping: 500
+        Internal Server Error
+    """
+    OK = 0
+    CANCELLED = 1
+    UNKNOWN = 2
+    INVALID_ARGUMENT = 3
+    DEADLINE_EXCEEDED = 4
+    NOT_FOUND = 5
+    ALREADY_EXISTS = 6
+    PERMISSION_DENIED = 7
+    UNAUTHENTICATED = 8
+    RESOURCE_EXHAUSTED = 9
+    FAILED_PRECONDITION = 10
+    ABORTED = 11
+    OUT_OF_RANGE = 12
+    UNIMPLEMENTED = 13
+    INTERNAL = 14
+    UNAVAILABLE = 15
+    DATA_LOSS = 16
+
+  cause = _messages.StringField(1)
+  code = _messages.EnumField('CodeValueValuesEnum', 2)
+
+
 class GenomicsAnnotationsDeleteRequest(_messages.Message):
-  """A GenomicsAnnotationsDeleteRequest object.
+  r"""A GenomicsAnnotationsDeleteRequest object.
 
   Fields:
     annotationId: The ID of the annotation to be deleted.
@@ -631,7 +885,7 @@ class GenomicsAnnotationsDeleteRequest(_messages.Message):
 
 
 class GenomicsAnnotationsGetRequest(_messages.Message):
-  """A GenomicsAnnotationsGetRequest object.
+  r"""A GenomicsAnnotationsGetRequest object.
 
   Fields:
     annotationId: The ID of the annotation to be retrieved.
@@ -641,7 +895,7 @@ class GenomicsAnnotationsGetRequest(_messages.Message):
 
 
 class GenomicsAnnotationsUpdateRequest(_messages.Message):
-  """A GenomicsAnnotationsUpdateRequest object.
+  r"""A GenomicsAnnotationsUpdateRequest object.
 
   Fields:
     annotation: A Annotation resource to be passed as the request body.
@@ -657,7 +911,7 @@ class GenomicsAnnotationsUpdateRequest(_messages.Message):
 
 
 class GenomicsAnnotationsetsDeleteRequest(_messages.Message):
-  """A GenomicsAnnotationsetsDeleteRequest object.
+  r"""A GenomicsAnnotationsetsDeleteRequest object.
 
   Fields:
     annotationSetId: The ID of the annotation set to be deleted.
@@ -667,7 +921,7 @@ class GenomicsAnnotationsetsDeleteRequest(_messages.Message):
 
 
 class GenomicsAnnotationsetsGetRequest(_messages.Message):
-  """A GenomicsAnnotationsetsGetRequest object.
+  r"""A GenomicsAnnotationsetsGetRequest object.
 
   Fields:
     annotationSetId: The ID of the annotation set to be retrieved.
@@ -677,7 +931,7 @@ class GenomicsAnnotationsetsGetRequest(_messages.Message):
 
 
 class GenomicsAnnotationsetsUpdateRequest(_messages.Message):
-  """A GenomicsAnnotationsetsUpdateRequest object.
+  r"""A GenomicsAnnotationsetsUpdateRequest object.
 
   Fields:
     annotationSet: A AnnotationSet resource to be passed as the request body.
@@ -693,7 +947,7 @@ class GenomicsAnnotationsetsUpdateRequest(_messages.Message):
 
 
 class GenomicsCallsetsDeleteRequest(_messages.Message):
-  """A GenomicsCallsetsDeleteRequest object.
+  r"""A GenomicsCallsetsDeleteRequest object.
 
   Fields:
     callSetId: The ID of the call set to be deleted.
@@ -703,7 +957,7 @@ class GenomicsCallsetsDeleteRequest(_messages.Message):
 
 
 class GenomicsCallsetsGetRequest(_messages.Message):
-  """A GenomicsCallsetsGetRequest object.
+  r"""A GenomicsCallsetsGetRequest object.
 
   Fields:
     callSetId: The ID of the call set.
@@ -713,7 +967,7 @@ class GenomicsCallsetsGetRequest(_messages.Message):
 
 
 class GenomicsCallsetsPatchRequest(_messages.Message):
-  """A GenomicsCallsetsPatchRequest object.
+  r"""A GenomicsCallsetsPatchRequest object.
 
   Fields:
     callSet: A CallSet resource to be passed as the request body.
@@ -729,7 +983,7 @@ class GenomicsCallsetsPatchRequest(_messages.Message):
 
 
 class GenomicsDatasetsDeleteRequest(_messages.Message):
-  """A GenomicsDatasetsDeleteRequest object.
+  r"""A GenomicsDatasetsDeleteRequest object.
 
   Fields:
     datasetId: The ID of the dataset to be deleted.
@@ -739,7 +993,7 @@ class GenomicsDatasetsDeleteRequest(_messages.Message):
 
 
 class GenomicsDatasetsGetIamPolicyRequest(_messages.Message):
-  """A GenomicsDatasetsGetIamPolicyRequest object.
+  r"""A GenomicsDatasetsGetIamPolicyRequest object.
 
   Fields:
     getIamPolicyRequest: A GetIamPolicyRequest resource to be passed as the
@@ -753,7 +1007,7 @@ class GenomicsDatasetsGetIamPolicyRequest(_messages.Message):
 
 
 class GenomicsDatasetsGetRequest(_messages.Message):
-  """A GenomicsDatasetsGetRequest object.
+  r"""A GenomicsDatasetsGetRequest object.
 
   Fields:
     datasetId: The ID of the dataset.
@@ -763,7 +1017,7 @@ class GenomicsDatasetsGetRequest(_messages.Message):
 
 
 class GenomicsDatasetsListRequest(_messages.Message):
-  """A GenomicsDatasetsListRequest object.
+  r"""A GenomicsDatasetsListRequest object.
 
   Fields:
     pageSize: The maximum number of results to return in a single page. If
@@ -780,7 +1034,7 @@ class GenomicsDatasetsListRequest(_messages.Message):
 
 
 class GenomicsDatasetsPatchRequest(_messages.Message):
-  """A GenomicsDatasetsPatchRequest object.
+  r"""A GenomicsDatasetsPatchRequest object.
 
   Fields:
     dataset: A Dataset resource to be passed as the request body.
@@ -796,7 +1050,7 @@ class GenomicsDatasetsPatchRequest(_messages.Message):
 
 
 class GenomicsDatasetsSetIamPolicyRequest(_messages.Message):
-  """A GenomicsDatasetsSetIamPolicyRequest object.
+  r"""A GenomicsDatasetsSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which policy is being specified.
@@ -810,7 +1064,7 @@ class GenomicsDatasetsSetIamPolicyRequest(_messages.Message):
 
 
 class GenomicsDatasetsTestIamPermissionsRequest(_messages.Message):
-  """A GenomicsDatasetsTestIamPermissionsRequest object.
+  r"""A GenomicsDatasetsTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which policy is being specified.
@@ -824,7 +1078,7 @@ class GenomicsDatasetsTestIamPermissionsRequest(_messages.Message):
 
 
 class GenomicsDatasetsUndeleteRequest(_messages.Message):
-  """A GenomicsDatasetsUndeleteRequest object.
+  r"""A GenomicsDatasetsUndeleteRequest object.
 
   Fields:
     datasetId: The ID of the dataset to be undeleted.
@@ -837,7 +1091,7 @@ class GenomicsDatasetsUndeleteRequest(_messages.Message):
 
 
 class GenomicsOperationsCancelRequest(_messages.Message):
-  """A GenomicsOperationsCancelRequest object.
+  r"""A GenomicsOperationsCancelRequest object.
 
   Fields:
     cancelOperationRequest: A CancelOperationRequest resource to be passed as
@@ -850,7 +1104,7 @@ class GenomicsOperationsCancelRequest(_messages.Message):
 
 
 class GenomicsOperationsGetRequest(_messages.Message):
-  """A GenomicsOperationsGetRequest object.
+  r"""A GenomicsOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -860,13 +1114,20 @@ class GenomicsOperationsGetRequest(_messages.Message):
 
 
 class GenomicsOperationsListRequest(_messages.Message):
-  """A GenomicsOperationsListRequest object.
+  r"""A GenomicsOperationsListRequest object.
 
   Fields:
-    filter: A string for filtering Operations. The following filter fields are
-      supported&#58;  * projectId&#58; Required. Corresponds to
-      OperationMetadata.projectId. * createTime&#58; The time this job was
-      created, in seconds from the
+    filter: A string for filtering Operations. In v2alpha1, the following
+      filter fields are supported&#58;  * createTime&#58; The time this job
+      was created * events&#58; The set of event (names) that have occurred
+      while running   the pipeline.  The &#58; operator can be used to
+      determine if a   particular event has occurred. * error&#58; If the
+      pipeline is running, this value is NULL.  Once the   pipeline finishes,
+      the value is the standard Google error code. * labels.key or labels."key
+      with space" where key is a label key.  In v1 and v1alpha2, the following
+      filter fields are supported&#58;  * projectId&#58; Required. Corresponds
+      to   OperationMetadata.projectId. * createTime&#58; The time this job
+      was created, in seconds from the
       [epoch](http://en.wikipedia.org/wiki/Unix_time). Can use `>=` and/or
       `<=`   operators. * status&#58; Can be `RUNNING`, `SUCCESS`, `FAILURE`,
       or `CANCELED`. Only   one status may be specified. * labels.key where
@@ -888,7 +1149,7 @@ class GenomicsOperationsListRequest(_messages.Message):
 
 
 class GenomicsReadgroupsetsCoveragebucketsListRequest(_messages.Message):
-  """A GenomicsReadgroupsetsCoveragebucketsListRequest object.
+  r"""A GenomicsReadgroupsetsCoveragebucketsListRequest object.
 
   Fields:
     end: The end position of the range on the reference, 0-based exclusive. If
@@ -924,7 +1185,7 @@ class GenomicsReadgroupsetsCoveragebucketsListRequest(_messages.Message):
 
 
 class GenomicsReadgroupsetsDeleteRequest(_messages.Message):
-  """A GenomicsReadgroupsetsDeleteRequest object.
+  r"""A GenomicsReadgroupsetsDeleteRequest object.
 
   Fields:
     readGroupSetId: The ID of the read group set to be deleted. The caller
@@ -936,7 +1197,7 @@ class GenomicsReadgroupsetsDeleteRequest(_messages.Message):
 
 
 class GenomicsReadgroupsetsExportRequest(_messages.Message):
-  """A GenomicsReadgroupsetsExportRequest object.
+  r"""A GenomicsReadgroupsetsExportRequest object.
 
   Fields:
     exportReadGroupSetRequest: A ExportReadGroupSetRequest resource to be
@@ -950,7 +1211,7 @@ class GenomicsReadgroupsetsExportRequest(_messages.Message):
 
 
 class GenomicsReadgroupsetsGetRequest(_messages.Message):
-  """A GenomicsReadgroupsetsGetRequest object.
+  r"""A GenomicsReadgroupsetsGetRequest object.
 
   Fields:
     readGroupSetId: The ID of the read group set.
@@ -960,7 +1221,7 @@ class GenomicsReadgroupsetsGetRequest(_messages.Message):
 
 
 class GenomicsReadgroupsetsPatchRequest(_messages.Message):
-  """A GenomicsReadgroupsetsPatchRequest object.
+  r"""A GenomicsReadgroupsetsPatchRequest object.
 
   Fields:
     readGroupSet: A ReadGroupSet resource to be passed as the request body.
@@ -978,7 +1239,7 @@ class GenomicsReadgroupsetsPatchRequest(_messages.Message):
 
 
 class GenomicsReferencesBasesListRequest(_messages.Message):
-  """A GenomicsReferencesBasesListRequest object.
+  r"""A GenomicsReferencesBasesListRequest object.
 
   Fields:
     end: The end position (0-based, exclusive) of this query. Defaults to the
@@ -1001,7 +1262,7 @@ class GenomicsReferencesBasesListRequest(_messages.Message):
 
 
 class GenomicsReferencesGetRequest(_messages.Message):
-  """A GenomicsReferencesGetRequest object.
+  r"""A GenomicsReferencesGetRequest object.
 
   Fields:
     referenceId: The ID of the reference.
@@ -1011,7 +1272,7 @@ class GenomicsReferencesGetRequest(_messages.Message):
 
 
 class GenomicsReferencesetsGetRequest(_messages.Message):
-  """A GenomicsReferencesetsGetRequest object.
+  r"""A GenomicsReferencesetsGetRequest object.
 
   Fields:
     referenceSetId: The ID of the reference set.
@@ -1021,7 +1282,7 @@ class GenomicsReferencesetsGetRequest(_messages.Message):
 
 
 class GenomicsVariantsDeleteRequest(_messages.Message):
-  """A GenomicsVariantsDeleteRequest object.
+  r"""A GenomicsVariantsDeleteRequest object.
 
   Fields:
     variantId: The ID of the variant to be deleted.
@@ -1031,7 +1292,7 @@ class GenomicsVariantsDeleteRequest(_messages.Message):
 
 
 class GenomicsVariantsGetRequest(_messages.Message):
-  """A GenomicsVariantsGetRequest object.
+  r"""A GenomicsVariantsGetRequest object.
 
   Fields:
     variantId: The ID of the variant.
@@ -1041,7 +1302,7 @@ class GenomicsVariantsGetRequest(_messages.Message):
 
 
 class GenomicsVariantsPatchRequest(_messages.Message):
-  """A GenomicsVariantsPatchRequest object.
+  r"""A GenomicsVariantsPatchRequest object.
 
   Fields:
     updateMask: An optional mask specifying which fields to update. At this
@@ -1057,7 +1318,7 @@ class GenomicsVariantsPatchRequest(_messages.Message):
 
 
 class GenomicsVariantsetsDeleteRequest(_messages.Message):
-  """A GenomicsVariantsetsDeleteRequest object.
+  r"""A GenomicsVariantsetsDeleteRequest object.
 
   Fields:
     variantSetId: The ID of the variant set to be deleted.
@@ -1067,7 +1328,7 @@ class GenomicsVariantsetsDeleteRequest(_messages.Message):
 
 
 class GenomicsVariantsetsExportRequest(_messages.Message):
-  """A GenomicsVariantsetsExportRequest object.
+  r"""A GenomicsVariantsetsExportRequest object.
 
   Fields:
     exportVariantSetRequest: A ExportVariantSetRequest resource to be passed
@@ -1082,7 +1343,7 @@ class GenomicsVariantsetsExportRequest(_messages.Message):
 
 
 class GenomicsVariantsetsGetRequest(_messages.Message):
-  """A GenomicsVariantsetsGetRequest object.
+  r"""A GenomicsVariantsetsGetRequest object.
 
   Fields:
     variantSetId: Required. The ID of the variant set.
@@ -1092,7 +1353,7 @@ class GenomicsVariantsetsGetRequest(_messages.Message):
 
 
 class GenomicsVariantsetsPatchRequest(_messages.Message):
-  """A GenomicsVariantsetsPatchRequest object.
+  r"""A GenomicsVariantsetsPatchRequest object.
 
   Fields:
     updateMask: An optional mask specifying which fields to update. Supported
@@ -1108,11 +1369,11 @@ class GenomicsVariantsetsPatchRequest(_messages.Message):
 
 
 class GetIamPolicyRequest(_messages.Message):
-  """Request message for `GetIamPolicy` method."""
+  r"""Request message for `GetIamPolicy` method."""
 
 
 class ImportReadGroupSetsRequest(_messages.Message):
-  """The read group set import request.
+  r"""The read group set import request.
 
   Enums:
     PartitionStrategyValueValuesEnum: The partition strategy describes how
@@ -1139,7 +1400,7 @@ class ImportReadGroupSetsRequest(_messages.Message):
   """
 
   class PartitionStrategyValueValuesEnum(_messages.Enum):
-    """The partition strategy describes how read groups are partitioned into
+    r"""The partition strategy describes how read groups are partitioned into
     read group sets.
 
     Values:
@@ -1166,7 +1427,7 @@ class ImportReadGroupSetsRequest(_messages.Message):
 
 
 class ImportReadGroupSetsResponse(_messages.Message):
-  """The read group set import response.
+  r"""The read group set import response.
 
   Fields:
     readGroupSetIds: IDs of the read group sets that were created.
@@ -1176,7 +1437,7 @@ class ImportReadGroupSetsResponse(_messages.Message):
 
 
 class ImportVariantsRequest(_messages.Message):
-  """The variant data import request.
+  r"""The variant data import request.
 
   Enums:
     FormatValueValuesEnum: The format of the variant data being imported. If
@@ -1209,8 +1470,8 @@ class ImportVariantsRequest(_messages.Message):
   """
 
   class FormatValueValuesEnum(_messages.Enum):
-    """The format of the variant data being imported. If unspecified, defaults
-    to to `VCF`.
+    r"""The format of the variant data being imported. If unspecified,
+    defaults to to `VCF`.
 
     Values:
       FORMAT_UNSPECIFIED: <no description>
@@ -1229,7 +1490,7 @@ class ImportVariantsRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoMergeConfigValue(_messages.Message):
-    """A mapping between info field keys and the InfoMergeOperations to be
+    r"""A mapping between info field keys and the InfoMergeOperations to be
     performed on them. This is plumbed down to the MergeVariantRequests
     generated by the resulting import job.
 
@@ -1242,7 +1503,7 @@ class ImportVariantsRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoMergeConfigValue object.
+      r"""An additional property for a InfoMergeConfigValue object.
 
       Enums:
         ValueValueValuesEnum:
@@ -1253,7 +1514,7 @@ class ImportVariantsRequest(_messages.Message):
       """
 
       class ValueValueValuesEnum(_messages.Enum):
-        """ValueValueValuesEnum enum type.
+        r"""ValueValueValuesEnum enum type.
 
         Values:
           INFO_MERGE_OPERATION_UNSPECIFIED: <no description>
@@ -1277,7 +1538,7 @@ class ImportVariantsRequest(_messages.Message):
 
 
 class ImportVariantsResponse(_messages.Message):
-  """The variant data import response.
+  r"""The variant data import response.
 
   Fields:
     callSetIds: IDs of the call sets created during the import.
@@ -1287,7 +1548,7 @@ class ImportVariantsResponse(_messages.Message):
 
 
 class LinearAlignment(_messages.Message):
-  """A linear alignment can be represented by one CIGAR string. Describes the
+  r"""A linear alignment can be represented by one CIGAR string. Describes the
   mapped position and local alignment of the read to the reference.
 
   Fields:
@@ -1306,7 +1567,7 @@ class LinearAlignment(_messages.Message):
 
 
 class ListBasesResponse(_messages.Message):
-  """A ListBasesResponse object.
+  r"""A ListBasesResponse object.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -1325,7 +1586,7 @@ class ListBasesResponse(_messages.Message):
 
 
 class ListCoverageBucketsResponse(_messages.Message):
-  """A ListCoverageBucketsResponse object.
+  r"""A ListCoverageBucketsResponse object.
 
   Fields:
     bucketWidth: The length of each coverage bucket in base pairs. Note that
@@ -1348,7 +1609,7 @@ class ListCoverageBucketsResponse(_messages.Message):
 
 
 class ListDatasetsResponse(_messages.Message):
-  """The dataset list response.
+  r"""The dataset list response.
 
   Fields:
     datasets: The list of matching Datasets.
@@ -1363,7 +1624,7 @@ class ListDatasetsResponse(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -1376,7 +1637,7 @@ class ListOperationsResponse(_messages.Message):
 
 
 class MergeVariantsRequest(_messages.Message):
-  """A MergeVariantsRequest object.
+  r"""A MergeVariantsRequest object.
 
   Messages:
     InfoMergeConfigValue: A mapping between info field keys and the
@@ -1391,7 +1652,7 @@ class MergeVariantsRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoMergeConfigValue(_messages.Message):
-    """A mapping between info field keys and the InfoMergeOperations to be
+    r"""A mapping between info field keys and the InfoMergeOperations to be
     performed on them.
 
     Messages:
@@ -1403,7 +1664,7 @@ class MergeVariantsRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoMergeConfigValue object.
+      r"""An additional property for a InfoMergeConfigValue object.
 
       Enums:
         ValueValueValuesEnum:
@@ -1414,7 +1675,7 @@ class MergeVariantsRequest(_messages.Message):
       """
 
       class ValueValueValuesEnum(_messages.Enum):
-        """ValueValueValuesEnum enum type.
+        r"""ValueValueValuesEnum enum type.
 
         Values:
           INFO_MERGE_OPERATION_UNSPECIFIED: <no description>
@@ -1436,36 +1697,36 @@ class MergeVariantsRequest(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
-    MetadataValue: An OperationMetadata object. This will always be returned
-      with the Operation.
+    MetadataValue: An OperationMetadata or Metadata object. This will always
+      be returned with the Operation.
     ResponseValue: If importing ReadGroupSets, an ImportReadGroupSetsResponse
       is returned. If importing Variants, an ImportVariantsResponse is
-      returned. For pipelines and exports, an empty response is returned.
+      returned. For pipelines and exports, an Empty response is returned.
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
-    metadata: An OperationMetadata object. This will always be returned with
-      the Operation.
+    metadata: An OperationMetadata or Metadata object. This will always be
+      returned with the Operation.
     name: The server-assigned name, which is only unique within the same
       service that originally returns it. For example&#58; `operations
       /CJHU7Oi_ChDrveSpBRjfuL-qzoWAgEw`
     response: If importing ReadGroupSets, an ImportReadGroupSetsResponse is
       returned. If importing Variants, an ImportVariantsResponse is returned.
-      For pipelines and exports, an empty response is returned.
+      For pipelines and exports, an Empty response is returned.
   """
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """An OperationMetadata object. This will always be returned with the
-    Operation.
+    r"""An OperationMetadata or Metadata object. This will always be returned
+    with the Operation.
 
     Messages:
       AdditionalProperty: An additional property for a MetadataValue object.
@@ -1476,7 +1737,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1490,9 +1751,9 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """If importing ReadGroupSets, an ImportReadGroupSetsResponse is returned.
-    If importing Variants, an ImportVariantsResponse is returned. For
-    pipelines and exports, an empty response is returned.
+    r"""If importing ReadGroupSets, an ImportReadGroupSetsResponse is
+    returned. If importing Variants, an ImportVariantsResponse is returned.
+    For pipelines and exports, an Empty response is returned.
 
     Messages:
       AdditionalProperty: An additional property for a ResponseValue object.
@@ -1503,7 +1764,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1523,7 +1784,7 @@ class Operation(_messages.Message):
 
 
 class OperationEvent(_messages.Message):
-  """An event that occurred during an Operation.
+  r"""An event that occurred during an Operation.
 
   Fields:
     description: Required description of event.
@@ -1539,7 +1800,7 @@ class OperationEvent(_messages.Message):
 
 
 class OperationMetadata(_messages.Message):
-  """Metadata describing an Operation.
+  r"""Metadata describing an Operation.
 
   Messages:
     LabelsValue: Optionally provided by the caller when submitting the request
@@ -1573,7 +1834,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Optionally provided by the caller when submitting the request that
+    r"""Optionally provided by the caller when submitting the request that
     creates the operation.
 
     Messages:
@@ -1584,7 +1845,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1598,10 +1859,10 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RequestValue(_messages.Message):
-    """The original request that started the operation. Note that this will be
-    in current version of the API. If the operation was started with v1beta2
-    API and a GetOperation is performed on v1 API, a v1 request will be
-    returned.
+    r"""The original request that started the operation. Note that this will
+    be in current version of the API. If the operation was started with
+    v1beta2 API and a GetOperation is performed on v1 API, a v1 request will
+    be returned.
 
     Messages:
       AdditionalProperty: An additional property for a RequestValue object.
@@ -1612,7 +1873,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RequestValue object.
+      r"""An additional property for a RequestValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1626,7 +1887,7 @@ class OperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class RuntimeMetadataValue(_messages.Message):
-    """Runtime metadata on this Operation.
+    r"""Runtime metadata on this Operation.
 
     Messages:
       AdditionalProperty: An additional property for a RuntimeMetadataValue
@@ -1638,7 +1899,7 @@ class OperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a RuntimeMetadataValue object.
+      r"""An additional property for a RuntimeMetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1662,19 +1923,24 @@ class OperationMetadata(_messages.Message):
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.   A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**      {       "bindings": [         {
+  defined by IAM.  **JSON Example**      {       "bindings": [         {
   "role": "roles/owner",           "members": [
   "user:mike@example.com",             "group:admins@example.com",
   "domain:google.com",             "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com",           ]         },         {
+  app@appspot.gserviceaccount.com"           ]         },         {
   "role": "roles/viewer",           "members": ["user:sean@example.com"]
-  }       ]     }  For a description of IAM and its features, see the [IAM
-  developer's guide](https://cloud.google.com/iam).
+  }       ]     }  **YAML Example**      bindings:     - members:       -
+  user:mike@example.com       - group:admins@example.com       -
+  domain:google.com       - serviceAccount:my-other-
+  app@appspot.gserviceaccount.com       role: roles/owner     - members:
+  - user:sean@example.com       role: roles/viewer   For a description of IAM
+  and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     bindings: Associates a list of `members` to a `role`. `bindings` with no
@@ -1688,7 +1954,7 @@ class Policy(_messages.Message):
       to ensure that their change will be applied to the same version of the
       policy.  If no `etag` is provided in the call to `setIamPolicy`, then
       the existing policy is overwritten blindly.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   bindings = _messages.MessageField('Binding', 1, repeated=True)
@@ -1697,7 +1963,7 @@ class Policy(_messages.Message):
 
 
 class Position(_messages.Message):
-  """An abstraction for referring to a genomic position, in relation to some
+  r"""An abstraction for referring to a genomic position, in relation to some
   already known reference. For now, represents a genomic position as a
   reference name, a base number on that reference (0-based), and a
   determination of forward or reverse strand.
@@ -1717,7 +1983,7 @@ class Position(_messages.Message):
 
 
 class Program(_messages.Message):
-  """A Program object.
+  r"""A Program object.
 
   Fields:
     commandLine: The command line used to run this program.
@@ -1736,8 +2002,28 @@ class Program(_messages.Message):
   version = _messages.StringField(5)
 
 
+class PullStartedEvent(_messages.Message):
+  r"""This event is generated when the worker starts pulling an image.
+
+  Fields:
+    imageUri: The URI of the image that was pulled.
+  """
+
+  imageUri = _messages.StringField(1)
+
+
+class PullStoppedEvent(_messages.Message):
+  r"""This event is generated when the worker stops pulling an image.
+
+  Fields:
+    imageUri: The URI of the image that was pulled.
+  """
+
+  imageUri = _messages.StringField(1)
+
+
 class Range(_messages.Message):
-  """A 0-based half-open genomic coordinate range for search requests.
+  r"""A 0-based half-open genomic coordinate range for search requests.
 
   Fields:
     end: The end position of the range on the reference, 0-based exclusive.
@@ -1753,16 +2039,14 @@ class Range(_messages.Message):
 
 
 class Read(_messages.Message):
-  """A read alignment describes a linear alignment of a string of DNA to a
+  r"""A read alignment describes a linear alignment of a string of DNA to a
   reference sequence, in addition to metadata about the fragment (the molecule
   of DNA sequenced) and the read (the bases which were read by the sequencer).
   A read is equivalent to a line in a SAM file. A read belongs to exactly one
-  read group and exactly one read group set.  For more genomics resource
-  definitions, see [Fundamentals of Google
-  Genomics](https://cloud.google.com/genomics/fundamentals-of-google-genomics)
-  ### Reverse-stranded reads  Mapped reads (reads having a non-null
-  `alignment`) can be aligned to either the forward or the reverse strand of
-  their associated reference. Strandedness of a mapped read is encoded by
+  read group and exactly one read group set.  ### Reverse-stranded reads
+  Mapped reads (reads having a non-null `alignment`) can be aligned to either
+  the forward or the reverse strand of their associated reference.
+  Strandedness of a mapped read is encoded by
   `alignment.position.reverseStrand`.  If we consider the reference to be a
   forward-stranded coordinate space of `[0, reference.length)` with `0` as the
   left-most position and `reference.length` as the right-most position, reads
@@ -1866,7 +2150,7 @@ class Read(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional read alignment information. This must be of the
+    r"""A map of additional read alignment information. This must be of the
     form map<string, string[]> (string key mapping to a list of string
     values).
 
@@ -1878,7 +2162,7 @@ class Read(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1910,7 +2194,7 @@ class Read(_messages.Message):
 
 
 class ReadGroup(_messages.Message):
-  """A read group is all the data that's processed the same way by the
+  r"""A read group is all the data that's processed the same way by the
   sequencer.
 
   Messages:
@@ -1944,7 +2228,7 @@ class ReadGroup(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional read group information. This must be of the form
+    r"""A map of additional read group information. This must be of the form
     map<string, string[]> (string key mapping to a list of string values).
 
     Messages:
@@ -1955,7 +2239,7 @@ class ReadGroup(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1980,13 +2264,11 @@ class ReadGroup(_messages.Message):
 
 
 class ReadGroupSet(_messages.Message):
-  """A read group set is a logical collection of read groups, which are
+  r"""A read group set is a logical collection of read groups, which are
   collections of reads produced by a sequencer. A read group set typically
   models reads corresponding to one sample, sequenced one way, and aligned one
   way.  * A read group set belongs to one dataset. * A read group belongs to
-  one read group set. * A read belongs to one read group.  For more genomics
-  resource definitions, see [Fundamentals of Google
-  Genomics](https://cloud.google.com/genomics/fundamentals-of-google-genomics)
+  one read group set. * A read belongs to one read group.
 
   Messages:
     InfoValue: A map of additional read group set information.
@@ -2008,7 +2290,7 @@ class ReadGroupSet(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional read group set information.
+    r"""A map of additional read group set information.
 
     Messages:
       AdditionalProperty: An additional property for a InfoValue object.
@@ -2018,7 +2300,7 @@ class ReadGroupSet(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2040,12 +2322,10 @@ class ReadGroupSet(_messages.Message):
 
 
 class Reference(_messages.Message):
-  """A reference is a canonical assembled DNA sequence, intended to act as a
+  r"""A reference is a canonical assembled DNA sequence, intended to act as a
   reference coordinate space for other genomic annotations. A single reference
   might represent the human chromosome 1 or mitochandrial DNA, for instance. A
-  reference belongs to one or more reference sets.  For more genomics resource
-  definitions, see [Fundamentals of Google
-  Genomics](https://cloud.google.com/genomics/fundamentals-of-google-genomics)
+  reference belongs to one or more reference sets.
 
   Fields:
     id: The server-generated reference ID, unique across all references.
@@ -2073,7 +2353,7 @@ class Reference(_messages.Message):
 
 
 class ReferenceBound(_messages.Message):
-  """ReferenceBound records an upper bound for the starting coordinate of
+  r"""ReferenceBound records an upper bound for the starting coordinate of
   variants in a particular reference.
 
   Fields:
@@ -2088,13 +2368,11 @@ class ReferenceBound(_messages.Message):
 
 
 class ReferenceSet(_messages.Message):
-  """A reference set is a set of references which typically comprise a
+  r"""A reference set is a set of references which typically comprise a
   reference assembly for a species, such as `GRCh38` which is representative
   of the human genome. A reference set defines a common coordinate space for
   comparing reference-aligned experimental data. A reference set contains 1 or
-  more references.  For more genomics resource definitions, see [Fundamentals
-  of Google Genomics](https://cloud.google.com/genomics/fundamentals-of-
-  google-genomics)
+  more references.
 
   Fields:
     assemblyId: Public id of this reference set, such as `GRCh37`.
@@ -2132,7 +2410,7 @@ class ReferenceSet(_messages.Message):
 
 
 class RuntimeMetadata(_messages.Message):
-  """Runtime metadata that will be populated in the runtimeMetadata field of
+  r"""Runtime metadata that will be populated in the runtimeMetadata field of
   the Operation associated with a RunPipeline execution.
 
   Fields:
@@ -2143,7 +2421,7 @@ class RuntimeMetadata(_messages.Message):
 
 
 class SearchAnnotationSetsRequest(_messages.Message):
-  """A SearchAnnotationSetsRequest object.
+  r"""A SearchAnnotationSetsRequest object.
 
   Enums:
     TypesValueListEntryValuesEnum:
@@ -2165,7 +2443,7 @@ class SearchAnnotationSetsRequest(_messages.Message):
   """
 
   class TypesValueListEntryValuesEnum(_messages.Enum):
-    """TypesValueListEntryValuesEnum enum type.
+    r"""TypesValueListEntryValuesEnum enum type.
 
     Values:
       ANNOTATION_TYPE_UNSPECIFIED: <no description>
@@ -2189,7 +2467,7 @@ class SearchAnnotationSetsRequest(_messages.Message):
 
 
 class SearchAnnotationSetsResponse(_messages.Message):
-  """A SearchAnnotationSetsResponse object.
+  r"""A SearchAnnotationSetsResponse object.
 
   Fields:
     annotationSets: The matching annotation sets.
@@ -2204,7 +2482,7 @@ class SearchAnnotationSetsResponse(_messages.Message):
 
 
 class SearchAnnotationsRequest(_messages.Message):
-  """A SearchAnnotationsRequest object.
+  r"""A SearchAnnotationsRequest object.
 
   Fields:
     annotationSetIds: Required. The annotation sets to search within. The
@@ -2236,7 +2514,7 @@ class SearchAnnotationsRequest(_messages.Message):
 
 
 class SearchAnnotationsResponse(_messages.Message):
-  """A SearchAnnotationsResponse object.
+  r"""A SearchAnnotationsResponse object.
 
   Fields:
     annotations: The matching annotations.
@@ -2251,7 +2529,7 @@ class SearchAnnotationsResponse(_messages.Message):
 
 
 class SearchCallSetsRequest(_messages.Message):
-  """The call set search request.
+  r"""The call set search request.
 
   Fields:
     name: Only return call sets for which a substring of the name matches this
@@ -2272,7 +2550,7 @@ class SearchCallSetsRequest(_messages.Message):
 
 
 class SearchCallSetsResponse(_messages.Message):
-  """The call set search response.
+  r"""The call set search response.
 
   Fields:
     callSets: The list of matching call sets.
@@ -2287,7 +2565,7 @@ class SearchCallSetsResponse(_messages.Message):
 
 
 class SearchReadGroupSetsRequest(_messages.Message):
-  """The read group set search request.
+  r"""The read group set search request.
 
   Fields:
     datasetIds: Restricts this query to read group sets within the given
@@ -2308,7 +2586,7 @@ class SearchReadGroupSetsRequest(_messages.Message):
 
 
 class SearchReadGroupSetsResponse(_messages.Message):
-  """The read group set search response.
+  r"""The read group set search response.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -2323,7 +2601,7 @@ class SearchReadGroupSetsResponse(_messages.Message):
 
 
 class SearchReadsRequest(_messages.Message):
-  """The read search request.
+  r"""The read search request.
 
   Fields:
     end: The end position of the range on the reference, 0-based exclusive. If
@@ -2357,7 +2635,7 @@ class SearchReadsRequest(_messages.Message):
 
 
 class SearchReadsResponse(_messages.Message):
-  """The read search response.
+  r"""The read search response.
 
   Fields:
     alignments: The list of matching alignments sorted by mapped genomic
@@ -2375,7 +2653,7 @@ class SearchReadsResponse(_messages.Message):
 
 
 class SearchReferenceSetsRequest(_messages.Message):
-  """A SearchReferenceSetsRequest object.
+  r"""A SearchReferenceSetsRequest object.
 
   Fields:
     accessions: If present, return reference sets for which a prefix of any of
@@ -2400,7 +2678,7 @@ class SearchReferenceSetsRequest(_messages.Message):
 
 
 class SearchReferenceSetsResponse(_messages.Message):
-  """A SearchReferenceSetsResponse object.
+  r"""A SearchReferenceSetsResponse object.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -2415,7 +2693,7 @@ class SearchReferenceSetsResponse(_messages.Message):
 
 
 class SearchReferencesRequest(_messages.Message):
-  """A SearchReferencesRequest object.
+  r"""A SearchReferencesRequest object.
 
   Fields:
     accessions: If present, return references for which a prefix of any of
@@ -2440,7 +2718,7 @@ class SearchReferencesRequest(_messages.Message):
 
 
 class SearchReferencesResponse(_messages.Message):
-  """A SearchReferencesResponse object.
+  r"""A SearchReferencesResponse object.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -2455,7 +2733,7 @@ class SearchReferencesResponse(_messages.Message):
 
 
 class SearchVariantSetsRequest(_messages.Message):
-  """The search variant sets request.
+  r"""The search variant sets request.
 
   Fields:
     datasetIds: Exactly one dataset ID must be provided here. Only variant
@@ -2473,7 +2751,7 @@ class SearchVariantSetsRequest(_messages.Message):
 
 
 class SearchVariantSetsResponse(_messages.Message):
-  """The search variant sets response.
+  r"""The search variant sets response.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -2488,7 +2766,7 @@ class SearchVariantSetsResponse(_messages.Message):
 
 
 class SearchVariantsRequest(_messages.Message):
-  """The variant search request.
+  r"""The variant search request.
 
   Fields:
     callSetIds: Only return variant calls which belong to call sets with these
@@ -2526,7 +2804,7 @@ class SearchVariantsRequest(_messages.Message):
 
 
 class SearchVariantsResponse(_messages.Message):
-  """The variant search response.
+  r"""The variant search response.
 
   Fields:
     nextPageToken: The continuation token, which is used to page through large
@@ -2541,7 +2819,7 @@ class SearchVariantsResponse(_messages.Message):
 
 
 class SetIamPolicyRequest(_messages.Message):
-  """Request message for `SetIamPolicy` method.
+  r"""Request message for `SetIamPolicy` method.
 
   Fields:
     policy: REQUIRED: The complete policy to be applied to the `resource`. The
@@ -2554,7 +2832,7 @@ class SetIamPolicyRequest(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -2583,7 +2861,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -2595,7 +2873,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -2621,7 +2899,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -2669,7 +2947,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -2681,7 +2959,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -2699,7 +2977,7 @@ class Status(_messages.Message):
 
 
 class TestIamPermissionsRequest(_messages.Message):
-  """Request message for `TestIamPermissions` method.
+  r"""Request message for `TestIamPermissions` method.
 
   Fields:
     permissions: REQUIRED: The set of permissions to check for the 'resource'.
@@ -2714,7 +2992,7 @@ class TestIamPermissionsRequest(_messages.Message):
 
 
 class TestIamPermissionsResponse(_messages.Message):
-  """Response message for `TestIamPermissions` method.
+  r"""Response message for `TestIamPermissions` method.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -2725,7 +3003,7 @@ class TestIamPermissionsResponse(_messages.Message):
 
 
 class Transcript(_messages.Message):
-  """A transcript represents the assertion that a particular region of the
+  r"""A transcript represents the assertion that a particular region of the
   reference genome may be transcribed as RNA.
 
   Fields:
@@ -2758,15 +3036,28 @@ class Transcript(_messages.Message):
 
 
 class UndeleteDatasetRequest(_messages.Message):
-  """A UndeleteDatasetRequest object."""
+  r"""A UndeleteDatasetRequest object."""
+
+
+class UnexpectedExitStatusEvent(_messages.Message):
+  r"""This event is generated when the execution of a container results in a
+  non-zero exit status that was not otherwise ignored.  Execution will
+  continue, but only actions that are flagged as ALWAYS_RUN will be executed:
+  other actions will be skipped.
+
+  Fields:
+    actionId: The numeric ID of the action that started the container.
+    exitStatus: The exit status of the container.
+  """
+
+  actionId = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  exitStatus = _messages.IntegerField(2, variant=_messages.Variant.INT32)
 
 
 class Variant(_messages.Message):
-  """A variant represents a change in DNA sequence relative to a reference
+  r"""A variant represents a change in DNA sequence relative to a reference
   sequence. For example, a variant could represent a SNP or an insertion.
-  Variants belong to a variant set.  For more genomics resource definitions,
-  see [Fundamentals of Google Genomics](https://cloud.google.com/genomics
-  /fundamentals-of-google-genomics)  Each of the calls on a variant represent
+  Variants belong to a variant set.  Each of the calls on a variant represent
   a determination of genotype with respect to that variant. For example, a
   call might assign probability of 0.32 to the occurrence of a SNP named
   rs1234 in a sample named NA12345. A call belongs to a call set, which
@@ -2806,7 +3097,7 @@ class Variant(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional variant information. This must be of the form
+    r"""A map of additional variant information. This must be of the form
     map<string, string[]> (string key mapping to a list of string values).
 
     Messages:
@@ -2817,7 +3108,7 @@ class Variant(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2845,7 +3136,7 @@ class Variant(_messages.Message):
 
 
 class VariantAnnotation(_messages.Message):
-  """A VariantAnnotation object.
+  r"""A VariantAnnotation object.
 
   Enums:
     ClinicalSignificanceValueValuesEnum: Describes the clinical significance
@@ -2875,7 +3166,7 @@ class VariantAnnotation(_messages.Message):
   """
 
   class ClinicalSignificanceValueValuesEnum(_messages.Enum):
-    """Describes the clinical significance of a variant. It is adapted from
+    r"""Describes the clinical significance of a variant. It is adapted from
     the ClinVar controlled vocabulary for clinical significance described at:
     http://www.ncbi.nlm.nih.gov/clinvar/docs/clinsig/
 
@@ -2914,7 +3205,7 @@ class VariantAnnotation(_messages.Message):
     MULTIPLE_REPORTED = 13
 
   class EffectValueValuesEnum(_messages.Enum):
-    """Effect of the variant on the coding sequence.
+    r"""Effect of the variant on the coding sequence.
 
     Values:
       EFFECT_UNSPECIFIED: <no description>
@@ -2949,7 +3240,7 @@ class VariantAnnotation(_messages.Message):
     SPLICE_SITE_DISRUPTION = 8
 
   class TypeValueValuesEnum(_messages.Enum):
-    """Type has been adapted from ClinVar's list of variant types.
+    r"""Type has been adapted from ClinVar's list of variant types.
 
     Values:
       TYPE_UNSPECIFIED: <no description>
@@ -2984,7 +3275,7 @@ class VariantAnnotation(_messages.Message):
 
 
 class VariantCall(_messages.Message):
-  """A call represents the determination of genotype with respect to a
+  r"""A call represents the determination of genotype with respect to a
   particular variant. It may include associated information such as quality
   and phasing. For example, a call might assign a probability of 0.32 to the
   occurrence of a SNP named rs1234 in a call set with the name NA12345.
@@ -3024,7 +3315,7 @@ class VariantCall(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """A map of additional variant call information. This must be of the form
+    r"""A map of additional variant call information. This must be of the form
     map<string, string[]> (string key mapping to a list of string values).
 
     Messages:
@@ -3035,7 +3326,7 @@ class VariantCall(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3056,10 +3347,8 @@ class VariantCall(_messages.Message):
 
 
 class VariantSet(_messages.Message):
-  """A variant set is a collection of call sets and variants. It contains
+  r"""A variant set is a collection of call sets and variants. It contains
   summary statistics of those contents. A variant set belongs to a dataset.
-  For more genomics resource definitions, see [Fundamentals of Google
-  Genomics](https://cloud.google.com/genomics/fundamentals-of-google-genomics)
 
   Fields:
     datasetId: The dataset to which this variant set belongs.
@@ -3090,7 +3379,7 @@ class VariantSet(_messages.Message):
 
 
 class VariantSetMetadata(_messages.Message):
-  """Metadata describes a single piece of variant call metadata. These data
+  r"""Metadata describes a single piece of variant call metadata. These data
   include a top level key and either a single value string (value) or a list
   of key-value pairs (info.) Value and info are mutually exclusive.
 
@@ -3120,7 +3409,7 @@ class VariantSetMetadata(_messages.Message):
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """The type of data. Possible types include: Integer, Float, Flag,
+    r"""The type of data. Possible types include: Integer, Float, Flag,
     Character, and String.
 
     Values:
@@ -3140,8 +3429,9 @@ class VariantSetMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class InfoValue(_messages.Message):
-    """Remaining structured metadata key-value pairs. This must be of the form
-    map<string, string[]> (string key mapping to a list of string values).
+    r"""Remaining structured metadata key-value pairs. This must be of the
+    form map<string, string[]> (string key mapping to a list of string
+    values).
 
     Messages:
       AdditionalProperty: An additional property for a InfoValue object.
@@ -3151,7 +3441,7 @@ class VariantSetMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a InfoValue object.
+      r"""An additional property for a InfoValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3172,12 +3462,35 @@ class VariantSetMetadata(_messages.Message):
   value = _messages.StringField(7)
 
 
+class WorkerAssignedEvent(_messages.Message):
+  r"""This event is generated once a worker VM has been assigned to run the
+  pipeline.
+
+  Fields:
+    instance: The worker's instance name.
+    zone: The zone the worker is running in.
+  """
+
+  instance = _messages.StringField(1)
+  zone = _messages.StringField(2)
+
+
+class WorkerReleasedEvent(_messages.Message):
+  r"""This event is generated when the worker VM that was assigned to the
+  pipeline has been released (i.e., deleted).
+
+  Fields:
+    instance: The worker's instance name.
+    zone: The zone the worker was running in.
+  """
+
+  instance = _messages.StringField(1)
+  zone = _messages.StringField(2)
+
+
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'genomics')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'genomics')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'genomics')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

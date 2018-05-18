@@ -22,8 +22,20 @@ from googlecloudsdk.command_lib.compute.instances import flags
 DETAILED_HELP = {
     'DESCRIPTION': """\
         *{command}* is used to create access configurations for network
-        interfaces of Google Compute Engine virtual machines.
+        interfaces of Google Compute Engine virtual machines. This allows you
+        to assign a public, external IP to a virtual machine.
         """,
+    'EXAMPLES': """\
+        To assign an public, externally accessible IP to a virtual machine named
+        ``example-instance'' in zone ``us-central1-a'', run:
+
+          $ {command} example-instance --zone us-central1-a
+
+        To assign the specific, reserved public IP address ``123.456.789.123''
+        to the virtual machine, run:
+
+          $ {command} example-instance --zone us-central1-a --address=123.456.789.123
+    """,
 }
 
 
@@ -35,7 +47,9 @@ def _Args(parser, support_public_dns, support_network_tier):
       default=constants.DEFAULT_ACCESS_CONFIG_NAME,
       help="""\
       Specifies the name of the new access configuration. ``{0}''
-      is used as the default if this flag is not provided.
+      is used as the default if this flag is not provided. Since ONE_TO_ONE_NAT
+      is currently the only access-config type, it is not recommended that you
+      change this value.
       """.format(constants.DEFAULT_ACCESS_CONFIG_NAME))
 
   parser.add_argument(
@@ -50,6 +64,7 @@ def _Args(parser, support_public_dns, support_network_tier):
       """)
 
   flags.AddNetworkInterfaceArgs(parser)
+  flags.AddPublicPtrArgs(parser, instance=False)
   if support_public_dns:
     flags.AddPublicDnsArgs(parser, instance=False)
   if support_network_tier:
@@ -57,21 +72,25 @@ def _Args(parser, support_public_dns, support_network_tier):
   flags.INSTANCE_ARG.AddArgument(parser)
 
 
-@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class AddAccessConfigInstances(base.SilentCommand):
   """Create a Google Compute Engine virtual machine access configuration."""
 
   _support_public_dns = False
+  _support_network_tier = False
 
   @classmethod
   def Args(cls, parser):
     _Args(
         parser,
         support_public_dns=cls._support_public_dns,
-        support_network_tier=False)
+        support_network_tier=cls._support_network_tier)
 
   def Run(self, args):
     """Invokes request necessary for adding an access config."""
+    if self._support_network_tier:
+      flags.ValidateNetworkTierArgs(args)
+
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     client = holder.client
 
@@ -87,20 +106,20 @@ class AddAccessConfigInstances(base.SilentCommand):
 
     if self._support_public_dns:
       flags.ValidatePublicDnsFlags(args)
-
       if args.no_public_dns is True:
         access_config.setPublicDns = False
       elif args.public_dns is True:
         access_config.setPublicDns = True
 
-      if args.no_public_ptr is True:
-        access_config.setPublicPtr = False
-      elif args.public_ptr is True:
-        access_config.setPublicPtr = True
+    flags.ValidatePublicPtrFlags(args)
+    if args.no_public_ptr is True:
+      access_config.setPublicPtr = False
+    elif args.public_ptr is True:
+      access_config.setPublicPtr = True
 
-      if (args.no_public_ptr_domain is not True and
-          args.public_ptr_domain is not None):
-        access_config.publicPtrDomainName = args.public_ptr_domain
+    if (args.no_public_ptr_domain is not True and
+        args.public_ptr_domain is not None):
+      access_config.publicPtrDomainName = args.public_ptr_domain
 
     network_tier = getattr(args, 'network_tier', None)
     if network_tier is not None:
@@ -118,17 +137,19 @@ class AddAccessConfigInstances(base.SilentCommand):
                                  'AddAccessConfig', request)])
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA)
+class AddAccessConfigInstancesBeta(AddAccessConfigInstances):
+  """Create a Google Compute Engine virtual machine access configuration."""
+
+  _support_public_dns = False
+  _support_network_tier = True
+
+
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class AddAccessConfigInstancesAlpha(AddAccessConfigInstances):
   """Create a Google Compute Engine virtual machine access configuration."""
 
   _support_public_dns = True
-
-  @classmethod
-  def Args(cls, parser):
-    _Args(
-        parser,
-        support_public_dns=cls._support_public_dns,
-        support_network_tier=True)
+  _support_network_tier = True
 
 AddAccessConfigInstances.detailed_help = DETAILED_HELP

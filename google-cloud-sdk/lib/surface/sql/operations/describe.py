@@ -15,7 +15,6 @@
 
 from googlecloudsdk.api_lib.sql import api_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.sql import flags
 from googlecloudsdk.core import properties
 
 
@@ -34,9 +33,6 @@ class Get(base.DescribeCommand):
     """
     parser.add_argument(
         'operation', help='Name that uniquely identifies the operation.')
-    # Add superfluous instance flag so that users passing --instance do not see
-    # an error.
-    flags.AddDeprecatedInstance(parser)
 
   def Run(self, args):
     """Retrieves information about a Cloud SQL instance operation.
@@ -48,11 +44,6 @@ class Get(base.DescribeCommand):
     Returns:
       A dict object representing the operations resource if the api request was
       successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client

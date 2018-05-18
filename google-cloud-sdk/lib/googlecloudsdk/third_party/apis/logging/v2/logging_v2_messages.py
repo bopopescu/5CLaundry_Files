@@ -12,8 +12,35 @@ from apitools.base.py import extra_types
 package = 'logging'
 
 
+class BucketOptions(_messages.Message):
+  r"""BucketOptions describes the bucket boundaries used to create a histogram
+  for the distribution. The buckets can be in a linear sequence, an
+  exponential sequence, or each bucket can be specified explicitly.
+  BucketOptions does not include the number of values in each bucket.A bucket
+  has an inclusive lower bound and exclusive upper bound for the values that
+  are counted for that bucket. The upper bound of a bucket must be strictly
+  greater than the lower bound. The sequence of N buckets for a distribution
+  consists of an underflow bucket (number 0), zero or more finite buckets
+  (number 1 through N - 2) and an overflow bucket (number N - 1). The buckets
+  are contiguous: the lower bound of bucket i (i > 0) is the same as the upper
+  bound of bucket i - 1. The buckets span the whole range of finite values:
+  lower bound of the underflow bucket is -infinity and the upper bound of the
+  overflow bucket is +infinity. The finite buckets are so-called because both
+  bounds are finite.
+
+  Fields:
+    explicitBuckets: The explicit buckets.
+    exponentialBuckets: The exponential buckets.
+    linearBuckets: The linear bucket.
+  """
+
+  explicitBuckets = _messages.MessageField('Explicit', 1)
+  exponentialBuckets = _messages.MessageField('Exponential', 2)
+  linearBuckets = _messages.MessageField('Linear', 3)
+
+
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance: service Foo {   rpc
   Bar(google.protobuf.Empty) returns (google.protobuf.Empty); } The JSON
@@ -22,10 +49,44 @@ class Empty(_messages.Message):
 
 
 
+class Explicit(_messages.Message):
+  r"""Specifies a set of buckets with arbitrary widths.There are size(bounds)
+  + 1 (= N) buckets. Bucket i has the following boundaries:Upper bound (0 <= i
+  < N-1): boundsi  Lower bound (1 <= i < N); boundsi - 1The bounds field must
+  contain at least one element. If bounds has only one element, then there are
+  no finite buckets, and that single element is the common boundary of the
+  overflow and underflow buckets.
+
+  Fields:
+    bounds: The values must be monotonically increasing.
+  """
+
+  bounds = _messages.FloatField(1, repeated=True)
+
+
+class Exponential(_messages.Message):
+  r"""Specifies an exponential sequence of buckets that have a width that is
+  proportional to the value of the lower bound. Each bucket represents a
+  constant relative uncertainty on a specific value in the bucket.There are
+  num_finite_buckets + 2 (= N) buckets. Bucket i has the following
+  boundaries:Upper bound (0 <= i < N-1): scale * (growth_factor ^ i).  Lower
+  bound (1 <= i < N): scale * (growth_factor ^ (i - 1)).
+
+  Fields:
+    growthFactor: Must be greater than 1.
+    numFiniteBuckets: Must be greater than 0.
+    scale: Must be greater than 0.
+  """
+
+  growthFactor = _messages.FloatField(1)
+  numFiniteBuckets = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  scale = _messages.FloatField(3)
+
+
 class HttpRequest(_messages.Message):
-  """A common proto for logging HTTP requests. Only contains semantics defined
-  by the HTTP specification. Product-specific logging information MUST be
-  defined in a separate message.
+  r"""A common proto for logging HTTP requests. Only contains semantics
+  defined by the HTTP specification. Product-specific logging information MUST
+  be defined in a separate message.
 
   Fields:
     cacheFillBytes: The number of HTTP response bytes inserted into cache. Set
@@ -38,7 +99,8 @@ class HttpRequest(_messages.Message):
       only meaningful if cache_hit is True.
     latency: The request processing latency on the server, from the time the
       request was received until the response was sent.
-    protocol: Protocol used for the request. Example: "HTTP/1.1".
+    protocol: Protocol used for the request. Examples: "HTTP/1.1", "HTTP/2",
+      "websocket"
     referer: The referer URL of the request, as defined in HTTP/1.1 Header
       Field Definitions
       (http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html).
@@ -78,7 +140,7 @@ class HttpRequest(_messages.Message):
 
 
 class LabelDescriptor(_messages.Message):
-  """A description of a label.
+  r"""A description of a label.
 
   Enums:
     ValueTypeValueValuesEnum: The type of data that can be assigned to the
@@ -91,7 +153,7 @@ class LabelDescriptor(_messages.Message):
   """
 
   class ValueTypeValueValuesEnum(_messages.Enum):
-    """The type of data that can be assigned to the label.
+    r"""The type of data that can be assigned to the label.
 
     Values:
       STRING: A variable-length string. This is the default.
@@ -107,8 +169,42 @@ class LabelDescriptor(_messages.Message):
   valueType = _messages.EnumField('ValueTypeValueValuesEnum', 3)
 
 
+class Linear(_messages.Message):
+  r"""Specifies a linear sequence of buckets that all have the same width
+  (except overflow and underflow). Each bucket represents a constant absolute
+  uncertainty on the specific value in the bucket.There are num_finite_buckets
+  + 2 (= N) buckets. Bucket i has the following boundaries:Upper bound (0 <= i
+  < N-1): offset + (width * i).  Lower bound (1 <= i < N): offset + (width *
+  (i - 1)).
+
+  Fields:
+    numFiniteBuckets: Must be greater than 0.
+    offset: Lower bound of the first bucket.
+    width: Must be greater than 0.
+  """
+
+  numFiniteBuckets = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  offset = _messages.FloatField(2)
+  width = _messages.FloatField(3)
+
+
+class ListExclusionsResponse(_messages.Message):
+  r"""Result returned from ListExclusions.
+
+  Fields:
+    exclusions: A list of exclusions.
+    nextPageToken: If there might be more results than appear in this
+      response, then nextPageToken is included. To get the next set of
+      results, call the same method again using the value of nextPageToken as
+      pageToken.
+  """
+
+  exclusions = _messages.MessageField('LogExclusion', 1, repeated=True)
+  nextPageToken = _messages.StringField(2)
+
+
 class ListLogEntriesRequest(_messages.Message):
-  """The parameters to ListLogEntries.
+  r"""The parameters to ListLogEntries.
 
   Fields:
     filter: Optional. A filter that chooses which log entries to return. See
@@ -152,10 +248,12 @@ class ListLogEntriesRequest(_messages.Message):
 
 
 class ListLogEntriesResponse(_messages.Message):
-  """Result returned from ListLogEntries.
+  r"""Result returned from ListLogEntries.
 
   Fields:
-    entries: A list of log entries.
+    entries: A list of log entries. If entries is empty, nextPageToken may
+      still be returned, indicating that more entries may exist. See
+      nextPageToken for more information.
     nextPageToken: If there might be more results than those appearing in this
       response, then nextPageToken is included. To get the next set of
       results, call this method again using the value of nextPageToken as
@@ -173,7 +271,7 @@ class ListLogEntriesResponse(_messages.Message):
 
 
 class ListLogMetricsResponse(_messages.Message):
-  """Result returned from ListLogMetrics.
+  r"""Result returned from ListLogMetrics.
 
   Fields:
     metrics: A list of logs-based metrics.
@@ -188,7 +286,7 @@ class ListLogMetricsResponse(_messages.Message):
 
 
 class ListLogsResponse(_messages.Message):
-  """Result returned from ListLogs.
+  r"""Result returned from ListLogs.
 
   Fields:
     logNames: A list of log names. For example, "projects/my-project/syslog"
@@ -204,7 +302,7 @@ class ListLogsResponse(_messages.Message):
 
 
 class ListMonitoredResourceDescriptorsResponse(_messages.Message):
-  """Result returned from ListMonitoredResourceDescriptors.
+  r"""Result returned from ListMonitoredResourceDescriptors.
 
   Fields:
     nextPageToken: If there might be more results than those appearing in this
@@ -219,7 +317,7 @@ class ListMonitoredResourceDescriptorsResponse(_messages.Message):
 
 
 class ListSinksResponse(_messages.Message):
-  """Result returned from ListSinks.
+  r"""Result returned from ListSinks.
 
   Fields:
     nextPageToken: If there might be more results than appear in this
@@ -234,7 +332,7 @@ class ListSinksResponse(_messages.Message):
 
 
 class LogEntry(_messages.Message):
-  """An individual entry in a log.
+  r"""An individual entry in a log.
 
   Enums:
     SeverityValueValuesEnum: Optional. The severity of the log entry. The
@@ -256,8 +354,8 @@ class LogEntry(_messages.Message):
       a value, then Stackdriver Logging considers other log entries in the
       same project, with the same timestamp, and with the same insert_id to be
       duplicates which can be removed. If omitted in new log entries, then
-      Stackdriver Logging will insert its own unique identifier. The insert_id
-      is used to order log entries that have the same timestamp value.
+      Stackdriver Logging assigns its own unique identifier. The insert_id is
+      also used to order log entries that have the same timestamp value.
     jsonPayload: The log entry payload, represented as a structure that is
       expressed as a JSON object.
     labels: Optional. A set of user-defined (key, value) data that provides
@@ -266,7 +364,10 @@ class LogEntry(_messages.Message):
       belongs: "projects/[PROJECT_ID]/logs/[LOG_ID]"
       "organizations/[ORGANIZATION_ID]/logs/[LOG_ID]"
       "billingAccounts/[BILLING_ACCOUNT_ID]/logs/[LOG_ID]"
-      "folders/[FOLDER_ID]/logs/[LOG_ID]" [LOG_ID] must be URL-encoded within
+      "folders/[FOLDER_ID]/logs/[LOG_ID]" A project number may optionally be
+      used in place of PROJECT_ID. The  project number is translated to its
+      corresponding PROJECT_ID internally  and the log_name field will contain
+      PROJECT_ID in queries and exports.[LOG_ID] must be URL-encoded within
       log_name. Example: "organizations/1234567890/logs/cloudresourcemanager.g
       oogleapis.com%2Factivity". [LOG_ID] must be less than 512 characters
       long and can only include the following characters: upper and lower case
@@ -276,6 +377,9 @@ class LogEntry(_messages.Message):
       but the forward-slash is removed. Listing the log entry will not show
       the leading slash and filtering for a log name with a leading slash will
       never return any results.
+    metadata: Output only. Additional metadata about the monitored resource.
+      Only k8s_container, k8s_pod, and k8s_node MonitoredResources have this
+      field populated.
     operation: Optional. Information about an operation associated with the
       log entry, if applicable.
     protoPayload: The log entry payload, represented as a protocol buffer.
@@ -283,21 +387,30 @@ class LogEntry(_messages.Message):
       payloads.
     receiveTimestamp: Output only. The time the log entry was received by
       Stackdriver Logging.
-    resource: Required. The monitored resource associated with this log entry.
-      Example: a log entry that reports a database error would be associated
-      with the monitored resource designating the particular database that
-      reported the error.
+    resource: Required. The primary monitored resource associated with this
+      log entry. Example: a log entry that reports a database error would be
+      associated with the monitored resource designating the particular
+      database that reported the error.
     severity: Optional. The severity of the log entry. The default value is
       LogSeverity.DEFAULT.
     sourceLocation: Optional. Source code location information associated with
       the log entry, if any.
+    spanId: Optional. The span ID within the trace associated with the log
+      entry. For Stackdriver Trace spans, this is the same format that the
+      Stackdriver Trace API v2 uses: a 16-character hexadecimal encoding of an
+      8-byte array, such as <code>"000000000000004a"</code>.
     textPayload: The log entry payload, represented as a Unicode string
       (UTF-8).
     timestamp: Optional. The time the event described by the log entry
-      occurred. If omitted in a new log entry, Stackdriver Logging will insert
-      the time the log entry is received. Stackdriver Logging might reject log
-      entries whose time stamps are more than a couple of hours in the future.
-      Log entries with time stamps in the past are accepted.
+      occurred. This time is used to compute the log entry's age and to
+      enforce the logs retention period. If this field is omitted in a new log
+      entry, then Stackdriver Logging assigns it the current time. Timestamps
+      have nanosecond accuracy, but trailing zeros in the fractional seconds
+      might be omitted when the timestamp is displayed.Incoming log entries
+      should have timestamps that are no more than the logs retention period
+      in the past, and no more than 24 hours in the future. Log entries
+      outside those time boundaries will not be available when calling
+      entries.list, but those log entries can still be exported with LogSinks.
     trace: Optional. Resource name of the trace associated with the log entry,
       if any. If it contains a relative resource name, the name is assumed to
       be relative to //tracing.googleapis.com. Example: projects/my-
@@ -305,7 +418,7 @@ class LogEntry(_messages.Message):
   """
 
   class SeverityValueValuesEnum(_messages.Enum):
-    """Optional. The severity of the log entry. The default value is
+    r"""Optional. The severity of the log entry. The default value is
     LogSeverity.DEFAULT.
 
     Values:
@@ -332,7 +445,7 @@ class LogEntry(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class JsonPayloadValue(_messages.Message):
-    """The log entry payload, represented as a structure that is expressed as
+    r"""The log entry payload, represented as a structure that is expressed as
     a JSON object.
 
     Messages:
@@ -344,7 +457,7 @@ class LogEntry(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a JsonPayloadValue object.
+      r"""An additional property for a JsonPayloadValue object.
 
       Fields:
         key: Name of the additional property.
@@ -358,7 +471,7 @@ class LogEntry(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Optional. A set of user-defined (key, value) data that provides
+    r"""Optional. A set of user-defined (key, value) data that provides
     additional information about the log entry.
 
     Messages:
@@ -369,7 +482,7 @@ class LogEntry(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -383,7 +496,7 @@ class LogEntry(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ProtoPayloadValue(_messages.Message):
-    """The log entry payload, represented as a protocol buffer. Some Google
+    r"""The log entry payload, represented as a protocol buffer. Some Google
     Cloud Platform services use this field for their log entry payloads.
 
     Messages:
@@ -396,7 +509,7 @@ class LogEntry(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ProtoPayloadValue object.
+      r"""An additional property for a ProtoPayloadValue object.
 
       Fields:
         key: Name of the additional property.
@@ -413,19 +526,21 @@ class LogEntry(_messages.Message):
   jsonPayload = _messages.MessageField('JsonPayloadValue', 3)
   labels = _messages.MessageField('LabelsValue', 4)
   logName = _messages.StringField(5)
-  operation = _messages.MessageField('LogEntryOperation', 6)
-  protoPayload = _messages.MessageField('ProtoPayloadValue', 7)
-  receiveTimestamp = _messages.StringField(8)
-  resource = _messages.MessageField('MonitoredResource', 9)
-  severity = _messages.EnumField('SeverityValueValuesEnum', 10)
-  sourceLocation = _messages.MessageField('LogEntrySourceLocation', 11)
-  textPayload = _messages.StringField(12)
-  timestamp = _messages.StringField(13)
-  trace = _messages.StringField(14)
+  metadata = _messages.MessageField('MonitoredResourceMetadata', 6)
+  operation = _messages.MessageField('LogEntryOperation', 7)
+  protoPayload = _messages.MessageField('ProtoPayloadValue', 8)
+  receiveTimestamp = _messages.StringField(9)
+  resource = _messages.MessageField('MonitoredResource', 10)
+  severity = _messages.EnumField('SeverityValueValuesEnum', 11)
+  sourceLocation = _messages.MessageField('LogEntrySourceLocation', 12)
+  spanId = _messages.StringField(13)
+  textPayload = _messages.StringField(14)
+  timestamp = _messages.StringField(15)
+  trace = _messages.StringField(16)
 
 
 class LogEntryOperation(_messages.Message):
-  """Additional information about a potentially long-running operation with
+  r"""Additional information about a potentially long-running operation with
   which a log entry is associated.
 
   Fields:
@@ -447,7 +562,7 @@ class LogEntryOperation(_messages.Message):
 
 
 class LogEntrySourceLocation(_messages.Message):
-  """Additional information about the source code location that produced the
+  r"""Additional information about the source code location that produced the
   log entry.
 
   Fields:
@@ -468,8 +583,37 @@ class LogEntrySourceLocation(_messages.Message):
   line = _messages.IntegerField(3)
 
 
+class LogExclusion(_messages.Message):
+  r"""Specifies a set of log entries that are not to be stored in Stackdriver
+  Logging. If your project receives a large volume of logs, you might be able
+  to use exclusions to reduce your chargeable logs. Exclusions are processed
+  after log sinks, so you can export log entries before they are excluded.
+  Audit log entries and log entries from Amazon Web Services are never
+  excluded.
+
+  Fields:
+    description: Optional. A description of this exclusion.
+    disabled: Optional. If set to True, then this exclusion is disabled and it
+      does not exclude any log entries. You can use exclusions.patch to change
+      the value of this field.
+    filter: Required. An advanced logs filter that matches the log entries to
+      be excluded. By using the sample function, you can exclude less than
+      100% of the matching log entries. For example, the following filter
+      matches 99% of low-severity log entries from load balancers:
+      "resource.type=http_load_balancer severity<ERROR sample(insertId, 0.99)"
+    name: Required. A client-assigned identifier, such as "load-balancer-
+      exclusion". Identifiers are limited to 100 characters and can include
+      only letters, digits, underscores, hyphens, and periods.
+  """
+
+  description = _messages.StringField(1)
+  disabled = _messages.BooleanField(2)
+  filter = _messages.StringField(3)
+  name = _messages.StringField(4)
+
+
 class LogLine(_messages.Message):
-  """Application log line emitted while processing a request.
+  r"""Application log line emitted while processing a request.
 
   Enums:
     SeverityValueValuesEnum: Severity of this log entry.
@@ -482,7 +626,7 @@ class LogLine(_messages.Message):
   """
 
   class SeverityValueValuesEnum(_messages.Enum):
-    """Severity of this log entry.
+    r"""Severity of this log entry.
 
     Values:
       DEFAULT: (0) The log entry has no assigned severity level.
@@ -513,21 +657,68 @@ class LogLine(_messages.Message):
 
 
 class LogMetric(_messages.Message):
-  """Describes a logs-based metric. The value of the metric is the number of
-  log entries that match a logs filter in a given time interval.
+  r"""Describes a logs-based metric. The value of the metric is the number of
+  log entries that match a logs filter in a given time interval.Logs-based
+  metric can also be used to extract values from logs and create a a
+  distribution of the values. The distribution records the statistics of the
+  extracted values along with an optional histogram of the values as specified
+  by the bucket options.
 
   Enums:
-    VersionValueValuesEnum: Output only. The API version that created or
-      updated this metric. The version also dictates the syntax of the filter
-      expression. When a value for this field is missing, the default value of
-      V2 should be assumed.
+    VersionValueValuesEnum: Deprecated. The API version that created or
+      updated this metric. The v2 format is used by default and cannot be
+      changed.
+
+  Messages:
+    LabelExtractorsValue: Optional. A map from a label key string to an
+      extractor expression which is used to extract data from a log entry
+      field and assign as the label value. Each label key specified in the
+      LabelDescriptor must have an associated extractor expression in this
+      map. The syntax of the extractor expression is the same as for the
+      value_extractor field.The extracted value is converted to the type
+      defined in the label descriptor. If the either the extraction or the
+      type conversion fails, the label will have a default value. The default
+      value for a string label is an empty string, for an integer label its 0,
+      and for a boolean label its false.Note that there are upper bounds on
+      the maximum number of labels and the number of active time series that
+      are allowed in a project.
 
   Fields:
+    bucketOptions: Optional. The bucket_options are required when the logs-
+      based metric is using a DISTRIBUTION value type and it describes the
+      bucket boundaries used to create a histogram of the extracted values.
     description: Optional. A description of this metric, which is used in
       documentation.
     filter: Required. An advanced logs filter which is used to match log
       entries. Example: "resource.type=gae_app AND severity>=ERROR" The
       maximum length of the filter is 20000 characters.
+    labelExtractors: Optional. A map from a label key string to an extractor
+      expression which is used to extract data from a log entry field and
+      assign as the label value. Each label key specified in the
+      LabelDescriptor must have an associated extractor expression in this
+      map. The syntax of the extractor expression is the same as for the
+      value_extractor field.The extracted value is converted to the type
+      defined in the label descriptor. If the either the extraction or the
+      type conversion fails, the label will have a default value. The default
+      value for a string label is an empty string, for an integer label its 0,
+      and for a boolean label its false.Note that there are upper bounds on
+      the maximum number of labels and the number of active time series that
+      are allowed in a project.
+    metricDescriptor: Optional. The metric descriptor associated with the
+      logs-based metric. If unspecified, it uses a default metric descriptor
+      with a DELTA metric kind, INT64 value type, with no labels and a unit of
+      "1". Such a metric counts the number of log entries matching the filter
+      expression.The name, type, and description fields in the
+      metric_descriptor are output only, and is constructed using the name and
+      description field in the LogMetric.To create a logs-based metric that
+      records a distribution of log values, a DELTA metric kind with a
+      DISTRIBUTION value type must be used along with a value_extractor
+      expression in the LogMetric.Each label in the metric descriptor must
+      have a matching label name as the key and an extractor expression as the
+      value in the label_extractors map.The metric_kind and value_type fields
+      in the metric_descriptor cannot be updated once initially configured.
+      New labels can be added in the metric_descriptor, but existing labels
+      cannot be modified except for their description.
     name: Required. The client-assigned metric identifier. Examples:
       "error_count", "nginx/requests".Metric identifiers are limited to 100
       characters and can include only the following characters: A-Z, a-z, 0-9,
@@ -538,16 +729,28 @@ class LogMetric(_messages.Message):
       when the metric identifier appears as the [METRIC_ID] part of a
       metric_name API parameter, then the metric identifier must be URL-
       encoded. Example: "projects/my-project/metrics/nginx%2Frequests".
-    version: Output only. The API version that created or updated this metric.
-      The version also dictates the syntax of the filter expression. When a
-      value for this field is missing, the default value of V2 should be
-      assumed.
+    valueExtractor: Optional. A value_extractor is required when using a
+      distribution logs-based metric to extract the values to record from a
+      log entry. Two functions are supported for value extraction:
+      EXTRACT(field) or REGEXP_EXTRACT(field, regex). The argument are:  1.
+      field: The name of the log entry field from which the value is to be
+      extracted.  2. regex: A regular expression using the Google RE2 syntax
+      (https://github.com/google/re2/wiki/Syntax) with a single capture  group
+      to extract data from the specified log entry field. The value  of the
+      field is converted to a string before applying the regex.  It is an
+      error to specify a regex that does not include exactly one  capture
+      group.The result of the extraction must be convertible to a double type,
+      as the distribution always records double values. If either the
+      extraction or the conversion to double fails, then those values are not
+      recorded in the distribution.Example:
+      REGEXP_EXTRACT(jsonPayload.request, ".*quantity=(\d+).*")
+    version: Deprecated. The API version that created or updated this metric.
+      The v2 format is used by default and cannot be changed.
   """
 
   class VersionValueValuesEnum(_messages.Enum):
-    """Output only. The API version that created or updated this metric. The
-    version also dictates the syntax of the filter expression. When a value
-    for this field is missing, the default value of V2 should be assumed.
+    r"""Deprecated. The API version that created or updated this metric. The
+    v2 format is used by default and cannot be changed.
 
     Values:
       V2: Stackdriver Logging API v2.
@@ -556,14 +759,53 @@ class LogMetric(_messages.Message):
     V2 = 0
     V1 = 1
 
-  description = _messages.StringField(1)
-  filter = _messages.StringField(2)
-  name = _messages.StringField(3)
-  version = _messages.EnumField('VersionValueValuesEnum', 4)
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelExtractorsValue(_messages.Message):
+    r"""Optional. A map from a label key string to an extractor expression
+    which is used to extract data from a log entry field and assign as the
+    label value. Each label key specified in the LabelDescriptor must have an
+    associated extractor expression in this map. The syntax of the extractor
+    expression is the same as for the value_extractor field.The extracted
+    value is converted to the type defined in the label descriptor. If the
+    either the extraction or the type conversion fails, the label will have a
+    default value. The default value for a string label is an empty string,
+    for an integer label its 0, and for a boolean label its false.Note that
+    there are upper bounds on the maximum number of labels and the number of
+    active time series that are allowed in a project.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelExtractorsValue
+        object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelExtractorsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelExtractorsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  bucketOptions = _messages.MessageField('BucketOptions', 1)
+  description = _messages.StringField(2)
+  filter = _messages.StringField(3)
+  labelExtractors = _messages.MessageField('LabelExtractorsValue', 4)
+  metricDescriptor = _messages.MessageField('MetricDescriptor', 5)
+  name = _messages.StringField(6)
+  valueExtractor = _messages.StringField(7)
+  version = _messages.EnumField('VersionValueValuesEnum', 8)
 
 
 class LogSink(_messages.Message):
-  """Describes a sink used to export log entries to one of the following
+  r"""Describes a sink used to export log entries to one of the following
   destinations in any project: a Cloud Storage bucket, a BigQuery dataset, or
   a Cloud Pub/Sub topic. A logs filter controls which log entries are
   exported. The sink must be created within a project, organization, billing
@@ -582,16 +824,12 @@ class LogSink(_messages.Message):
       sink's writer_identity, set when the sink is created, must have
       permission to write to the destination or else the log entries are not
       exported. For more information, see Exporting Logs With Sinks.
-    endTime: Optional. The time at which this sink will stop exporting log
-      entries. Log entries are exported only if their timestamp is earlier
-      than the end time. If this field is not supplied, there is no end time.
-      If both a start time and an end time are provided, then the end time
-      must be later than the start time.
+    endTime: Deprecated. This field is ignored when creating or updating
+      sinks.
     filter: Optional. An advanced logs filter. The only exported log entries
       are those that are in the resource owning the sink and that match the
-      filter. The filter must use the log entry format specified by the
-      output_version_format parameter. For example, in the v2 format:
-      logName="projects/[PROJECT_ID]/logs/[LOG_ID]" AND severity>=ERROR
+      filter. For example: logName="projects/[PROJECT_ID]/logs/[LOG_ID]" AND
+      severity>=ERROR
     includeChildren: Optional. This field applies only to sinks owned by
       organizations and folders. If the field is false, the default, only the
       logs owned by the sink's parent resource are available for export. If
@@ -612,10 +850,8 @@ class LogSink(_messages.Message):
     outputVersionFormat: Deprecated. The log entry format to use for this
       sink's exported log entries. The v2 format is used by default and cannot
       be changed.
-    startTime: Optional. The time at which this sink will begin exporting log
-      entries. Log entries are exported only if their timestamp is not earlier
-      than the start time. The default value of this field is the time the
-      sink is created or updated.
+    startTime: Deprecated. This field is ignored when creating or updating
+      sinks.
     writerIdentity: Output only. An IAM identity&mdash;a service account or
       group&mdash;under which Stackdriver Logging writes the exported log
       entries to the sink's destination. This field is set by sinks.create and
@@ -628,7 +864,7 @@ class LogSink(_messages.Message):
   """
 
   class OutputVersionFormatValueValuesEnum(_messages.Enum):
-    """Deprecated. The log entry format to use for this sink's exported log
+    r"""Deprecated. The log entry format to use for this sink's exported log
     entries. The v2 format is used by default and cannot be changed.
 
     Values:
@@ -651,8 +887,98 @@ class LogSink(_messages.Message):
   writerIdentity = _messages.StringField(8)
 
 
+class LoggingBillingAccountsExclusionsCreateRequest(_messages.Message):
+  r"""A LoggingBillingAccountsExclusionsCreateRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    parent: Required. The parent resource in which to create the exclusion:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class LoggingBillingAccountsExclusionsDeleteRequest(_messages.Message):
+  r"""A LoggingBillingAccountsExclusionsDeleteRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion to delete:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingBillingAccountsExclusionsGetRequest(_messages.Message):
+  r"""A LoggingBillingAccountsExclusionsGetRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingBillingAccountsExclusionsListRequest(_messages.Message):
+  r"""A LoggingBillingAccountsExclusionsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose exclusions are to be listed.
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingBillingAccountsExclusionsPatchRequest(_messages.Message):
+  r"""A LoggingBillingAccountsExclusionsPatchRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    name: Required. The resource name of the exclusion to update:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+    updateMask: Required. A nonempty list of fields to change in the existing
+      exclusion. New values for the fields are taken from the corresponding
+      fields in the LogExclusion included in this request. Fields not
+      mentioned in update_mask are not changed and are ignored in the
+      request.For example, to change the filter and description of an
+      exclusion, specify an update_mask of "filter,description".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
 class LoggingBillingAccountsLogsDeleteRequest(_messages.Message):
-  """A LoggingBillingAccountsLogsDeleteRequest object.
+  r"""A LoggingBillingAccountsLogsDeleteRequest object.
 
   Fields:
     logName: Required. The resource name of the log to delete:
@@ -669,7 +995,7 @@ class LoggingBillingAccountsLogsDeleteRequest(_messages.Message):
 
 
 class LoggingBillingAccountsLogsListRequest(_messages.Message):
-  """A LoggingBillingAccountsLogsListRequest object.
+  r"""A LoggingBillingAccountsLogsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -690,7 +1016,7 @@ class LoggingBillingAccountsLogsListRequest(_messages.Message):
 
 
 class LoggingBillingAccountsSinksCreateRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksCreateRequest object.
+  r"""A LoggingBillingAccountsSinksCreateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -716,7 +1042,7 @@ class LoggingBillingAccountsSinksCreateRequest(_messages.Message):
 
 
 class LoggingBillingAccountsSinksDeleteRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksDeleteRequest object.
+  r"""A LoggingBillingAccountsSinksDeleteRequest object.
 
   Fields:
     sinkName: Required. The full resource name of the sink to delete,
@@ -732,7 +1058,7 @@ class LoggingBillingAccountsSinksDeleteRequest(_messages.Message):
 
 
 class LoggingBillingAccountsSinksGetRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksGetRequest object.
+  r"""A LoggingBillingAccountsSinksGetRequest object.
 
   Fields:
     sinkName: Required. The resource name of the sink:
@@ -747,7 +1073,7 @@ class LoggingBillingAccountsSinksGetRequest(_messages.Message):
 
 
 class LoggingBillingAccountsSinksListRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksListRequest object.
+  r"""A LoggingBillingAccountsSinksListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -768,7 +1094,7 @@ class LoggingBillingAccountsSinksListRequest(_messages.Message):
 
 
 class LoggingBillingAccountsSinksPatchRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksPatchRequest object.
+  r"""A LoggingBillingAccountsSinksPatchRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -788,15 +1114,26 @@ class LoggingBillingAccountsSinksPatchRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
 
 
 class LoggingBillingAccountsSinksUpdateRequest(_messages.Message):
-  """A LoggingBillingAccountsSinksUpdateRequest object.
+  r"""A LoggingBillingAccountsSinksUpdateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -816,15 +1153,206 @@ class LoggingBillingAccountsSinksUpdateRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
+
+
+class LoggingExclusionsCreateRequest(_messages.Message):
+  r"""A LoggingExclusionsCreateRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    parent: Required. The parent resource in which to create the exclusion:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class LoggingExclusionsDeleteRequest(_messages.Message):
+  r"""A LoggingExclusionsDeleteRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion to delete:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingExclusionsGetRequest(_messages.Message):
+  r"""A LoggingExclusionsGetRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingExclusionsListRequest(_messages.Message):
+  r"""A LoggingExclusionsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose exclusions are to be listed.
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingExclusionsPatchRequest(_messages.Message):
+  r"""A LoggingExclusionsPatchRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    name: Required. The resource name of the exclusion to update:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+    updateMask: Required. A nonempty list of fields to change in the existing
+      exclusion. New values for the fields are taken from the corresponding
+      fields in the LogExclusion included in this request. Fields not
+      mentioned in update_mask are not changed and are ignored in the
+      request.For example, to change the filter and description of an
+      exclusion, specify an update_mask of "filter,description".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
+class LoggingFoldersExclusionsCreateRequest(_messages.Message):
+  r"""A LoggingFoldersExclusionsCreateRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    parent: Required. The parent resource in which to create the exclusion:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class LoggingFoldersExclusionsDeleteRequest(_messages.Message):
+  r"""A LoggingFoldersExclusionsDeleteRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion to delete:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingFoldersExclusionsGetRequest(_messages.Message):
+  r"""A LoggingFoldersExclusionsGetRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingFoldersExclusionsListRequest(_messages.Message):
+  r"""A LoggingFoldersExclusionsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose exclusions are to be listed.
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingFoldersExclusionsPatchRequest(_messages.Message):
+  r"""A LoggingFoldersExclusionsPatchRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    name: Required. The resource name of the exclusion to update:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+    updateMask: Required. A nonempty list of fields to change in the existing
+      exclusion. New values for the fields are taken from the corresponding
+      fields in the LogExclusion included in this request. Fields not
+      mentioned in update_mask are not changed and are ignored in the
+      request.For example, to change the filter and description of an
+      exclusion, specify an update_mask of "filter,description".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
 
 
 class LoggingFoldersLogsDeleteRequest(_messages.Message):
-  """A LoggingFoldersLogsDeleteRequest object.
+  r"""A LoggingFoldersLogsDeleteRequest object.
 
   Fields:
     logName: Required. The resource name of the log to delete:
@@ -841,7 +1369,7 @@ class LoggingFoldersLogsDeleteRequest(_messages.Message):
 
 
 class LoggingFoldersLogsListRequest(_messages.Message):
-  """A LoggingFoldersLogsListRequest object.
+  r"""A LoggingFoldersLogsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -862,7 +1390,7 @@ class LoggingFoldersLogsListRequest(_messages.Message):
 
 
 class LoggingFoldersSinksCreateRequest(_messages.Message):
-  """A LoggingFoldersSinksCreateRequest object.
+  r"""A LoggingFoldersSinksCreateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -888,7 +1416,7 @@ class LoggingFoldersSinksCreateRequest(_messages.Message):
 
 
 class LoggingFoldersSinksDeleteRequest(_messages.Message):
-  """A LoggingFoldersSinksDeleteRequest object.
+  r"""A LoggingFoldersSinksDeleteRequest object.
 
   Fields:
     sinkName: Required. The full resource name of the sink to delete,
@@ -904,7 +1432,7 @@ class LoggingFoldersSinksDeleteRequest(_messages.Message):
 
 
 class LoggingFoldersSinksGetRequest(_messages.Message):
-  """A LoggingFoldersSinksGetRequest object.
+  r"""A LoggingFoldersSinksGetRequest object.
 
   Fields:
     sinkName: Required. The resource name of the sink:
@@ -919,7 +1447,7 @@ class LoggingFoldersSinksGetRequest(_messages.Message):
 
 
 class LoggingFoldersSinksListRequest(_messages.Message):
-  """A LoggingFoldersSinksListRequest object.
+  r"""A LoggingFoldersSinksListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -940,7 +1468,7 @@ class LoggingFoldersSinksListRequest(_messages.Message):
 
 
 class LoggingFoldersSinksPatchRequest(_messages.Message):
-  """A LoggingFoldersSinksPatchRequest object.
+  r"""A LoggingFoldersSinksPatchRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -960,15 +1488,26 @@ class LoggingFoldersSinksPatchRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
 
 
 class LoggingFoldersSinksUpdateRequest(_messages.Message):
-  """A LoggingFoldersSinksUpdateRequest object.
+  r"""A LoggingFoldersSinksUpdateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -988,15 +1527,64 @@ class LoggingFoldersSinksUpdateRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
+
+
+class LoggingLogsDeleteRequest(_messages.Message):
+  r"""A LoggingLogsDeleteRequest object.
+
+  Fields:
+    logName: Required. The resource name of the log to delete:
+      "projects/[PROJECT_ID]/logs/[LOG_ID]"
+      "organizations/[ORGANIZATION_ID]/logs/[LOG_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/logs/[LOG_ID]"
+      "folders/[FOLDER_ID]/logs/[LOG_ID]" [LOG_ID] must be URL-encoded. For
+      example, "projects/my-project-id/logs/syslog", "organizations/1234567890
+      /logs/cloudresourcemanager.googleapis.com%2Factivity". For more
+      information about log names, see LogEntry.
+  """
+
+  logName = _messages.StringField(1, required=True)
+
+
+class LoggingLogsListRequest(_messages.Message):
+  r"""A LoggingLogsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The resource name that owns the logs:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
 
 
 class LoggingMonitoredResourceDescriptorsListRequest(_messages.Message):
-  """A LoggingMonitoredResourceDescriptorsListRequest object.
+  r"""A LoggingMonitoredResourceDescriptorsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1012,8 +1600,98 @@ class LoggingMonitoredResourceDescriptorsListRequest(_messages.Message):
   pageToken = _messages.StringField(2)
 
 
+class LoggingOrganizationsExclusionsCreateRequest(_messages.Message):
+  r"""A LoggingOrganizationsExclusionsCreateRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    parent: Required. The parent resource in which to create the exclusion:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class LoggingOrganizationsExclusionsDeleteRequest(_messages.Message):
+  r"""A LoggingOrganizationsExclusionsDeleteRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion to delete:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingOrganizationsExclusionsGetRequest(_messages.Message):
+  r"""A LoggingOrganizationsExclusionsGetRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingOrganizationsExclusionsListRequest(_messages.Message):
+  r"""A LoggingOrganizationsExclusionsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose exclusions are to be listed.
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingOrganizationsExclusionsPatchRequest(_messages.Message):
+  r"""A LoggingOrganizationsExclusionsPatchRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    name: Required. The resource name of the exclusion to update:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+    updateMask: Required. A nonempty list of fields to change in the existing
+      exclusion. New values for the fields are taken from the corresponding
+      fields in the LogExclusion included in this request. Fields not
+      mentioned in update_mask are not changed and are ignored in the
+      request.For example, to change the filter and description of an
+      exclusion, specify an update_mask of "filter,description".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
+
+
 class LoggingOrganizationsLogsDeleteRequest(_messages.Message):
-  """A LoggingOrganizationsLogsDeleteRequest object.
+  r"""A LoggingOrganizationsLogsDeleteRequest object.
 
   Fields:
     logName: Required. The resource name of the log to delete:
@@ -1030,7 +1708,7 @@ class LoggingOrganizationsLogsDeleteRequest(_messages.Message):
 
 
 class LoggingOrganizationsLogsListRequest(_messages.Message):
-  """A LoggingOrganizationsLogsListRequest object.
+  r"""A LoggingOrganizationsLogsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1051,7 +1729,7 @@ class LoggingOrganizationsLogsListRequest(_messages.Message):
 
 
 class LoggingOrganizationsSinksCreateRequest(_messages.Message):
-  """A LoggingOrganizationsSinksCreateRequest object.
+  r"""A LoggingOrganizationsSinksCreateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1077,7 +1755,7 @@ class LoggingOrganizationsSinksCreateRequest(_messages.Message):
 
 
 class LoggingOrganizationsSinksDeleteRequest(_messages.Message):
-  """A LoggingOrganizationsSinksDeleteRequest object.
+  r"""A LoggingOrganizationsSinksDeleteRequest object.
 
   Fields:
     sinkName: Required. The full resource name of the sink to delete,
@@ -1093,7 +1771,7 @@ class LoggingOrganizationsSinksDeleteRequest(_messages.Message):
 
 
 class LoggingOrganizationsSinksGetRequest(_messages.Message):
-  """A LoggingOrganizationsSinksGetRequest object.
+  r"""A LoggingOrganizationsSinksGetRequest object.
 
   Fields:
     sinkName: Required. The resource name of the sink:
@@ -1108,7 +1786,7 @@ class LoggingOrganizationsSinksGetRequest(_messages.Message):
 
 
 class LoggingOrganizationsSinksListRequest(_messages.Message):
-  """A LoggingOrganizationsSinksListRequest object.
+  r"""A LoggingOrganizationsSinksListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1129,7 +1807,7 @@ class LoggingOrganizationsSinksListRequest(_messages.Message):
 
 
 class LoggingOrganizationsSinksPatchRequest(_messages.Message):
-  """A LoggingOrganizationsSinksPatchRequest object.
+  r"""A LoggingOrganizationsSinksPatchRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1149,15 +1827,26 @@ class LoggingOrganizationsSinksPatchRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
 
 
 class LoggingOrganizationsSinksUpdateRequest(_messages.Message):
-  """A LoggingOrganizationsSinksUpdateRequest object.
+  r"""A LoggingOrganizationsSinksUpdateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1177,15 +1866,116 @@ class LoggingOrganizationsSinksUpdateRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
+
+
+class LoggingProjectsExclusionsCreateRequest(_messages.Message):
+  r"""A LoggingProjectsExclusionsCreateRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    parent: Required. The parent resource in which to create the exclusion:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  parent = _messages.StringField(2, required=True)
+
+
+class LoggingProjectsExclusionsDeleteRequest(_messages.Message):
+  r"""A LoggingProjectsExclusionsDeleteRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion to delete:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingProjectsExclusionsGetRequest(_messages.Message):
+  r"""A LoggingProjectsExclusionsGetRequest object.
+
+  Fields:
+    name: Required. The resource name of an existing exclusion:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+  """
+
+  name = _messages.StringField(1, required=True)
+
+
+class LoggingProjectsExclusionsListRequest(_messages.Message):
+  r"""A LoggingProjectsExclusionsListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose exclusions are to be listed.
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingProjectsExclusionsPatchRequest(_messages.Message):
+  r"""A LoggingProjectsExclusionsPatchRequest object.
+
+  Fields:
+    logExclusion: A LogExclusion resource to be passed as the request body.
+    name: Required. The resource name of the exclusion to update:
+      "projects/[PROJECT_ID]/exclusions/[EXCLUSION_ID]"
+      "organizations/[ORGANIZATION_ID]/exclusions/[EXCLUSION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/exclusions/[EXCLUSION_ID]"
+      "folders/[FOLDER_ID]/exclusions/[EXCLUSION_ID]" Example: "projects/my-
+      project-id/exclusions/my-exclusion-id".
+    updateMask: Required. A nonempty list of fields to change in the existing
+      exclusion. New values for the fields are taken from the corresponding
+      fields in the LogExclusion included in this request. Fields not
+      mentioned in update_mask are not changed and are ignored in the
+      request.For example, to change the filter and description of an
+      exclusion, specify an update_mask of "filter,description".
+  """
+
+  logExclusion = _messages.MessageField('LogExclusion', 1)
+  name = _messages.StringField(2, required=True)
+  updateMask = _messages.StringField(3)
 
 
 class LoggingProjectsLogsDeleteRequest(_messages.Message):
-  """A LoggingProjectsLogsDeleteRequest object.
+  r"""A LoggingProjectsLogsDeleteRequest object.
 
   Fields:
     logName: Required. The resource name of the log to delete:
@@ -1202,7 +1992,7 @@ class LoggingProjectsLogsDeleteRequest(_messages.Message):
 
 
 class LoggingProjectsLogsListRequest(_messages.Message):
-  """A LoggingProjectsLogsListRequest object.
+  r"""A LoggingProjectsLogsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1223,7 +2013,7 @@ class LoggingProjectsLogsListRequest(_messages.Message):
 
 
 class LoggingProjectsMetricsCreateRequest(_messages.Message):
-  """A LoggingProjectsMetricsCreateRequest object.
+  r"""A LoggingProjectsMetricsCreateRequest object.
 
   Fields:
     logMetric: A LogMetric resource to be passed as the request body.
@@ -1236,7 +2026,7 @@ class LoggingProjectsMetricsCreateRequest(_messages.Message):
 
 
 class LoggingProjectsMetricsDeleteRequest(_messages.Message):
-  """A LoggingProjectsMetricsDeleteRequest object.
+  r"""A LoggingProjectsMetricsDeleteRequest object.
 
   Fields:
     metricName: The resource name of the metric to delete:
@@ -1247,7 +2037,7 @@ class LoggingProjectsMetricsDeleteRequest(_messages.Message):
 
 
 class LoggingProjectsMetricsGetRequest(_messages.Message):
-  """A LoggingProjectsMetricsGetRequest object.
+  r"""A LoggingProjectsMetricsGetRequest object.
 
   Fields:
     metricName: The resource name of the desired metric:
@@ -1258,7 +2048,7 @@ class LoggingProjectsMetricsGetRequest(_messages.Message):
 
 
 class LoggingProjectsMetricsListRequest(_messages.Message):
-  """A LoggingProjectsMetricsListRequest object.
+  r"""A LoggingProjectsMetricsListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1278,7 +2068,7 @@ class LoggingProjectsMetricsListRequest(_messages.Message):
 
 
 class LoggingProjectsMetricsUpdateRequest(_messages.Message):
-  """A LoggingProjectsMetricsUpdateRequest object.
+  r"""A LoggingProjectsMetricsUpdateRequest object.
 
   Fields:
     logMetric: A LogMetric resource to be passed as the request body.
@@ -1294,7 +2084,7 @@ class LoggingProjectsMetricsUpdateRequest(_messages.Message):
 
 
 class LoggingProjectsSinksCreateRequest(_messages.Message):
-  """A LoggingProjectsSinksCreateRequest object.
+  r"""A LoggingProjectsSinksCreateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1320,7 +2110,7 @@ class LoggingProjectsSinksCreateRequest(_messages.Message):
 
 
 class LoggingProjectsSinksDeleteRequest(_messages.Message):
-  """A LoggingProjectsSinksDeleteRequest object.
+  r"""A LoggingProjectsSinksDeleteRequest object.
 
   Fields:
     sinkName: Required. The full resource name of the sink to delete,
@@ -1336,7 +2126,7 @@ class LoggingProjectsSinksDeleteRequest(_messages.Message):
 
 
 class LoggingProjectsSinksGetRequest(_messages.Message):
-  """A LoggingProjectsSinksGetRequest object.
+  r"""A LoggingProjectsSinksGetRequest object.
 
   Fields:
     sinkName: Required. The resource name of the sink:
@@ -1351,7 +2141,7 @@ class LoggingProjectsSinksGetRequest(_messages.Message):
 
 
 class LoggingProjectsSinksListRequest(_messages.Message):
-  """A LoggingProjectsSinksListRequest object.
+  r"""A LoggingProjectsSinksListRequest object.
 
   Fields:
     pageSize: Optional. The maximum number of results to return from this
@@ -1372,7 +2162,7 @@ class LoggingProjectsSinksListRequest(_messages.Message):
 
 
 class LoggingProjectsSinksPatchRequest(_messages.Message):
-  """A LoggingProjectsSinksPatchRequest object.
+  r"""A LoggingProjectsSinksPatchRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1392,15 +2182,26 @@ class LoggingProjectsSinksPatchRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
 
 
 class LoggingProjectsSinksUpdateRequest(_messages.Message):
-  """A LoggingProjectsSinksUpdateRequest object.
+  r"""A LoggingProjectsSinksUpdateRequest object.
 
   Fields:
     logSink: A LogSink resource to be passed as the request body.
@@ -1420,15 +2221,255 @@ class LoggingProjectsSinksUpdateRequest(_messages.Message):
       then writer_identity is changed to a unique service account. It is an
       error if the old value is true and the new value is set to false or
       defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
   """
 
   logSink = _messages.MessageField('LogSink', 1)
   sinkName = _messages.StringField(2, required=True)
   uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
+
+
+class LoggingSinksCreateRequest(_messages.Message):
+  r"""A LoggingSinksCreateRequest object.
+
+  Fields:
+    logSink: A LogSink resource to be passed as the request body.
+    parent: Required. The resource in which to create the sink:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]" Examples:
+      "projects/my-logging-project", "organizations/123456789".
+    uniqueWriterIdentity: Optional. Determines the kind of IAM identity
+      returned as writer_identity in the new sink. If this value is omitted or
+      set to false, and if the sink's parent is a project, then the value
+      returned as writer_identity is the same group or service account used by
+      Stackdriver Logging before the addition of writer identities to this
+      API. The sink's destination must be in the same project as the sink
+      itself.If this field is set to true, or if the sink is owned by a non-
+      project resource such as an organization, then the value of
+      writer_identity will be a unique service account used only for exports
+      from the new sink. For more information, see writer_identity in LogSink.
+  """
+
+  logSink = _messages.MessageField('LogSink', 1)
+  parent = _messages.StringField(2, required=True)
+  uniqueWriterIdentity = _messages.BooleanField(3)
+
+
+class LoggingSinksDeleteRequest(_messages.Message):
+  r"""A LoggingSinksDeleteRequest object.
+
+  Fields:
+    sinkName: Required. The full resource name of the sink to delete,
+      including the parent resource and the sink identifier:
+      "projects/[PROJECT_ID]/sinks/[SINK_ID]"
+      "organizations/[ORGANIZATION_ID]/sinks/[SINK_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/sinks/[SINK_ID]"
+      "folders/[FOLDER_ID]/sinks/[SINK_ID]" Example: "projects/my-project-
+      id/sinks/my-sink-id".
+  """
+
+  sinkName = _messages.StringField(1, required=True)
+
+
+class LoggingSinksGetRequest(_messages.Message):
+  r"""A LoggingSinksGetRequest object.
+
+  Fields:
+    sinkName: Required. The resource name of the sink:
+      "projects/[PROJECT_ID]/sinks/[SINK_ID]"
+      "organizations/[ORGANIZATION_ID]/sinks/[SINK_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/sinks/[SINK_ID]"
+      "folders/[FOLDER_ID]/sinks/[SINK_ID]" Example: "projects/my-project-
+      id/sinks/my-sink-id".
+  """
+
+  sinkName = _messages.StringField(1, required=True)
+
+
+class LoggingSinksListRequest(_messages.Message):
+  r"""A LoggingSinksListRequest object.
+
+  Fields:
+    pageSize: Optional. The maximum number of results to return from this
+      request. Non-positive values are ignored. The presence of nextPageToken
+      in the response indicates that more results might be available.
+    pageToken: Optional. If present, then retrieve the next batch of results
+      from the preceding call to this method. pageToken must be the value of
+      nextPageToken from the previous response. The values of other method
+      parameters should be identical to those in the previous call.
+    parent: Required. The parent resource whose sinks are to be listed:
+      "projects/[PROJECT_ID]" "organizations/[ORGANIZATION_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]" "folders/[FOLDER_ID]"
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  parent = _messages.StringField(3, required=True)
+
+
+class LoggingSinksUpdateRequest(_messages.Message):
+  r"""A LoggingSinksUpdateRequest object.
+
+  Fields:
+    logSink: A LogSink resource to be passed as the request body.
+    sinkName: Required. The full resource name of the sink to update,
+      including the parent resource and the sink identifier:
+      "projects/[PROJECT_ID]/sinks/[SINK_ID]"
+      "organizations/[ORGANIZATION_ID]/sinks/[SINK_ID]"
+      "billingAccounts/[BILLING_ACCOUNT_ID]/sinks/[SINK_ID]"
+      "folders/[FOLDER_ID]/sinks/[SINK_ID]" Example: "projects/my-project-
+      id/sinks/my-sink-id".
+    uniqueWriterIdentity: Optional. See sinks.create for a description of this
+      field. When updating a sink, the effect of this field on the value of
+      writer_identity in the updated sink depends on both the old and new
+      values of this field: If the old and new values of this field are both
+      false or both true, then there is no change to the sink's
+      writer_identity. If the old value is false and the new value is true,
+      then writer_identity is changed to a unique service account. It is an
+      error if the old value is true and the new value is set to false or
+      defaulted to false.
+    updateMask: Optional. Field mask that specifies the fields in sink that
+      need an update. A sink field will be overwritten if, and only if, it is
+      in the update mask. name and output only fields cannot be updated.An
+      empty updateMask is temporarily treated as using the following mask for
+      backwards compatibility purposes:  destination,filter,includeChildren At
+      some point in the future, behavior will be removed and specifying an
+      empty updateMask will be an error.For a detailed FieldMask definition,
+      see https://developers.google.com/protocol-
+      buffers/docs/reference/google.protobuf#fieldmaskExample:
+      updateMask=filter.
+  """
+
+  logSink = _messages.MessageField('LogSink', 1)
+  sinkName = _messages.StringField(2, required=True)
+  uniqueWriterIdentity = _messages.BooleanField(3)
+  updateMask = _messages.StringField(4)
+
+
+class MetricDescriptor(_messages.Message):
+  r"""Defines a metric type and its schema. Once a metric descriptor is
+  created, deleting or altering it stops data collection and makes the metric
+  type's existing data unusable.
+
+  Enums:
+    MetricKindValueValuesEnum: Whether the metric records instantaneous
+      values, changes to a value, etc. Some combinations of metric_kind and
+      value_type might not be supported.
+    ValueTypeValueValuesEnum: Whether the measurement is an integer, a
+      floating-point number, etc. Some combinations of metric_kind and
+      value_type might not be supported.
+
+  Fields:
+    description: A detailed description of the metric, which can be used in
+      documentation.
+    displayName: A concise name for the metric, which can be displayed in user
+      interfaces. Use sentence case without an ending period, for example
+      "Request count". This field is optional but it is recommended to be set
+      for any metrics associated with user-visible concepts, such as Quota.
+    labels: The set of labels that can be used to describe a specific instance
+      of this metric type. For example, the
+      appengine.googleapis.com/http/server/response_latencies metric type has
+      a label for the HTTP response code, response_code, so you can look at
+      latencies for successful responses or just for responses that failed.
+    metricKind: Whether the metric records instantaneous values, changes to a
+      value, etc. Some combinations of metric_kind and value_type might not be
+      supported.
+    name: The resource name of the metric descriptor.
+    type: The metric type, including its DNS name prefix. The type is not URL-
+      encoded. All user-defined custom metric types have the DNS name
+      custom.googleapis.com. Metric types should use a natural hierarchical
+      grouping. For example: "custom.googleapis.com/invoice/paid/amount"
+      "appengine.googleapis.com/http/server/response_latencies"
+    unit: The unit in which the metric value is reported. It is only
+      applicable if the value_type is INT64, DOUBLE, or DISTRIBUTION. The
+      supported units are a subset of The Unified Code for Units of Measure
+      (http://unitsofmeasure.org/ucum.html) standard:Basic units (UNIT) bit
+      bit By byte s second min minute h hour d dayPrefixes (PREFIX) k kilo
+      (10**3) M mega (10**6) G giga (10**9) T tera (10**12) P peta (10**15) E
+      exa (10**18) Z zetta (10**21) Y yotta (10**24) m milli (10**-3) u micro
+      (10**-6) n nano (10**-9) p pico (10**-12) f femto (10**-15) a atto
+      (10**-18) z zepto (10**-21) y yocto (10**-24) Ki kibi (2**10) Mi mebi
+      (2**20) Gi gibi (2**30) Ti tebi (2**40)GrammarThe grammar also includes
+      these connectors: / division (as an infix operator, e.g. 1/s). .
+      multiplication (as an infix operator, e.g. GBy.d)The grammar for a unit
+      is as follows: Expression = Component { "." Component } { "/" Component
+      } ;  Component = ( [ PREFIX ] UNIT | "%" ) [ Annotation ]           |
+      Annotation           | "1"           ;  Annotation = "{" NAME "}" ;
+      Notes: Annotation is just a comment if it follows a UNIT and is
+      equivalent to 1 if it is used alone. For examples,  {requests}/s == 1/s,
+      By{transmitted}/s == By/s. NAME is a sequence of non-blank printable
+      ASCII characters not  containing '{' or '}'. 1 represents dimensionless
+      value 1, such as in 1/s. % represents dimensionless value 1/100, and
+      annotates values giving  a percentage.
+    valueType: Whether the measurement is an integer, a floating-point number,
+      etc. Some combinations of metric_kind and value_type might not be
+      supported.
+  """
+
+  class MetricKindValueValuesEnum(_messages.Enum):
+    r"""Whether the metric records instantaneous values, changes to a value,
+    etc. Some combinations of metric_kind and value_type might not be
+    supported.
+
+    Values:
+      METRIC_KIND_UNSPECIFIED: Do not use this default value.
+      GAUGE: An instantaneous measurement of a value.
+      DELTA: The change in a value during a time interval.
+      CUMULATIVE: A value accumulated over a time interval. Cumulative
+        measurements in a time series should have the same start time and
+        increasing end times, until an event resets the cumulative value to
+        zero and sets a new start time for the following points.
+    """
+    METRIC_KIND_UNSPECIFIED = 0
+    GAUGE = 1
+    DELTA = 2
+    CUMULATIVE = 3
+
+  class ValueTypeValueValuesEnum(_messages.Enum):
+    r"""Whether the measurement is an integer, a floating-point number, etc.
+    Some combinations of metric_kind and value_type might not be supported.
+
+    Values:
+      VALUE_TYPE_UNSPECIFIED: Do not use this default value.
+      BOOL: The value is a boolean. This value type can be used only if the
+        metric kind is GAUGE.
+      INT64: The value is a signed 64-bit integer.
+      DOUBLE: The value is a double precision floating point number.
+      STRING: The value is a text string. This value type can be used only if
+        the metric kind is GAUGE.
+      DISTRIBUTION: The value is a Distribution.
+      MONEY: The value is money.
+    """
+    VALUE_TYPE_UNSPECIFIED = 0
+    BOOL = 1
+    INT64 = 2
+    DOUBLE = 3
+    STRING = 4
+    DISTRIBUTION = 5
+    MONEY = 6
+
+  description = _messages.StringField(1)
+  displayName = _messages.StringField(2)
+  labels = _messages.MessageField('LabelDescriptor', 3, repeated=True)
+  metricKind = _messages.EnumField('MetricKindValueValuesEnum', 4)
+  name = _messages.StringField(5)
+  type = _messages.StringField(6)
+  unit = _messages.StringField(7)
+  valueType = _messages.EnumField('ValueTypeValueValuesEnum', 8)
 
 
 class MonitoredResource(_messages.Message):
-  """An object representing a resource that can be used for monitoring,
+  r"""An object representing a resource that can be used for monitoring,
   logging, billing, or other purposes. Examples include virtual machine
   instances, databases, and storage devices such as disks. The type field
   identifies a MonitoredResourceDescriptor object that describes the
@@ -1455,7 +2496,7 @@ class MonitoredResource(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Required. Values for all of the labels listed in the associated
+    r"""Required. Values for all of the labels listed in the associated
     monitored resource descriptor. For example, Compute Engine VM instances
     use the labels "project_id", "instance_id", and "zone".
 
@@ -1467,7 +2508,7 @@ class MonitoredResource(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1484,8 +2525,8 @@ class MonitoredResource(_messages.Message):
 
 
 class MonitoredResourceDescriptor(_messages.Message):
-  """An object that describes the schema of a MonitoredResource object using a
-  type name and a set of labels. For example, the monitored resource
+  r"""An object that describes the schema of a MonitoredResource object using
+  a type name and a set of labels. For example, the monitored resource
   descriptor for Google Compute Engine VM instances has a type of
   "gce_instance" and specifies the use of the labels "instance_id" and "zone"
   to identify particular VM instances.Different APIs can support different
@@ -1521,8 +2562,98 @@ class MonitoredResourceDescriptor(_messages.Message):
   type = _messages.StringField(5)
 
 
+class MonitoredResourceMetadata(_messages.Message):
+  r"""Auxiliary metadata for a MonitoredResource object. MonitoredResource
+  objects contain the minimum set of information to uniquely identify a
+  monitored resource instance. There is some other useful auxiliary metadata.
+  Google Stackdriver Monitoring & Logging uses an ingestion pipeline to
+  extract metadata for cloud resources of all types , and stores the metadata
+  in this message.
+
+  Messages:
+    SystemLabelsValue: Output only. Values for predefined system metadata
+      labels. System labels are a kind of metadata extracted by Google
+      Stackdriver. Stackdriver determines what system labels are useful and
+      how to obtain their values. Some examples: "machine_image", "vpc",
+      "subnet_id", "security_group", "name", etc. System label values can be
+      only strings, Boolean values, or a list of strings. For example: {
+      "name": "my-test-instance",   "security_group": ["a", "b", "c"],
+      "spot_instance": false }
+    UserLabelsValue: Output only. A map of user-defined metadata labels.
+
+  Fields:
+    systemLabels: Output only. Values for predefined system metadata labels.
+      System labels are a kind of metadata extracted by Google Stackdriver.
+      Stackdriver determines what system labels are useful and how to obtain
+      their values. Some examples: "machine_image", "vpc", "subnet_id",
+      "security_group", "name", etc. System label values can be only strings,
+      Boolean values, or a list of strings. For example: { "name": "my-test-
+      instance",   "security_group": ["a", "b", "c"],   "spot_instance": false
+      }
+    userLabels: Output only. A map of user-defined metadata labels.
+  """
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class SystemLabelsValue(_messages.Message):
+    r"""Output only. Values for predefined system metadata labels. System
+    labels are a kind of metadata extracted by Google Stackdriver. Stackdriver
+    determines what system labels are useful and how to obtain their values.
+    Some examples: "machine_image", "vpc", "subnet_id", "security_group",
+    "name", etc. System label values can be only strings, Boolean values, or a
+    list of strings. For example: { "name": "my-test-instance",
+    "security_group": ["a", "b", "c"],   "spot_instance": false }
+
+    Messages:
+      AdditionalProperty: An additional property for a SystemLabelsValue
+        object.
+
+    Fields:
+      additionalProperties: Properties of the object.
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a SystemLabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A extra_types.JsonValue attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.MessageField('extra_types.JsonValue', 2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class UserLabelsValue(_messages.Message):
+    r"""Output only. A map of user-defined metadata labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a UserLabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type UserLabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a UserLabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  systemLabels = _messages.MessageField('SystemLabelsValue', 1)
+  userLabels = _messages.MessageField('UserLabelsValue', 2)
+
+
 class RequestLog(_messages.Message):
-  """Complete log information about a single HTTP request to an App Engine
+  r"""Complete log information about a single HTTP request to an App Engine
   application.
 
   Fields:
@@ -1615,7 +2746,7 @@ class RequestLog(_messages.Message):
 
 
 class SourceLocation(_messages.Message):
-  """Specifies a location in a source code file.
+  r"""Specifies a location in a source code file.
 
   Fields:
     file: Source file name. Depending on the runtime environment, this might
@@ -1635,8 +2766,8 @@ class SourceLocation(_messages.Message):
 
 
 class SourceReference(_messages.Message):
-  """A reference to a particular snapshot of the source tree used to build and
-  deploy an application.
+  r"""A reference to a particular snapshot of the source tree used to build
+  and deploy an application.
 
   Fields:
     repository: Optional. A URI string identifying the repository. Example:
@@ -1650,7 +2781,7 @@ class SourceReference(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -1679,7 +2810,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1691,7 +2822,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -1717,7 +2848,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class WriteLogEntriesRequest(_messages.Message):
-  """The parameters to WriteLogEntries.
+  r"""The parameters to WriteLogEntries.
 
   Messages:
     LabelsValue: Optional. Default labels that are added to the labels field
@@ -1726,16 +2857,26 @@ class WriteLogEntriesRequest(_messages.Message):
       not changed. See LogEntry.
 
   Fields:
-    entries: Required. The log entries to write. Values supplied for the
-      fields log_name, resource, and labels in this entries.write request are
-      inserted into those log entries in this list that do not provide their
-      own values.Stackdriver Logging also creates and inserts values for
-      timestamp and insert_id if the entries do not provide them. The created
-      insert_id for the N'th entry in this list will be greater than earlier
-      entries and less than later entries. Otherwise, the order of log entries
-      in this list does not matter.To improve throughput and to avoid
-      exceeding the quota limit for calls to entries.write, you should write
-      multiple log entries at once rather than calling this method for each
+    dryRun: Optional. If true, the request should expect normal response, but
+      the entries won't be persisted nor exported. Useful for checking whether
+      the logging API endpoints are working properly before sending valuable
+      data.
+    entries: Required. The log entries to send to Stackdriver Logging. The
+      order of log entries in this list does not matter. Values supplied in
+      this method's log_name, resource, and labels fields are copied into
+      those log entries in this list that do not include values for their
+      corresponding fields. For more information, see the LogEntry type.If the
+      timestamp or insert_id fields are missing in log entries, then this
+      method supplies the current time or a unique identifier, respectively.
+      The supplied values are chosen so that, among the log entries that did
+      not supply their own values, the entries earlier in the list will sort
+      before the entries later in the list. See the entries.list method.Log
+      entries with timestamps that are more than the logs retention period in
+      the past or more than 24 hours in the future will not be available when
+      calling entries.list. However, those log entries can still be exported
+      with LogSinks.To improve throughput and to avoid exceeding the quota
+      limit for calls to entries.write, you should try to include several log
+      entries in this list, rather than calling this method for each
       individual log entry.
     labels: Optional. Default labels that are added to the labels field of all
       log entries in entries. If a log entry already has a label with the same
@@ -1764,7 +2905,7 @@ class WriteLogEntriesRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Optional. Default labels that are added to the labels field of all log
+    r"""Optional. Default labels that are added to the labels field of all log
     entries in entries. If a log entry already has a label with the same key
     as a label in this parameter, then the log entry's label is not changed.
     See LogEntry.
@@ -1777,7 +2918,7 @@ class WriteLogEntriesRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1789,23 +2930,21 @@ class WriteLogEntriesRequest(_messages.Message):
 
     additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
 
-  entries = _messages.MessageField('LogEntry', 1, repeated=True)
-  labels = _messages.MessageField('LabelsValue', 2)
-  logName = _messages.StringField(3)
-  partialSuccess = _messages.BooleanField(4)
-  resource = _messages.MessageField('MonitoredResource', 5)
+  dryRun = _messages.BooleanField(1)
+  entries = _messages.MessageField('LogEntry', 2, repeated=True)
+  labels = _messages.MessageField('LabelsValue', 3)
+  logName = _messages.StringField(4)
+  partialSuccess = _messages.BooleanField(5)
+  resource = _messages.MessageField('MonitoredResource', 6)
 
 
 class WriteLogEntriesResponse(_messages.Message):
-  """Result returned from WriteLogEntries. empty"""
+  r"""Result returned from WriteLogEntries. empty"""
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'logging')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'logging')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'logging')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

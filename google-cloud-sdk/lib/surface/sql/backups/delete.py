@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Deletes a backup run for a Cloud SQL instance."""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import sys
 
@@ -46,6 +49,7 @@ class Delete(base.DeleteCommand):
         help="""The ID of the backup run. You can find the ID by running
             $ gcloud beta sql backups list.""")
     flags.AddInstance(parser)
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     """Deletes a backup of a Cloud SQL instance.
@@ -57,11 +61,6 @@ class Delete(base.DeleteCommand):
     Returns:
       A dict object representing the operations resource describing the delete
       operation if the api request was successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
 
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
@@ -91,6 +90,13 @@ class Delete(base.DeleteCommand):
 
     operation_ref = client.resource_parser.Create(
         'sql.operations', operation=result.name, project=instance_ref.project)
+
+    if args.async:
+      # Don't wait for the running operation to complete when async is used.
+      return sql_client.operations.Get(
+          sql_messages.SqlOperationsGetRequest(
+              project=operation_ref.project,
+              operation=operation_ref.operation))
 
     operations.OperationsV1Beta4.WaitForOperation(sql_client, operation_ref,
                                                   'Deleting backup run')

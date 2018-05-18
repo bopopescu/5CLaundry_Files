@@ -14,8 +14,8 @@
 
 """Rollback node pool command."""
 
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.container import util
@@ -47,7 +47,8 @@ class Rollback(base.Command):
         '--timeout',
         type=int,
         default=1800,  # Seconds
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
   def Run(self, args):
     """This is what gets called when the user runs this command.

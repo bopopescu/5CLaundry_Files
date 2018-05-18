@@ -14,27 +14,13 @@
 
 """This module holds exceptions raised by api lib."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.core import exceptions
 
 
 class Error(exceptions.Error):
   """Base error for this module."""
-
-
-class NotFoundError(Error):
-  """Raised when the requested resource does not exist."""
-
-  def __init__(self):
-    super(exceptions.Error,
-          self).__init__('The requested resource was not found.')
-
-
-class ConflictError(Error):
-  """Raised when a new resource already exists."""
-
-  def __init__(self):
-    super(exceptions.Error,
-          self).__init__('The requested resource already exists.')
 
 
 class ConfigError(Error):
@@ -43,9 +29,3 @@ class ConfigError(Error):
   def __init__(self, message=None, **kwargs):
     message = message or 'Config Error.'
     super(ConfigError, self).__init__(message, **kwargs)
-
-
-STATUS_CODE_TO_ERROR = {
-    404: NotFoundError,
-    409: ConflictError
-}

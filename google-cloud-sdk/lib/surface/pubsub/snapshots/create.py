@@ -11,14 +11,19 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub snapshots create command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from apitools.base.py import exceptions as api_ex
 
+from googlecloudsdk.api_lib.pubsub import snapshots
 from googlecloudsdk.api_lib.util import exceptions
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.projects import util as projects_util
 from googlecloudsdk.command_lib.pubsub import util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 
 
@@ -56,6 +61,8 @@ class Create(base.CreateCommand):
               ' If not set, it defaults to the currently selected'
               ' cloud project.'))
 
+    labels_util.AddCreateLabelsFlags(parser)
+
   def Run(self, args):
     """This is what gets called when the user runs this command.
 
@@ -67,33 +74,34 @@ class Create(base.CreateCommand):
       A serialized object (dict) describing the results of the operation.
       This description fits the Resource described in the ResourceRegistry under
       'pubsub.projects.snapshots'.
+
+    Raises:
+      util.RequestFailedError: if any of the requests to the API failed.
     """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
+    client = snapshots.SnapshotsClient()
 
-    subscription_project = ''
-    if args.subscription_project:
-      subscription_project = projects_util.ParseProject(
-          args.subscription_project).Name()
-    subscription_name = args.subscription
+    subscription_ref = util.ParseSubscription(
+        args.subscription, args.subscription_project)
 
+    labels = labels_util.ParseCreateArgs(
+        args, client.messages.CreateSnapshotRequest.LabelsValue)
+
+    failed = []
     for snapshot_name in args.snapshot:
-      snapshot_path = util.SnapshotFormat(snapshot_name)
-      create_req = msgs.PubsubProjectsSnapshotsCreateRequest(
-          createSnapshotRequest=msgs.CreateSnapshotRequest(
-              subscription=util.SubscriptionFormat(
-                  subscription_name, subscription_project)),
-          name=snapshot_path)
+      snapshot_ref = util.ParseSnapshot(snapshot_name)
 
-      # TODO(b/32275310): Conform to gcloud error handling guidelines.
       try:
-        result = pubsub.projects_snapshots.Create(create_req)
-        failed = None
+        result = client.Create(snapshot_ref, subscription_ref, labels=labels)
       except api_ex.HttpError as error:
-        result = msgs.Snapshot(name=snapshot_path)
         exc = exceptions.HttpException(error)
-        failed = exc.payload.status_message
+        log.CreatedResource(snapshot_ref.RelativeName(), kind='snapshot',
+                            failed=exc.payload.status_message)
+        failed.append(snapshot_name)
+        continue
 
-      result = util.SnapshotDisplayDict(result, failed)
-      log.CreatedResource(snapshot_path, kind='snapshot', failed=failed)
+      result = util.SnapshotDisplayDict(result)
+      log.CreatedResource(snapshot_ref.RelativeName(), kind='snapshot')
       yield result
+
+    if failed:
+      raise util.RequestsFailedError(failed, 'create')

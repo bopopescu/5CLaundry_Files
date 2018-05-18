@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating URL maps."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute.backend_buckets import (
@@ -39,6 +41,7 @@ def _Args(parser):
       help=('A backend bucket that will be used for requests for which this '
             'URL map has no mappings. Exactly one of --default-service or '
             '--default-backend-bucket is required.'))
+  parser.display_info.AddCacheUpdater(flags.UrlMapsCompleter)
 
 
 class Create(base.CreateCommand):

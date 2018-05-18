@@ -17,7 +17,7 @@
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.meta.apis import flags
-from googlecloudsdk.command_lib.meta.apis import registry
+from googlecloudsdk.command_lib.util.apis import registry
 
 
 class Lint(base.ListCommand):
@@ -63,7 +63,7 @@ class Lint(base.ListCommand):
         method = list_methods[0]
         results.append({'collection': c.full_name,
                         'has_list': True,
-                        'resource_arg': bool(method.RequestCollection()),
+                        'resource_arg': bool(method.request_collection),
                         'flattened': bool(method.ListItemField()),
                         'pageable': method.IsPageableList(),
                         'page_size': bool(method.BatchPageSizeField())})

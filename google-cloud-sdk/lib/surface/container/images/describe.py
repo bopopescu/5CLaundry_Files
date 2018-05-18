@@ -13,18 +13,72 @@
 # limitations under the License.
 """Command to show Container Analysis Data for a specified image."""
 
-from containerregistry.client.v2_2 import docker_http
+from googlecloudsdk.api_lib.container.images import container_data_util
 from googlecloudsdk.api_lib.container.images import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.container import flags
 
 # Add to this as we add more container analysis data.
-_DEFAULT_KINDS = ['BUILD_DETAILS', 'PACKAGE_VULNERABILITY', 'IMAGE_BASIS']
+_DEFAULT_KINDS = [
+    'BUILD_DETAILS',
+    'PACKAGE_VULNERABILITY',
+    'IMAGE_BASIS',
+    'DEPLOYABLE',
+]
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA,
-                    base.ReleaseTrack.GA)
+def _CommonArgs(parser):
+  flags.AddTagOrDigestPositional(parser, verb='describe', repeated=False)
+
+
+# pylint: disable=line-too-long
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class Describe(base.DescribeCommand):
+  """Lists information about the specified image.
+
+  ## EXAMPLES
+
+  Describe the specified image:
+
+    $ {command} gcr.io/myproject/myimage@digest
+          OR
+    $ {command} gcr.io/myproject/myimage:tag
+
+  Find the digest for a tag:
+
+    $ {command} gcr.io/myproject/myimage:tag --format='value(image_summary.digest)'
+          OR
+    $ {command} gcr.io/myproject/myimage:tag --format='value(image_summary.fully_qualified_digest)'
+
+  """
+
+  @staticmethod
+  def Args(parser):
+    _CommonArgs(parser)
+
+  def Run(self, args):
+    """This is what gets called when the user runs this command.
+
+    Args:
+      args: an argparse namespace. All the arguments that were provided to this
+        command invocation.
+
+    Raises:
+      InvalidImageNameError: If the user specified an invalid image name.
+    Returns:
+      Some value that we want to have printed later.
+    """
+
+    with util.WrapExpectedDockerlessErrors(args.image_name):
+      img_name = util.GetDigestFromName(args.image_name)
+      return container_data_util.ContainerData(
+          registry=img_name.registry,
+          repository=img_name.repository,
+          digest=img_name.digest)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class DescribeAlpha(Describe):
   """Lists container analysis data for a given image.
 
   Lists container analysis data for a valid image.
@@ -40,14 +94,33 @@ class Describe(base.DescribeCommand):
 
   @staticmethod
   def Args(parser):
-    flags.AddTagOrDigestPositional(parser, verb='describe', repeated=False)
+    _CommonArgs(parser)
+
     parser.add_argument(
-        '--occurrence-filter',
-        default=' OR '.join(
-            ['kind = "{kind}"'.format(kind=x) for x in _DEFAULT_KINDS]),
-        help=('Additional filter to fetch occurrences for '
+        '--metadata-filter',
+        default='',
+        help=('Additional filter to fetch metadata for '
               'a given fully qualified image reference.'))
-    parser.display_info.AddFormat('object')
+    parser.add_argument(
+        '--show-build-details',
+        action='store_true',
+        help='Include build metadata in the output.')
+    parser.add_argument(
+        '--show-package-vulnerability',
+        action='store_true',
+        help='Include vulnerability metadata in the output.')
+    parser.add_argument(
+        '--show-image-basis',
+        action='store_true',
+        help='Include base image metadata in the output.')
+    parser.add_argument(
+        '--show-deployment',
+        action='store_true',
+        help='Include deployment metadata in the output.')
+    parser.add_argument(
+        '--show-all-metadata',
+        action='store_true',
+        help='Include all metadata in the output.')
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -62,12 +135,60 @@ class Describe(base.DescribeCommand):
       Some value that we want to have printed later.
     """
 
-    try:
-      img_name = util.GetDigestFromName(args.image_name)
-      return util.TransformContainerAnalysisData(img_name,
-                                                 args.occurrence_filter)
-    except docker_http.V2DiagnosticException as err:
-      raise util.GcloudifyRecoverableV2Errors(err, {
-          403: 'Describe failed, access denied: {0}'.format(args.image_name),
-          404: 'Describe failed, not found: {0}'.format(args.image_name)
-      })
+    filter_kinds = []
+    if args.show_build_details:
+      filter_kinds.append('BUILD_DETAILS')
+    if args.show_package_vulnerability:
+      filter_kinds.append('PACKAGE_VULNERABILITY')
+    if args.show_image_basis:
+      filter_kinds.append('IMAGE_BASIS')
+    if args.show_deployment:
+      filter_kinds.append('DEPLOYABLE')
+
+    if args.show_all_metadata:
+      filter_kinds = _DEFAULT_KINDS
+
+    if filter_kinds or args.metadata_filter:
+      if filter_kinds:
+        filter_from_flags = ' OR '.join(
+            ['kind = "{kind}"'.format(kind=fk) for fk in filter_kinds])
+
+        if not args.metadata_filter:
+          occ_filter = filter_from_flags
+        else:
+          occ_filter = '({occf}) AND ({flagf})'.format(
+              occf=args.metadata_filter,
+              flagf=filter_from_flags)
+      else:
+        occ_filter = args.metadata_filter
+
+      with util.WrapExpectedDockerlessErrors(args.image_name):
+        img_name = util.GetDigestFromName(args.image_name)
+        data = util.TransformContainerAnalysisData(
+            img_name, occ_filter,
+            deployments=(args.show_deployment or args.show_all_metadata))
+        # Clear out fields that weren't asked for and have no data.
+        if (not data.build_details_summary.build_details
+            and not args.show_build_details
+            and not args.show_all_metadata):
+          del data.build_details_summary
+        if (not data.package_vulnerability_summary.vulnerabilities
+            and not args.show_package_vulnerability
+            and not args.show_all_metadata):
+          del data.package_vulnerability_summary
+        if (not data.image_basis_summary.base_images
+            and not args.show_image_basis
+            and not args.show_all_metadata):
+          del data.image_basis_summary
+        if (not data.deployment_summary.deployments
+            and not args.show_deployment
+            and not args.show_all_metadata):
+          del data.deployment_summary
+        return data
+    else:
+      with util.WrapExpectedDockerlessErrors(args.image_name):
+        img_name = util.GetDigestFromName(args.image_name)
+        return container_data_util.ContainerData(
+            registry=img_name.registry,
+            repository=img_name.repository,
+            digest=img_name.digest)

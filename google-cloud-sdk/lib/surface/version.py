@@ -15,6 +15,8 @@
 """Command to print version information for Cloud SDK components.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import config
@@ -30,6 +32,10 @@ class Version(base.Command):
   components and prints a message if updates are available.
   """
 
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat('flattened[no-pad,separator=" "]')
+
   def Run(self, args):
     if config.Paths().sdk_root:
       # Components are only valid if this is a built Cloud SDK.
@@ -39,9 +45,6 @@ class Version(base.Command):
       versions = {}
     versions['Google Cloud SDK'] = config.CLOUD_SDK_VERSION
     return versions
-
-  def DeprecatedFormat(self, args):
-    return 'flattened[no-pad,separator=" "]'
 
   def Epilog(self, resources_were_displayed):
     if config.Paths().sdk_root:

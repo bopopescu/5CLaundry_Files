@@ -1,4 +1,4 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2018 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ class Model(object):
   encoded after being returned from the predict method.
   """
 
-  def predict(self, instances, stats=None):
+  def predict(self, instances, **kwargs):
     """Returns predictions for the provided instances.
 
     Instances are the decoded values from the request. Clients need not worry
@@ -35,7 +35,8 @@ class Model(object):
 
     Args:
       instances: list of instances, as described in the API.
-      stats: Dict (str->float) object for recording timing information.
+      **kwargs: additional keyword arguments, will be passed into the client's
+                predict method
 
     Returns:
       A two-element tuple (inputs, outputs). Both inputs and outputs are
@@ -47,11 +48,6 @@ class Model(object):
     """
     raise NotImplementedError()
 
-  @property
-  def signature(self):
-    """Returns the SignatureDef for this model."""
-    raise NotImplementedError()
-
   @classmethod
   def from_client(cls, client, model_path):
     """Creates a model using the given client and path.
@@ -60,7 +56,7 @@ class Model(object):
     the model.
 
     Args:
-      client: An instance of Client for performing prediction.
+      client: An instance of PredictionClient for performing prediction.
       model_path: The path to the stored model.
 
     Returns:
@@ -80,22 +76,20 @@ class PredictionClient(object):
   Session.run's feed_dict parameter. The return value is the same format.
   """
 
-  def predict(self, inputs, stats):
+  def __init__(self, *args, **kwargs):
+    pass
+
+  def predict(self, inputs, **kwargs):
     """Produces predictions for the given inputs.
 
     Args:
       inputs: a dict mapping input names to values
-      stats: Stats object for recording timing information.
+      **kwargs: Additional keyword arguments for prediction
 
     Returns:
       A dict mapping output names to output values, similar to the input
       dict.
     """
-    raise NotImplementedError()
-
-  @property
-  def signature(self):
-    """Returns the SignatureDef for the model this client uses."""
     raise NotImplementedError()
 
 
@@ -116,14 +110,15 @@ class Processor(object):
 
 
 class Preprocessor(object):
-  """Interface for processing instances one-by-one before prediction."""
+  """Interface for processing a list of instances before prediction."""
 
-  def preprocess(self, instance):
+  def preprocess(self, instances, **kwargs):
     """The preprocessing function.
 
     Args:
-      instance: a single instance in the instances provided to the predict()
+      instances: a list of instances, as provided to the predict()
         method.
+      **kwargs: Additional keyword arguments for preprocessing
 
     Returns:
       The processed instance to use in the predict() method.
@@ -132,14 +127,15 @@ class Preprocessor(object):
 
 
 class Postprocessor(object):
-  """Interface for processing instances one-by-one after prediction."""
+  """Interface for processing a list of instances after prediction."""
 
-  def postprocess(self, instance):
+  def postprocess(self, instances, **kwargs):
     """The postprocessing function.
 
     Args:
-      instance: a single instance in the instances outputted by the predict()
+      instances: a list of instances, as provided to the predict()
         method.
+      **kwargs: Additional keyword arguments for postprocessing
 
     Returns:
       The processed instance to return as the final prediction output.

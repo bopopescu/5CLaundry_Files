@@ -13,9 +13,10 @@
 # limitations under the License.
 """Functions for creating a client to talk to the App Engine Admin API."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.app import operations_util
 from googlecloudsdk.api_lib.app.api import appengine_api_client_base as base
-from googlecloudsdk.api_lib.app.api import requests
 from googlecloudsdk.calliope import base as calliope_base
 from googlecloudsdk.core import log
 from googlecloudsdk.core import resources
@@ -47,34 +48,41 @@ class AppengineAppUpdateApiClient(base.AppengineApiClientBase):
     self._registry.RegisterApiByName('appengine', client._VERSION)
 
   def PatchApplication(self,
-                       split_health_checks=None):
+                       split_health_checks=None,
+                       use_container_optimized_os=None):
     """Updates an application.
 
     Args:
       split_health_checks: Boolean, whether to enable split health checks by
       default.
+      use_container_optimized_os: Boolean, whether to enable Container-Opimized
+      OS as Flex base VM image by default.
 
     Returns:
       Long running operation.
     """
+
     # Create a configuration update request.
-    application_update = self.messages.Application()
     update_mask = ''
     if split_health_checks is not None:
-      update_mask = 'featureSettings'
-      application_update.featureSettings = self.messages.FeatureSettings(
-          splitHealthChecks=split_health_checks)
+      update_mask += 'featureSettings.splitHealthChecks,'
+    if use_container_optimized_os is not None:
+      update_mask += 'featureSettings.useContainerOptimizedOs,'
 
+    application_update = self.messages.Application()
+    application_update.featureSettings = self.messages.FeatureSettings(
+        splitHealthChecks=split_health_checks,
+        useContainerOptimizedOs=use_container_optimized_os)
     update_request = self.messages.AppengineAppsPatchRequest(
         name=self._FormatApp(),
         application=application_update,
         updateMask=update_mask)
 
-    operation = requests.MakeRequest(
-        self.client.apps.Patch, update_request)
+    operation = self.client.apps.Patch(update_request)
 
-    log.debug('Received operation: [{operation}]'.format(
-        operation=operation.name))
+    log.debug('Received operation: [{operation}] with mask [{mask}]'.format(
+        operation=operation.name,
+        mask=update_mask))
 
     return operations_util.WaitForOperation(self.client.apps_operations,
                                             operation)

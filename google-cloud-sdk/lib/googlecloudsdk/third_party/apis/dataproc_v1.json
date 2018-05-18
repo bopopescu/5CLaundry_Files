@@ -3,9 +3,10 @@
   "discoveryVersion": "v1",
   "id": "dataproc:v1",
   "name": "dataproc",
+  "canonicalName": "Dataproc",
   "version": "v1",
   "revision": "0",
-  "title": "Google Cloud Dataproc API",
+  "title": "Cloud Dataproc API",
   "description": "Manages Hadoop-based clusters and jobs on Google Cloud Platform.",
   "ownerDomain": "google.com",
   "ownerName": "Google",
@@ -19,6 +20,7 @@
   "servicePath": "",
   "baseUrl": "https://dataproc.googleapis.com/",
   "batchPath": "batch",
+  "fullyEncodeReservedExpansion": true,
   "parameters": {
     "access_token": {
       "type": "string",
@@ -206,7 +208,7 @@
     },
     "Cluster": {
       "id": "Cluster",
-      "description": "Describes the identifying information, config, and status of a cluster of Google Compute Engine instances.",
+      "description": "Describes the identifying information, config, and status of a cluster of Compute Engine instances.",
       "type": "object",
       "properties": {
         "projectId": {
@@ -229,18 +231,18 @@
           }
         },
         "status": {
-          "description": "Output-only. Cluster status.",
+          "description": "Output only. Cluster status.",
           "$ref": "ClusterStatus"
         },
         "statusHistory": {
-          "description": "Output-only. The previous cluster status.",
+          "description": "Output only. The previous cluster status.",
           "type": "array",
           "items": {
             "$ref": "ClusterStatus"
           }
         },
         "clusterUuid": {
-          "description": "Output-only. A cluster UUID (Unique Universal Identifier). Cloud Dataproc generates this value when it creates the cluster.",
+          "description": "Output only. A cluster UUID (Unique Universal Identifier). Cloud Dataproc generates this value when it creates the cluster.",
           "type": "string"
         },
         "metrics": {
@@ -255,23 +257,23 @@
       "type": "object",
       "properties": {
         "configBucket": {
-          "description": "Optional. A Google Cloud Storage staging bucket used for sharing generated SSH keys and config. If you do not specify a staging bucket, Cloud Dataproc will determine an appropriate Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Google Compute Engine zone where your cluster is deployed, and then it will create and manage this project-level, per-location bucket for you.",
+          "description": "Optional. A Cloud Storage staging bucket used for sharing generated SSH keys and config. If you do not specify a staging bucket, Cloud Dataproc will determine an appropriate Cloud Storage location (US, ASIA, or EU) for your cluster's staging bucket according to the Google Compute Engine zone where your cluster is deployed, and then it will create and manage this project-level, per-location bucket for you.",
           "type": "string"
         },
         "gceClusterConfig": {
-          "description": "Required. The shared Google Compute Engine config settings for all instances in a cluster.",
+          "description": "Required. The shared Compute Engine config settings for all instances in a cluster.",
           "$ref": "GceClusterConfig"
         },
         "masterConfig": {
-          "description": "Optional. The Google Compute Engine config settings for the master instance in a cluster.",
+          "description": "Optional. The Compute Engine config settings for the master instance in a cluster.",
           "$ref": "InstanceGroupConfig"
         },
         "workerConfig": {
-          "description": "Optional. The Google Compute Engine config settings for worker instances in a cluster.",
+          "description": "Optional. The Compute Engine config settings for worker instances in a cluster.",
           "$ref": "InstanceGroupConfig"
         },
         "secondaryWorkerConfig": {
-          "description": "Optional. The Google Compute Engine config settings for additional worker instances in a cluster.",
+          "description": "Optional. The Compute Engine config settings for additional worker instances in a cluster.",
           "$ref": "InstanceGroupConfig"
         },
         "softwareConfig": {
@@ -289,19 +291,19 @@
     },
     "GceClusterConfig": {
       "id": "GceClusterConfig",
-      "description": "Common config settings for resources of Google Compute Engine cluster instances, applicable to all instances in the cluster.",
+      "description": "Common config settings for resources of Compute Engine cluster instances, applicable to all instances in the cluster.",
       "type": "object",
       "properties": {
         "zoneUri": {
-          "description": "Optional. The zone where the Google Compute Engine cluster will be located. On a create request, it is required in the \"global\" region. If omitted in a non-global Cloud Dataproc region, the service will pick a zone in the corresponding Compute Engine region. On a get request, zone will always be present.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/zones\/[zone]\nprojects\/[project_id]\/zones\/[zone]\nus-central1-f",
+          "description": "Optional. The zone where the Compute Engine cluster will be located. On a create request, it is required in the \"global\" region. If omitted in a non-global Cloud Dataproc region, the service will pick a zone in the corresponding Compute Engine region. On a get request, zone will always be present.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/zones\/[zone]\nprojects\/[project_id]\/zones\/[zone]\nus-central1-f",
           "type": "string"
         },
         "networkUri": {
-          "description": "Optional. The Google Compute Engine network to be used for machine communications. Cannot be specified with subnetwork_uri. If neither network_uri nor subnetwork_uri is specified, the \"default\" network of the project is used, if it exists. Cannot be a \"Custom Subnet Network\" (see Using Subnetworks for more information).A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/regions\/global\/default\nprojects\/[project_id]\/regions\/global\/default\ndefault",
+          "description": "Optional. The Compute Engine network to be used for machine communications. Cannot be specified with subnetwork_uri. If neither network_uri nor subnetwork_uri is specified, the \"default\" network of the project is used, if it exists. Cannot be a \"Custom Subnet Network\" (see Using Subnetworks for more information).A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/regions\/global\/default\nprojects\/[project_id]\/regions\/global\/default\ndefault",
           "type": "string"
         },
         "subnetworkUri": {
-          "description": "Optional. The Google Compute Engine subnetwork to be used for machine communications. Cannot be specified with network_uri.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/regions\/us-east1\/sub0\nprojects\/[project_id]\/regions\/us-east1\/sub0\nsub0",
+          "description": "Optional. The Compute Engine subnetwork to be used for machine communications. Cannot be specified with network_uri.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/regions\/us-east1\/sub0\nprojects\/[project_id]\/regions\/us-east1\/sub0\nsub0",
           "type": "string"
         },
         "internalIpOnly": {
@@ -309,25 +311,25 @@
           "type": "boolean"
         },
         "serviceAccount": {
-          "description": "Optional. The service account of the instances. Defaults to the default Google Compute Engine service account. Custom service accounts need permissions equivalent to the folloing IAM roles:\nroles\/logging.logWriter\nroles\/storage.objectAdmin(see https:\/\/cloud.google.com\/compute\/docs\/access\/service-accounts#custom_service_accounts for more information). Example: [account_id]@[project_id].iam.gserviceaccount.com",
+          "description": "Optional. The service account of the instances. Defaults to the default Compute Engine service account. Custom service accounts need permissions equivalent to the following IAM roles:\nroles\/logging.logWriter\nroles\/storage.objectAdmin(see https:\/\/cloud.google.com\/compute\/docs\/access\/service-accounts#custom_service_accounts for more information). Example: [account_id]@[project_id].iam.gserviceaccount.com",
           "type": "string"
         },
         "serviceAccountScopes": {
-          "description": "Optional. The URIs of service account scopes to be included in Google Compute Engine instances. The following base set of scopes is always included:\nhttps:\/\/www.googleapis.com\/auth\/cloud.useraccounts.readonly\nhttps:\/\/www.googleapis.com\/auth\/devstorage.read_write\nhttps:\/\/www.googleapis.com\/auth\/logging.writeIf no scopes are specified, the following defaults are also provided:\nhttps:\/\/www.googleapis.com\/auth\/bigquery\nhttps:\/\/www.googleapis.com\/auth\/bigtable.admin.table\nhttps:\/\/www.googleapis.com\/auth\/bigtable.data\nhttps:\/\/www.googleapis.com\/auth\/devstorage.full_control",
+          "description": "Optional. The URIs of service account scopes to be included in Compute Engine instances. The following base set of scopes is always included:\nhttps:\/\/www.googleapis.com\/auth\/cloud.useraccounts.readonly\nhttps:\/\/www.googleapis.com\/auth\/devstorage.read_write\nhttps:\/\/www.googleapis.com\/auth\/logging.writeIf no scopes are specified, the following defaults are also provided:\nhttps:\/\/www.googleapis.com\/auth\/bigquery\nhttps:\/\/www.googleapis.com\/auth\/bigtable.admin.table\nhttps:\/\/www.googleapis.com\/auth\/bigtable.data\nhttps:\/\/www.googleapis.com\/auth\/devstorage.full_control",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "tags": {
-          "description": "The Google Compute Engine tags to add to all instances (see Tagging instances).",
+          "description": "The Compute Engine tags to add to all instances (see Tagging instances).",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "metadata": {
-          "description": "The Google Compute Engine metadata entries to add to all instances (see Project and instance metadata (https:\/\/cloud.google.com\/compute\/docs\/storing-retrieving-metadata#project_and_instance_metadata)).",
+          "description": "The Compute Engine metadata entries to add to all instances (see Project and instance metadata (https:\/\/cloud.google.com\/compute\/docs\/storing-retrieving-metadata#project_and_instance_metadata)).",
           "type": "object",
           "additionalProperties": {
             "type": "string"
@@ -337,7 +339,7 @@
     },
     "InstanceGroupConfig": {
       "id": "InstanceGroupConfig",
-      "description": "Optional. The config settings for Google Compute Engine resources in an instance group, such as a master or worker group.",
+      "description": "Optional. The config settings for Compute Engine resources in an instance group, such as a master or worker group.",
       "type": "object",
       "properties": {
         "numInstances": {
@@ -346,18 +348,18 @@
           "format": "int32"
         },
         "instanceNames": {
-          "description": "Optional. The list of instance names. Cloud Dataproc derives the names from cluster_name, num_instances, and the instance group if not set by user (recommended practice is to let Cloud Dataproc derive the name).",
+          "description": "Output only. The list of instance names. Cloud Dataproc derives the names from cluster_name, num_instances, and the instance group.",
           "type": "array",
           "items": {
             "type": "string"
           }
         },
         "imageUri": {
-          "description": "Output-only. The Google Compute Engine image resource used for cluster instances. Inferred from SoftwareConfig.image_version.",
+          "description": "Output only. The Compute Engine image resource used for cluster instances. Inferred from SoftwareConfig.image_version.",
           "type": "string"
         },
         "machineTypeUri": {
-          "description": "Optional. The Google Compute Engine machine type used for cluster instances.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/zones\/us-east1-a\/machineTypes\/n1-standard-2\nprojects\/[project_id]\/zones\/us-east1-a\/machineTypes\/n1-standard-2\nn1-standard-2",
+          "description": "Optional. The Compute Engine machine type used for cluster instances.A full URL, partial URI, or short name are valid. Examples:\nhttps:\/\/www.googleapis.com\/compute\/v1\/projects\/[project_id]\/zones\/us-east1-a\/machineTypes\/n1-standard-2\nprojects\/[project_id]\/zones\/us-east1-a\/machineTypes\/n1-standard-2\nn1-standard-2Auto Zone Exception: If you are using the Cloud Dataproc Auto Zone Placement feature, you must use the short name of the machine type resource, for example, n1-standard-2.",
           "type": "string"
         },
         "diskConfig": {
@@ -369,11 +371,11 @@
           "type": "boolean"
         },
         "managedGroupConfig": {
-          "description": "Output-only. The config for Google Compute Engine Instance Group Manager that manages this group. This is only used for preemptible instance groups.",
+          "description": "Output only. The config for Compute Engine Instance Group Manager that manages this group. This is only used for preemptible instance groups.",
           "$ref": "ManagedGroupConfig"
         },
         "accelerators": {
-          "description": "Optional. The Google Compute Engine accelerator configuration for these instances.Beta Feature: This feature is still under development. It may be changed before final release.",
+          "description": "Optional. The Compute Engine accelerator configuration for these instances.Beta Feature: This feature is still under development. It may be changed before final release.",
           "type": "array",
           "items": {
             "$ref": "AcceleratorConfig"
@@ -404,22 +406,22 @@
       "type": "object",
       "properties": {
         "instanceTemplateName": {
-          "description": "Output-only. The name of the Instance Template used for the Managed Instance Group.",
+          "description": "Output only. The name of the Instance Template used for the Managed Instance Group.",
           "type": "string"
         },
         "instanceGroupManagerName": {
-          "description": "Output-only. The name of the Instance Group Manager for this group.",
+          "description": "Output only. The name of the Instance Group Manager for this group.",
           "type": "string"
         }
       }
     },
     "AcceleratorConfig": {
       "id": "AcceleratorConfig",
-      "description": "Specifies the type and number of accelerator cards attached to the instances of an instance group (see GPUs on Compute Engine).",
+      "description": "Specifies the type and number of accelerator cards attached to the instances of an instance. See GPUs on Compute Engine.",
       "type": "object",
       "properties": {
         "acceleratorTypeUri": {
-          "description": "Full URL, partial URI, or short name of the accelerator type resource to expose to this instance. See Google Compute Engine AcceleratorTypes( \/compute\/docs\/reference\/beta\/acceleratorTypes)Examples * https:\/\/www.googleapis.com\/compute\/beta\/projects\/[project_id]\/zones\/us-east1-a\/acceleratorTypes\/nvidia-tesla-k80 * projects\/[project_id]\/zones\/us-east1-a\/acceleratorTypes\/nvidia-tesla-k80 * nvidia-tesla-k80",
+          "description": "Full URL, partial URI, or short name of the accelerator type resource to expose to this instance. See Compute Engine AcceleratorTypes.Examples:\nhttps:\/\/www.googleapis.com\/compute\/beta\/projects\/[project_id]\/zones\/us-east1-a\/acceleratorTypes\/nvidia-tesla-k80\nprojects\/[project_id]\/zones\/us-east1-a\/acceleratorTypes\/nvidia-tesla-k80\nnvidia-tesla-k80Auto Zone Exception: If you are using the Cloud Dataproc Auto Zone Placement feature, you must use the short name of the accelerator type resource, for example, nvidia-tesla-k80.",
           "type": "string"
         },
         "acceleratorCount": {
@@ -435,11 +437,11 @@
       "type": "object",
       "properties": {
         "imageVersion": {
-          "description": "Optional. The version of software inside the cluster. It must match the regular expression [0-9]+\\.[0-9]+. If unspecified, it defaults to the latest version (see Cloud Dataproc Versioning).",
+          "description": "Optional. The version of software inside the cluster. It must be one of the supported Cloud Dataproc Versions, such as \"1.2\" (including a subminor version, such as \"1.2.29\"), or the \"preview\" version. If unspecified, it defaults to the latest version.",
           "type": "string"
         },
         "properties": {
-          "description": "Optional. The properties to set on daemon config files.Property keys are specified in prefix:property format, such as core:fs.defaultFS. The following are supported prefixes and their mappings:\ncapacity-scheduler: capacity-scheduler.xml\ncore: core-site.xml\ndistcp: distcp-default.xml\nhdfs: hdfs-site.xml\nhive: hive-site.xml\nmapred: mapred-site.xml\npig: pig.properties\nspark: spark-defaults.conf\nyarn: yarn-site.xml",
+          "description": "Optional. The properties to set on daemon config files.Property keys are specified in prefix:property format, such as core:fs.defaultFS. The following are supported prefixes and their mappings:\ncapacity-scheduler: capacity-scheduler.xml\ncore: core-site.xml\ndistcp: distcp-default.xml\nhdfs: hdfs-site.xml\nhive: hive-site.xml\nmapred: mapred-site.xml\npig: pig.properties\nspark: spark-defaults.conf\nyarn: yarn-site.xmlFor more information, see Cluster properties.",
           "type": "object",
           "additionalProperties": {
             "type": "string"
@@ -453,7 +455,7 @@
       "type": "object",
       "properties": {
         "executableFile": {
-          "description": "Required. Google Cloud Storage URI of executable file.",
+          "description": "Required. Cloud Storage URI of executable file.",
           "type": "string"
         },
         "executionTimeout": {
@@ -469,7 +471,7 @@
       "type": "object",
       "properties": {
         "state": {
-          "description": "Output-only. The cluster's state.",
+          "description": "Output only. The cluster's state.",
           "enumDescriptions": [
             "The cluster state is unknown.",
             "The cluster is being created and set up. It is not ready for use.",
@@ -489,18 +491,18 @@
           ]
         },
         "detail": {
-          "description": "Output-only. Optional details of cluster's state.",
+          "description": "Output only. Optional details of cluster's state.",
           "type": "string"
         },
         "stateStartTime": {
-          "description": "Output-only. Time when this state was entered.",
+          "description": "Output only. Time when this state was entered.",
           "type": "string",
           "format": "google-datetime"
         },
         "substate": {
-          "description": "Output-only. Additional state information that includes status reported by the agent.",
+          "description": "Output only. Additional state information that includes status reported by the agent.",
           "enumDescriptions": [
-            "",
+            "The cluster substate is unknown.",
             "The cluster is known to be in an unhealthy state (for example, critical daemons are not running or HDFS capacity is exhausted).Applies to RUNNING state.",
             "The agent-reported status is out of date (may occur if Cloud Dataproc loses communication with Agent).Applies to RUNNING state."
           ],
@@ -542,14 +544,14 @@
       "type": "object",
       "properties": {
         "clusters": {
-          "description": "Output-only. The clusters in the project.",
+          "description": "Output only. The clusters in the project.",
           "type": "array",
           "items": {
             "$ref": "Cluster"
           }
         },
         "nextPageToken": {
-          "description": "Output-only. This token is included in the response if there are more results to fetch. To fetch additional results, provide this value as the page_token in a subsequent ListClustersRequest.",
+          "description": "Output only. This token is included in the response if there are more results to fetch. To fetch additional results, provide this value as the page_token in a subsequent ListClustersRequest.",
           "type": "string"
         }
       }
@@ -569,6 +571,10 @@
         "job": {
           "description": "Required. The job resource.",
           "$ref": "Job"
+        },
+        "requestId": {
+          "description": "Optional. A unique id used to identify the request. If the server receives two SubmitJobRequest requests with the same id, then the second request will be ignored and the first Job created and stored in the backend is returned.It is recommended to always set this value to a UUID (https:\/\/en.wikipedia.org\/wiki\/Universally_unique_identifier).The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). The maximum length is 40 characters.",
+          "type": "string"
         }
       }
     },
@@ -610,29 +616,29 @@
           "$ref": "SparkSqlJob"
         },
         "status": {
-          "description": "Output-only. The job status. Additional application-specific status information may be contained in the <code>type_job<\/code> and <code>yarn_applications<\/code> fields.",
+          "description": "Output only. The job status. Additional application-specific status information may be contained in the <code>type_job<\/code> and <code>yarn_applications<\/code> fields.",
           "$ref": "JobStatus"
         },
         "statusHistory": {
-          "description": "Output-only. The previous job status.",
+          "description": "Output only. The previous job status.",
           "type": "array",
           "items": {
             "$ref": "JobStatus"
           }
         },
         "yarnApplications": {
-          "description": "Output-only. The collection of YARN applications spun up by this job.Beta Feature: This report is available for testing purposes only. It may be changed before final release.",
+          "description": "Output only. The collection of YARN applications spun up by this job.Beta Feature: This report is available for testing purposes only. It may be changed before final release.",
           "type": "array",
           "items": {
             "$ref": "YarnApplication"
           }
         },
         "driverOutputResourceUri": {
-          "description": "Output-only. A URI pointing to the location of the stdout of the job's driver program.",
+          "description": "Output only. A URI pointing to the location of the stdout of the job's driver program.",
           "type": "string"
         },
         "driverControlFilesUri": {
-          "description": "Output-only. If present, the location of miscellaneous control files which may be used as part of job setup and handling. If not present, control files may be placed in the same location as driver_output_uri.",
+          "description": "Output only. If present, the location of miscellaneous control files which may be used as part of job setup and handling. If not present, control files may be placed in the same location as driver_output_uri.",
           "type": "string"
         },
         "labels": {
@@ -673,7 +679,7 @@
           "type": "string"
         },
         "clusterUuid": {
-          "description": "Output-only. A cluster UUID generated by the Cloud Dataproc service when the job is submitted.",
+          "description": "Output only. A cluster UUID generated by the Cloud Dataproc service when the job is submitted.",
           "type": "string"
         }
       }
@@ -1012,7 +1018,7 @@
       "type": "object",
       "properties": {
         "state": {
-          "description": "Output-only. A state message specifying the overall job state.",
+          "description": "Output only. A state message specifying the overall job state.",
           "enumDescriptions": [
             "The job state is unknown.",
             "The job is pending; it has been submitted, but is not yet running.",
@@ -1040,18 +1046,18 @@
           ]
         },
         "details": {
-          "description": "Output-only. Optional job state details, such as an error description if the state is <code>ERROR<\/code>.",
+          "description": "Output only. Optional job state details, such as an error description if the state is <code>ERROR<\/code>.",
           "type": "string"
         },
         "stateStartTime": {
-          "description": "Output-only. The time when this state was entered.",
+          "description": "Output only. The time when this state was entered.",
           "type": "string",
           "format": "google-datetime"
         },
         "substate": {
-          "description": "Output-only. Additional state information, which includes status reported by the agent.",
+          "description": "Output only. Additional state information, which includes status reported by the agent.",
           "enumDescriptions": [
-            "",
+            "The job substate is unknown.",
             "The Job is submitted to the agent.Applies to RUNNING state.",
             "The Job has been received and is awaiting execution (it may be waiting for a condition to be met). See the \"details\" field for the reason for the delay.Applies to RUNNING state.",
             "The agent-reported status is out of date, which may be caused by a loss of communication between the agent and Cloud Dataproc. If the agent does not send a timely update, the job will fail.Applies to RUNNING state."
@@ -1114,7 +1120,7 @@
     },
     "JobScheduling": {
       "id": "JobScheduling",
-      "description": "Job scheduling options.Beta Feature: These options are available for testing purposes only. They may be changed before final release.",
+      "description": "Job scheduling options.",
       "type": "object",
       "properties": {
         "maxFailuresPerHour": {
@@ -1130,7 +1136,7 @@
       "type": "object",
       "properties": {
         "jobs": {
-          "description": "Output-only. Jobs list.",
+          "description": "Output only. Jobs list.",
           "type": "array",
           "items": {
             "$ref": "Job"
@@ -1155,7 +1161,7 @@
       "type": "object",
       "properties": {
         "outputUri": {
-          "description": "Output-only. The Google Cloud Storage URI of the diagnostic output. The output report is a plain text file with a summary of collected diagnostics.",
+          "description": "Output only. The Cloud Storage URI of the diagnostic output. The output report is a plain text file with a summary of collected diagnostics.",
           "type": "string"
         }
       }
@@ -1166,41 +1172,41 @@
       "type": "object",
       "properties": {
         "clusterName": {
-          "description": "Output-only. Name of the cluster for the operation.",
+          "description": "Output only. Name of the cluster for the operation.",
           "type": "string"
         },
         "clusterUuid": {
-          "description": "Output-only. Cluster UUID for the operation.",
+          "description": "Output only. Cluster UUID for the operation.",
           "type": "string"
         },
         "status": {
-          "description": "Output-only. Current operation status.",
+          "description": "Output only. Current operation status.",
           "$ref": "ClusterOperationStatus"
         },
         "statusHistory": {
-          "description": "Output-only. The previous operation status.",
+          "description": "Output only. The previous operation status.",
           "type": "array",
           "items": {
             "$ref": "ClusterOperationStatus"
           }
         },
         "operationType": {
-          "description": "Output-only. The operation type.",
+          "description": "Output only. The operation type.",
           "type": "string"
         },
         "description": {
-          "description": "Output-only. Short description of operation.",
+          "description": "Output only. Short description of operation.",
           "type": "string"
         },
         "labels": {
-          "description": "Output-only. Labels associated with the operation",
+          "description": "Output only. Labels associated with the operation",
           "type": "object",
           "additionalProperties": {
             "type": "string"
           }
         },
         "warnings": {
-          "description": "Output-only. Errors encountered during operation execution.",
+          "description": "Output only. Errors encountered during operation execution.",
           "type": "array",
           "items": {
             "type": "string"
@@ -1214,7 +1220,7 @@
       "type": "object",
       "properties": {
         "state": {
-          "description": "Output-only. A message containing the operation state.",
+          "description": "Output only. A message containing the operation state.",
           "enumDescriptions": [
             "Unused.",
             "The operation has been created.",
@@ -1230,15 +1236,15 @@
           ]
         },
         "innerState": {
-          "description": "Output-only. A message containing the detailed operation state.",
+          "description": "Output only. A message containing the detailed operation state.",
           "type": "string"
         },
         "details": {
-          "description": "Output-only.A message containing any operation metadata details.",
+          "description": "Output only. A message containing any operation metadata details.",
           "type": "string"
         },
         "stateStartTime": {
-          "description": "Output-only. The time this state was entered.",
+          "description": "Output only. The time this state was entered.",
           "type": "string",
           "format": "google-datetime"
         }
@@ -1257,7 +1263,6 @@
                   "path": "v1/{+name}",
                   "flatPath": "v1/projects/{projectsId}/regions/{regionsId}/operations",
                   "httpMethod": "GET",
-                  "description": "Lists operations that match the specified filter in the request. If the server doesn't support this method, it returns UNIMPLEMENTED.NOTE: the name binding allows API services to override the binding to use different resource name schemes, such as users\/*\/operations. To override the binding, API services can add a binding such as \"\/v1\/{name=users\/*}\/operations\" to their service configuration. For backwards compatibility, the default name includes the operations collection id, however overriding users must ensure the name binding is the parent resource, without the operations collection id.",
                   "parameters": {
                     "name": {
                       "description": "The name of the operation's parent resource.",
@@ -1291,14 +1296,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Lists operations that match the specified filter in the request. If the server doesn't support this method, it returns UNIMPLEMENTED.NOTE: the name binding allows API services to override the binding to use different resource name schemes, such as users\/*\/operations. To override the binding, API services can add a binding such as \"\/v1\/{name=users\/*}\/operations\" to their service configuration. For backwards compatibility, the default name includes the operations collection id, however overriding users must ensure the name binding is the parent resource, without the operations collection id."
                 },
                 "get": {
                   "id": "dataproc.projects.regions.operations.get",
                   "path": "v1/{+name}",
                   "flatPath": "v1/projects/{projectsId}/regions/{regionsId}/operations/{operationsId}",
                   "httpMethod": "GET",
-                  "description": "Gets the latest state of a long-running operation. Clients can use this method to poll the operation result at intervals as recommended by the API service.",
                   "parameters": {
                     "name": {
                       "description": "The name of the operation resource.",
@@ -1316,14 +1321,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Gets the latest state of a long-running operation. Clients can use this method to poll the operation result at intervals as recommended by the API service."
                 },
                 "delete": {
                   "id": "dataproc.projects.regions.operations.delete",
                   "path": "v1/{+name}",
                   "flatPath": "v1/projects/{projectsId}/regions/{regionsId}/operations/{operationsId}",
                   "httpMethod": "DELETE",
-                  "description": "Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn't support this method, it returns google.rpc.Code.UNIMPLEMENTED.",
                   "parameters": {
                     "name": {
                       "description": "The name of the operation resource to be deleted.",
@@ -1341,14 +1346,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Deletes a long-running operation. This method indicates that the client is no longer interested in the operation result. It does not cancel the operation. If the server doesn't support this method, it returns google.rpc.Code.UNIMPLEMENTED."
                 },
                 "cancel": {
                   "id": "dataproc.projects.regions.operations.cancel",
                   "path": "v1/{+name}:cancel",
                   "flatPath": "v1/projects/{projectsId}/regions/{regionsId}/operations/{operationsId}:cancel",
                   "httpMethod": "POST",
-                  "description": "Starts asynchronous cancellation on a long-running operation. The server makes a best effort to cancel the operation, but success is not guaranteed. If the server doesn't support this method, it returns google.rpc.Code.UNIMPLEMENTED. Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of 1, corresponding to Code.CANCELLED.",
                   "parameters": {
                     "name": {
                       "description": "The name of the operation resource to be cancelled.",
@@ -1366,7 +1371,8 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Starts asynchronous cancellation on a long-running operation. The server makes a best effort to cancel the operation, but success is not guaranteed. If the server doesn't support this method, it returns google.rpc.Code.UNIMPLEMENTED. Clients can use Operations.GetOperation or other methods to check whether the cancellation succeeded or whether the operation completed despite cancellation. On successful cancellation, the operation is not deleted; instead, it becomes an operation with an Operation.error value with a google.rpc.Status.code of 1, corresponding to Code.CANCELLED."
                 }
               }
             },
@@ -1377,7 +1383,6 @@
                   "path": "v1/projects/{projectId}/regions/{region}/clusters",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters",
                   "httpMethod": "POST",
-                  "description": "Creates a cluster in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the cluster belongs to.",
@@ -1389,6 +1394,11 @@
                       "description": "Required. The Cloud Dataproc region in which to handle the request.",
                       "location": "path",
                       "required": true,
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "description": "Optional. A unique id used to identify the request. If the server receives two CreateClusterRequest requests with the same id, then the second request will be ignored and the first google.longrunning.Operation created and stored in the backend is returned.It is recommended to always set this value to a UUID (https:\/\/en.wikipedia.org\/wiki\/Universally_unique_identifier).The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). The maximum length is 40 characters.",
+                      "location": "query",
                       "type": "string"
                     }
                   },
@@ -1404,14 +1414,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Creates a cluster in a project."
                 },
                 "patch": {
                   "id": "dataproc.projects.regions.clusters.patch",
                   "path": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "httpMethod": "PATCH",
-                  "description": "Updates a cluster in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project the cluster belongs to.",
@@ -1431,11 +1441,22 @@
                       "required": true,
                       "type": "string"
                     },
+                    "gracefulDecommissionTimeout": {
+                      "description": "Optional. Timeout for graceful YARN decomissioning. Graceful decommissioning allows removing nodes from the cluster without interrupting jobs in progress. Timeout specifies how long to wait for jobs in progress to finish before forcefully removing nodes (and potentially interrupting jobs). Default timeout is 0 (for forceful decommission), and the maximum allowed timeout is 1 day.Only supported on Dataproc image versions 1.2 and higher.",
+                      "location": "query",
+                      "type": "string",
+                      "format": "google-duration"
+                    },
                     "updateMask": {
                       "description": "Required. Specifies the path, relative to Cluster, of the field to update. For example, to change the number of workers in a cluster to 5, the update_mask parameter would be specified as config.worker_config.num_instances, and the PATCH request body would specify the new value, as follows:\n{\n  \"config\":{\n    \"workerConfig\":{\n      \"numInstances\":\"5\"\n    }\n  }\n}\nSimilarly, to change the number of preemptible workers in a cluster to 5, the update_mask parameter would be config.secondary_worker_config.num_instances, and the PATCH request body would be set as follows:\n{\n  \"config\":{\n    \"secondaryWorkerConfig\":{\n      \"numInstances\":\"5\"\n    }\n  }\n}\n<strong>Note:<\/strong> Currently, only the following fields can be updated:<table>  <tbody>  <tr>  <td><strong>Mask<\/strong><\/td>  <td><strong>Purpose<\/strong><\/td>  <\/tr>  <tr>  <td><strong><em>labels<\/em><\/strong><\/td>  <td>Update labels<\/td>  <\/tr>  <tr>  <td><strong><em>config.worker_config.num_instances<\/em><\/strong><\/td>  <td>Resize primary worker group<\/td>  <\/tr>  <tr>  <td><strong><em>config.secondary_worker_config.num_instances<\/em><\/strong><\/td>  <td>Resize secondary worker group<\/td>  <\/tr>  <\/tbody>  <\/table>",
                       "location": "query",
                       "type": "string",
                       "format": "google-fieldmask"
+                    },
+                    "requestId": {
+                      "description": "Optional. A unique id used to identify the request. If the server receives two UpdateClusterRequest requests with the same id, then the second request will be ignored and the first google.longrunning.Operation created and stored in the backend is returned.It is recommended to always set this value to a UUID (https:\/\/en.wikipedia.org\/wiki\/Universally_unique_identifier).The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). The maximum length is 40 characters.",
+                      "location": "query",
+                      "type": "string"
                     }
                   },
                   "parameterOrder": [
@@ -1451,14 +1472,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Updates a cluster in a project."
                 },
                 "delete": {
                   "id": "dataproc.projects.regions.clusters.delete",
                   "path": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "httpMethod": "DELETE",
-                  "description": "Deletes a cluster in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the cluster belongs to.",
@@ -1477,6 +1498,16 @@
                       "location": "path",
                       "required": true,
                       "type": "string"
+                    },
+                    "clusterUuid": {
+                      "description": "Optional. Specifying the cluster_uuid means the RPC should fail (with error NOT_FOUND) if cluster with specified UUID does not exist.",
+                      "location": "query",
+                      "type": "string"
+                    },
+                    "requestId": {
+                      "description": "Optional. A unique id used to identify the request. If the server receives two DeleteClusterRequest requests with the same id, then the second request will be ignored and the first google.longrunning.Operation created and stored in the backend is returned.It is recommended to always set this value to a UUID (https:\/\/en.wikipedia.org\/wiki\/Universally_unique_identifier).The id must contain only letters (a-z, A-Z), numbers (0-9), underscores (_), and hyphens (-). The maximum length is 40 characters.",
+                      "location": "query",
+                      "type": "string"
                     }
                   },
                   "parameterOrder": [
@@ -1489,14 +1520,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Deletes a cluster in a project."
                 },
                 "get": {
                   "id": "dataproc.projects.regions.clusters.get",
                   "path": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}",
                   "httpMethod": "GET",
-                  "description": "Gets the resource representation for a cluster in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the cluster belongs to.",
@@ -1527,14 +1558,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Gets the resource representation for a cluster in a project."
                 },
                 "list": {
                   "id": "dataproc.projects.regions.clusters.list",
                   "path": "v1/projects/{projectId}/regions/{region}/clusters",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters",
                   "httpMethod": "GET",
-                  "description": "Lists all regions\/{region}\/clusters in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the cluster belongs to.",
@@ -1574,14 +1605,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Lists all regions\/{region}\/clusters in a project."
                 },
                 "diagnose": {
                   "id": "dataproc.projects.regions.clusters.diagnose",
                   "path": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}:diagnose",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/clusters/{clusterName}:diagnose",
                   "httpMethod": "POST",
-                  "description": "Gets cluster diagnostic information. After the operation completes, the Operation.response field contains DiagnoseClusterOutputLocation.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the cluster belongs to.",
@@ -1615,7 +1646,8 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Gets cluster diagnostic information. After the operation completes, the Operation.response field contains DiagnoseClusterOutputLocation."
                 }
               }
             },
@@ -1626,7 +1658,6 @@
                   "path": "v1/projects/{projectId}/regions/{region}/jobs:submit",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs:submit",
                   "httpMethod": "POST",
-                  "description": "Submits a job to a cluster.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1653,14 +1684,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Submits a job to a cluster."
                 },
                 "get": {
                   "id": "dataproc.projects.regions.jobs.get",
                   "path": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "httpMethod": "GET",
-                  "description": "Gets the resource representation for a job in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1691,14 +1722,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Gets the resource representation for a job in a project."
                 },
                 "list": {
                   "id": "dataproc.projects.regions.jobs.list",
                   "path": "v1/projects/{projectId}/regions/{region}/jobs",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs",
                   "httpMethod": "GET",
-                  "description": "Lists regions\/{region}\/jobs in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1729,7 +1760,7 @@
                       "type": "string"
                     },
                     "jobStateMatcher": {
-                      "description": "Optional. Specifies enumerated categories of jobs to list (default = match ALL jobs).",
+                      "description": "Optional. Specifies enumerated categories of jobs to list. (default = match ALL jobs).If filter is provided, jobStateMatcher will be ignored.",
                       "location": "query",
                       "type": "string",
                       "enum": [
@@ -1739,7 +1770,7 @@
                       ]
                     },
                     "filter": {
-                      "description": "Optional. A filter constraining the jobs to list. Filters are case-sensitive and have the following syntax:field = value AND field = value ...where field is status.state or labels.[KEY], and [KEY] is a label key. value can be * to match all values. status.state can be either ACTIVE or INACTIVE. Only the logical AND operator is supported; space-separated items are treated as having an implicit AND operator.Example filter:status.state = ACTIVE AND labels.env = staging AND labels.starred = *",
+                      "description": "Optional. A filter constraining the jobs to list. Filters are case-sensitive and have the following syntax:field = value AND field = value ...where field is status.state or labels.[KEY], and [KEY] is a label key. value can be * to match all values. status.state can be either ACTIVE or NON_ACTIVE. Only the logical AND operator is supported; space-separated items are treated as having an implicit AND operator.Example filter:status.state = ACTIVE AND labels.env = staging AND labels.starred = *",
                       "location": "query",
                       "type": "string"
                     }
@@ -1753,14 +1784,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Lists regions\/{region}\/jobs in a project."
                 },
                 "patch": {
                   "id": "dataproc.projects.regions.jobs.patch",
                   "path": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "httpMethod": "PATCH",
-                  "description": "Updates a job in a project.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1800,14 +1831,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Updates a job in a project."
                 },
                 "cancel": {
                   "id": "dataproc.projects.regions.jobs.cancel",
                   "path": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}:cancel",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}:cancel",
                   "httpMethod": "POST",
-                  "description": "Starts a job cancellation request. To access the job resource after cancellation, call regions\/{region}\/jobs.list or regions\/{region}\/jobs.get.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1841,14 +1872,14 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Starts a job cancellation request. To access the job resource after cancellation, call regions\/{region}\/jobs.list or regions\/{region}\/jobs.get."
                 },
                 "delete": {
                   "id": "dataproc.projects.regions.jobs.delete",
                   "path": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "flatPath": "v1/projects/{projectId}/regions/{region}/jobs/{jobId}",
                   "httpMethod": "DELETE",
-                  "description": "Deletes the job from the project. If the job is active, the delete fails, and the response returns FAILED_PRECONDITION.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Google Cloud Platform project that the job belongs to.",
@@ -1879,7 +1910,8 @@
                   },
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform"
-                  ]
+                  ],
+                  "description": "Deletes the job from the project. If the job is active, the delete fails, and the response returns FAILED_PRECONDITION."
                 }
               }
             }

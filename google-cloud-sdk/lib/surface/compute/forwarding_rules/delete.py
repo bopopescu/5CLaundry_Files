@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for deleting forwarding rules."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
@@ -32,6 +34,7 @@ class Delete(base.DeleteCommand):
   def Args(cls, parser):
     cls.FORWARDING_RULES_ARG = flags.ForwardingRuleArgumentPlural()
     cls.FORWARDING_RULES_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(flags.ForwardingRulesCompleter)
 
   def Run(self, args):
     """Issues requests necessary to delete Forwarding Rules."""

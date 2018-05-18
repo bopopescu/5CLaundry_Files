@@ -13,8 +13,9 @@
 # limitations under the License.
 """Command for modifying URL maps."""
 
-import cStringIO
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import io
 from apitools.base.protorpclite import messages
 from apitools.base.py import encoding
 
@@ -25,10 +26,9 @@ from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute.url_maps import flags
 from googlecloudsdk.core import resources
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.util import edit
-
-import yaml
 
 
 class InvalidResourceError(exceptions.ToolException):
@@ -139,13 +139,10 @@ class EditGA(base.Command):
             holder, url_map_ref, file_contents, original_object,
             original_record, modifiable_record, args)
         break
-      except (ValueError, yaml.error.YAMLError,
+      except (ValueError, yaml.YAMLParseError,
               messages.ValidationError,
               exceptions.ToolException) as e:
-        if isinstance(e, ValueError):
-          message = e.message
-        else:
-          message = str(e)
+        message = getattr(e, 'message', str(e))
 
         if isinstance(e, exceptions.ToolException):
           problem_type = 'applying'
@@ -161,7 +158,7 @@ class EditGA(base.Command):
     return resource_list
 
   def BuildFileContents(self, args, client, modifiable_record, original_record):
-    buf = cStringIO.StringIO()
+    buf = io.StringIO()
     for line in base_classes.HELP.splitlines():
       buf.write('#')
       if line:

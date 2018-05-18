@@ -14,40 +14,15 @@
 
 """service-management enable command."""
 
-from googlecloudsdk.api_lib.service_management import enable_api
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
-from googlecloudsdk.core import properties
+from googlecloudsdk.command_lib.services import common_flags
 
 
-_DETAILED_HELP = {
-    'DESCRIPTION': """\
-        This command enables a service for consumption for a project.
-
-        To see a list of available services for a project, run:
-
-          $ {parent_command} list --available
-
-        More information on listing services can be found at:
-        https://cloud.google.com/service-management/list-services and on
-        enabling a service at:
-        https://cloud.google.com/service-management/enable-disable#enabling_services
-        """,
-    'EXAMPLES': """\
-        To enable a service called `my-consumed-service` on the current
-        project, run:
-
-          $ {command} my-consumed-service
-
-        To run the same command asynchronously (non-blocking), run:
-
-          $ {command} my-consumed-service --async
-        """,
-}
+_ERROR = ('The `service-management enable` command has been '
+          'replaced by `services enable`.')
 
 
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Enable(base.SilentCommand):
   """Enables a service for consumption for a project."""
 
@@ -64,19 +39,10 @@ class Enable(base.SilentCommand):
     base.ASYNC_FLAG.AddToParser(parser)
 
   def Run(self, args):
-    """Run 'service-management enable'.
+    """Stubs 'service-management enable'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the consumer settings API call.
     """
-    project = properties.VALUES.core.project.Get(required=True)
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-    operation = enable_api.EnableServiceApiCall(project, service)
-    return services_util.ProcessOperationResult(operation, args.async)
-
-
-Enable.detailed_help = _DETAILED_HELP
+    pass

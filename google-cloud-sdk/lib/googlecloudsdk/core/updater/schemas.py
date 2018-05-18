@@ -14,6 +14,9 @@
 
 """Contains object representations of the JSON data for components."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import re
 import time
 
@@ -21,6 +24,8 @@ from googlecloudsdk.core import config
 from googlecloudsdk.core import log
 from googlecloudsdk.core.util import platforms
 from googlecloudsdk.core.util import semver
+
+import six
 
 
 class Error(Exception):
@@ -87,7 +92,8 @@ class DictionaryParser(object):
         value = func(value)
     self.__args[field] = value
 
-  def ParseList(self, field, required=False, default=None, func=None):
+  def ParseList(self, field, required=False, default=None,
+                func=None, sort=False):
     """Parses a element out of the dictionary that is a list of items.
 
     Args:
@@ -98,6 +104,7 @@ class DictionaryParser(object):
       func: An optional function to call with each value in the parsed list
         before returning (if the list is not None).  It takes a single parameter
         and returns a single new value to be used instead.
+      sort: bool, sort parsed list when it represents an unordered set.
 
     Raises:
       ParseError: If a required field is not found or if the field parsed is
@@ -110,7 +117,7 @@ class DictionaryParser(object):
                          .format(field, self.__cls))
       if func:
         value = [func(v) for v in value]
-    self.__args[field] = value
+    self.__args[field] = sorted(value) if sort else value
 
   def ParseDict(self, field, required=False, default=None, func=None):
     """Parses a element out of the dictionary that is a dictionary of items.
@@ -139,7 +146,7 @@ class DictionaryParser(object):
         raise ParseError('Expected a dict for field [{0}] in component [{1}]'
                          .format(field, self.__cls))
       if func:
-        value = dict((k, func(v)) for k, v in value.iteritems())
+        value = dict((k, func(v)) for k, v in six.iteritems(value))
     self.__args[field] = value
 
 
@@ -205,7 +212,7 @@ class DictionaryWriter(object):
         writing it to the dictionary.
     """
     def DictMapper(values):
-      return dict((k, func(v)) for k, v in values.iteritems())
+      return dict((k, func(v)) for k, v in six.iteritems(values))
     dict_func = DictMapper if func else None
     self.Write(field, func=dict_func)
 
@@ -353,8 +360,11 @@ class ComponentPlatform(object):
       architectures: list(platforms.Architecture), The processor architectures
         this component works on.  None indicates all architectures.
     """
-    self.operating_systems = operating_systems
-    self.architectures = architectures
+    # Sort to make this independent of specified ordering.
+    self.operating_systems = operating_systems and sorted(
+        operating_systems, key=lambda x: (0, x) if x is None else (1, x))
+    self.architectures = architectures and sorted(
+        architectures, key=lambda x: (0, x) if x is None else (1, x))
 
   def Matches(self, platform):
     """Determines if the platform for this component matches the environment.
@@ -464,7 +474,7 @@ class Component(object):
     p.Parse('is_configuration', default=False)
     p.Parse('data', func=ComponentData.FromDictionary)
     p.Parse('platform', default={}, func=ComponentPlatform.FromDictionary)
-    p.ParseList('dependencies', default=[])
+    p.ParseList('dependencies', default=[], sort=True)
     return cls(**p.Args())
 
   def ToDictionary(self):

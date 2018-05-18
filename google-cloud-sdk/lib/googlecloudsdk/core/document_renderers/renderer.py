@@ -14,16 +14,23 @@
 
 """Cloud SDK markdown document renderer base class."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import abc
 
 from googlecloudsdk.core import log
 
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
+
 
 # Font Attributes.
-BOLD, ITALIC, CODE = range(3)
+BOLD, ITALIC, CODE = list(range(3))
 
 
-class Renderer(object):
+@six.add_metaclass(abc.ABCMeta)
+class Renderer(object):  # pytype: disable=ignored-abstractmethod
   r"""Markdown renderer base class.
 
   The member functions provide an abstract document model that matches markdown
@@ -37,7 +44,6 @@ class Renderer(object):
     _title: The document tile.
     _width: The output width in characters.
   """
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self, out=None, title=None, width=80):
     self._font = 0

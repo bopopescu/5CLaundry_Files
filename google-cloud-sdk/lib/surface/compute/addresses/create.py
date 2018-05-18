@@ -13,12 +13,16 @@
 # limitations under the License.
 """Command for reserving IP addresses."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute import constants
 from googlecloudsdk.api_lib.compute import name_generator
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.addresses import flags
+from six.moves import zip  # pylint: disable=redefined-builtin
 
 
 def _Args(cls, parser):
@@ -27,6 +31,7 @@ def _Args(cls, parser):
   cls.ADDRESSES_ARG = flags.AddressArgument(required=False)
   cls.ADDRESSES_ARG.AddArgument(parser, operation_type='create')
   flags.AddDescription(parser)
+  parser.display_info.AddCacheUpdater(flags.AddressesCompleter)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA)
@@ -54,20 +59,57 @@ class Create(base.CreateCommand):
 
   In the above invocation, the two addresses will be assigned
   random names.
+
+  To reserve an IP address from the subnet ``default'' in the ``us-central1''
+  region, run:
+
+    $ {command} SUBNET-ADDRESS-1 --region us-central1 --subnet default
+
   """
 
+  SUBNETWORK_ARG = None
   ADDRESSES_ARG = None
 
   @classmethod
   def Args(cls, parser):
     _Args(cls, parser)
-    flags.AddAddresses(parser)
+    flags.AddAddressesAndIPVersions(parser, required=False)
 
-  def GetAddress(self, messages, args, address, address_ref):
+    cls.SUBNETWORK_ARG = flags.SubnetworkArgument()
+    cls.SUBNETWORK_ARG.AddArgument(parser)
+
+  def GetAddress(self, messages, args, address, address_ref, resource_parser):
+    if args.ip_version or (
+        address is None and
+        address_ref.Collection() == 'compute.globalAddresses'):
+      ip_version = messages.Address.IpVersionValueValuesEnum(
+          args.ip_version or 'IPV4')
+    else:
+      # IP version is only specified in global requests if an address is not
+      # specified to determine whether an ipv4 or ipv6 address should be
+      # allocated.
+      ip_version = None
+
+    # TODO(b/36862747): get rid of args.subnet check
+    if args.subnet:
+      if address_ref.Collection() == 'compute.globalAddresses':
+        raise exceptions.ToolException(
+            '[--subnet] may not be specified for global addresses.')
+      if not args.subnet_region:
+        args.subnet_region = address_ref.region
+      subnetwork_url = flags.SubnetworkArgument().ResolveAsResource(
+          args, resource_parser).SelfLink()
+    else:
+      subnetwork_url = None
+
     return messages.Address(
         address=address,
         description=args.description,
-        name=address_ref.Name())
+        ipVersion=ip_version,
+        name=address_ref.Name(),
+        addressType=(messages.Address.AddressTypeValueValuesEnum.INTERNAL
+                     if subnetwork_url else None),
+        subnetwork=subnetwork_url)
 
   def Run(self, args):
     """Issues requests necessary to create Addresses."""
@@ -84,11 +126,8 @@ class Create(base.CreateCommand):
 
     requests = []
     for address, address_ref in zip(addresses, address_refs):
-      address_msg = self.GetAddress(
-          client.messages,
-          args,
-          address,
-          address_ref)
+      address_msg = self.GetAddress(client.messages, args, address, address_ref,
+                                    holder.resources)
 
       if address_ref.Collection() == 'compute.globalAddresses':
         requests.append((client.apitools_client.globalAddresses, 'Insert',
@@ -154,35 +193,78 @@ class CreateBeta(Create):
 
   In the above invocation, the two addresses will be assigned
   random names.
+
+  To reserve an IP address from the subnet ``default'' in the ``us-central1''
+  region, run:
+
+    $ {command} SUBNET-ADDRESS-1 --region us-central1 --subnet default
+
   """
+
+  SUBNETWORK_ARG = None
+  ADDRESSES_ARG = None
 
   @classmethod
   def Args(cls, parser):
     _Args(cls, parser)
     flags.AddAddressesAndIPVersions(parser, required=False)
+    flags.AddNetworkTier(parser)
 
-  def GetAddress(self, messages, args, address, address_ref):
+    cls.SUBNETWORK_ARG = flags.SubnetworkArgument()
+    cls.SUBNETWORK_ARG.AddArgument(parser)
+
+  def ConstructNetworkTier(self, messages, args):
+    if args.network_tier:
+      network_tier = args.network_tier.upper()
+      if network_tier in constants.NETWORK_TIER_CHOICES_FOR_INSTANCE:
+        return messages.Address.NetworkTierValueValuesEnum(args.network_tier)
+      else:
+        raise exceptions.InvalidArgumentException(
+            '--network-tier',
+            'Invalid network tier [{tier}]'.format(tier=network_tier))
+    else:
+      return None
+
+  def GetAddress(self, messages, args, address, address_ref, resource_parser):
     """Override."""
+    network_tier = self.ConstructNetworkTier(messages, args)
+
     if args.ip_version or (
         address is None and
         address_ref.Collection() == 'compute.globalAddresses'):
-      ip_version = messages.Address.IpVersionValueValuesEnum(
-          args.ip_version or 'IPV4')
+      ip_version = messages.Address.IpVersionValueValuesEnum(args.ip_version or
+                                                             'IPV4')
     else:
       # IP version is only specified in global requests if an address is not
       # specified to determine whether an ipv4 or ipv6 address should be
       # allocated.
       ip_version = None
 
+    # TODO(b/36862747): get rid of args.subnet check
+    if args.subnet:
+      if address_ref.Collection() == 'compute.globalAddresses':
+        raise exceptions.ToolException(
+            '[--subnet] may not be specified for global addresses.')
+      if not args.subnet_region:
+        args.subnet_region = address_ref.region
+      subnetwork_url = flags.SubnetworkArgument().ResolveAsResource(
+          args, resource_parser).SelfLink()
+    else:
+      subnetwork_url = None
+
     return messages.Address(
         address=address,
         description=args.description,
+        networkTier=network_tier,
         ipVersion=ip_version,
-        name=address_ref.Name())
+        name=address_ref.Name(),
+        addressType=(messages.Address.AddressTypeValueValuesEnum.INTERNAL
+                     if subnetwork_url else None),
+        subnetwork=subnetwork_url)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
-class CreateAlpha(Create):
+class CreateAlpha(CreateBeta):
   """Reserve IP addresses.
 
   *{command}* is used to reserve one or more IP addresses. Once
@@ -212,28 +294,39 @@ class CreateAlpha(Create):
 
     $ {command} SUBNET-ADDRESS-1 --region us-central1 --subnet default
 
+  To reserve an IP range 10.110.0.0/16 from the network ``default'' for
+  VPC_PEERING, run:
+
+    $ {command} IP-RANGE-1 --global --addresses 10.110.0.0 --prefix-length 16
+    --purpose VPC_PEERING --network default
+
+  To reserve any IP range with prefix length 16 from the network ``default'' for
+  VPC_PEERING, run:
+
+    $ {command} IP-RANGE-1 --global --prefix-length 16 --purpose VPC_PEERING
+    --network default
+
   """
 
   SUBNETWORK_ARG = None
+  NETWORK_ARG = None
 
   @classmethod
   def Args(cls, parser):
     _Args(cls, parser)
     flags.AddAddressesAndIPVersions(parser, required=False)
     flags.AddNetworkTier(parser)
+    flags.AddPrefixLength(parser)
+    flags.AddPurpose(parser)
 
     cls.SUBNETWORK_ARG = flags.SubnetworkArgument()
     cls.SUBNETWORK_ARG.AddArgument(parser)
 
-  def ConstructNetworkTier(self, messages, args):
-    if args.network_tier:
-      return messages.Address.NetworkTierValueValuesEnum(args.network_tier)
-    else:
-      return None
+    cls.NETWORK_ARG = flags.NetworkArgument()
+    cls.NETWORK_ARG.AddArgument(parser)
 
-  def GetAddress(self, messages, args, address, address_ref):
+  def GetAddress(self, messages, args, address, address_ref, resource_parser):
     """Override."""
-    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
     network_tier = self.ConstructNetworkTier(messages, args)
 
     if args.ip_version or (
@@ -247,6 +340,14 @@ class CreateAlpha(Create):
       # allocated.
       ip_version = None
 
+    if args.subnet and args.network:
+      raise exceptions.ConflictingArgumentsException('--network', '--subnet')
+
+    purpose = None
+    if args.purpose and not args.network and not args.subnet:
+      raise exceptions.MinimumArgumentException(['--network', '--subnet'],
+                                                ' if --purpose is specified')
+
     # TODO(b/36862747): get rid of args.subnet check
     if args.subnet:
       if address_ref.Collection() == 'compute.globalAddresses':
@@ -255,17 +356,47 @@ class CreateAlpha(Create):
       if not args.subnet_region:
         args.subnet_region = address_ref.region
       subnetwork_url = flags.SubnetworkArgument().ResolveAsResource(
-          args, holder.resources).SelfLink()
+          args, resource_parser).SelfLink()
+      purpose = messages.Address.PurposeValueValuesEnum(args.purpose or
+                                                        'GCE_ENDPOINT')
+      if purpose != messages.Address.PurposeValueValuesEnum.GCE_ENDPOINT:
+        raise exceptions.InvalidArgumentException(
+            '--purpose',
+            'must be GCE_ENDPOINT for regional internal addresses.')
     else:
       subnetwork_url = None
 
+    network_url = None
+    if args.network:
+      if address_ref.Collection() == 'compute.addresses':
+        raise exceptions.InvalidArgumentException(
+            '--network', 'network may not be specified for regional addresses.')
+      network_url = flags.NetworkArgument().ResolveAsResource(
+          args, resource_parser).SelfLink()
+      purpose = messages.Address.PurposeValueValuesEnum(args.purpose or
+                                                        'VPC_PEERING')
+      if purpose != messages.Address.PurposeValueValuesEnum.VPC_PEERING:
+        raise exceptions.InvalidArgumentException(
+            '--purpose', 'must be VPC_PEERING for global internal addresses.')
+      if not args.prefix_length:
+        raise exceptions.RequiredArgumentException(
+            '--prefix-length',
+            'prefix length is needed for reserving IP ranges.')
+
+    if args.prefix_length:
+      if purpose != messages.Address.PurposeValueValuesEnum.VPC_PEERING:
+        raise exceptions.InvalidArgumentException(
+            '--prefix-length', 'can only be used with [--purpose VPC_PEERING].')
+
     return messages.Address(
         address=address,
+        prefixLength=args.prefix_length,
         description=args.description,
         networkTier=network_tier,
         ipVersion=ip_version,
         name=address_ref.Name(),
-        addressType=(
-            messages.Address.AddressTypeValueValuesEnum.INTERNAL
-            if subnetwork_url else None),
-        subnetwork=subnetwork_url)
+        addressType=(messages.Address.AddressTypeValueValuesEnum.INTERNAL
+                     if subnetwork_url or network_url else None),
+        purpose=purpose,
+        subnetwork=subnetwork_url,
+        network=network_url)

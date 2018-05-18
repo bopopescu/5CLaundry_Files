@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for deleting SSL certificates."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
@@ -33,6 +35,7 @@ class Delete(base.DeleteCommand):
   def Args(parser):
     Delete.SSL_CERTIFICATE_ARG = flags.SslCertificateArgument(plural=True)
     Delete.SSL_CERTIFICATE_ARG.AddArgument(parser, operation_type='delete')
+    parser.display_info.AddCacheUpdater(flags.SslCertificatesCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())

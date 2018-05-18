@@ -14,14 +14,16 @@
 
 """Command for adding a backend to a backend service."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import encoding
 
-from googlecloudsdk.api_lib.compute import backend_services_utils
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.backend_services import backend_flags
+from googlecloudsdk.command_lib.compute.backend_services import backend_services_utils
 from googlecloudsdk.command_lib.compute.backend_services import flags
 
 
@@ -85,11 +87,17 @@ class AddBackend(base.UpdateCommand):
                 backendServiceResource=replacement,
                 project=backend_service_ref.project))
 
-  def _CreateBackendMessage(self, client, group_uri, balancing_mode, args):
+  def _GetGroupRef(self, args, resources, client):
+    return flags.MULTISCOPE_INSTANCE_GROUP_ARG.ResolveAsResource(
+        args,
+        resources,
+        scope_lister=compute_flags.GetDefaultScopeLister(client))
+
+  def _CreateBackendMessage(self, messages, group_uri, balancing_mode, args):
     """Create a backend message.
 
     Args:
-      client: The compute client.
+      messages: The avalible API proto messages.
       group_uri: String. The backend instance group uri.
       balancing_mode: Backend.BalancingModeValueValuesEnum. The backend load
         balancing mode.
@@ -100,8 +108,8 @@ class AddBackend(base.UpdateCommand):
       arguments.
     """
 
-    backend_services_utils.ValidateBalancingModeArgs(client.messages, args)
-    return client.messages.Backend(
+    backend_services_utils.ValidateBalancingModeArgs(messages, args)
+    return messages.Backend(
         balancingMode=balancing_mode,
         capacityScaler=args.capacity_scaler,
         description=args.description,
@@ -115,16 +123,13 @@ class AddBackend(base.UpdateCommand):
   def _Modify(self, client, resources, backend_service_ref, args, existing):
     replacement = encoding.CopyProtoMessage(existing)
 
-    group_ref = flags.MULTISCOPE_INSTANCE_GROUP_ARG.ResolveAsResource(
-        args,
-        resources,
-        scope_lister=compute_flags.GetDefaultScopeLister(client))
-
+    group_ref = self._GetGroupRef(args, resources, client)
     group_uri = group_ref.SelfLink()
 
     for backend in existing.backends:
       if group_uri == backend.group:
-        if group_ref.Collection() == 'compute.instanceGroups':
+        if (group_ref.Collection() == 'compute.instanceGroups'
+            or group_ref.Collection() == 'compute.networkEndpointGroups'):
           scope = 'zone'
         elif group_ref.Collection() == 'compute.regionInstanceGroups':
           scope = 'region'
@@ -141,8 +146,8 @@ class AddBackend(base.UpdateCommand):
     else:
       balancing_mode = None
 
-    backend = self._CreateBackendMessage(client, group_uri, balancing_mode,
-                                         args)
+    backend = self._CreateBackendMessage(client.messages, group_uri,
+                                         balancing_mode, args)
 
     replacement.backends.append(backend)
     return replacement
@@ -222,9 +227,40 @@ class AddBackendAlpha(AddBackendBeta):
   @staticmethod
   def Args(parser):
     flags.GLOBAL_REGIONAL_BACKEND_SERVICE_ARG.AddArgument(parser)
+    flags.AddInstanceGroupAndNetworkEndpointGroupArgs(parser, 'add to')
     backend_flags.AddDescription(parser)
-    flags.MULTISCOPE_INSTANCE_GROUP_ARG.AddArgument(
-        parser, operation_type='add to the backend service')
-    backend_flags.AddBalancingMode(parser)
-    backend_flags.AddCapacityLimits(parser)
+    backend_flags.AddBalancingMode(parser, supports_neg=True)
+    backend_flags.AddCapacityLimits(parser, supports_neg=True)
     backend_flags.AddCapacityScalar(parser)
+    backend_flags.AddFailover(parser, default=None)
+
+  def _GetGroupRef(self, args, resources, client):
+    if args.instance_group:
+      return flags.MULTISCOPE_INSTANCE_GROUP_ARG.ResolveAsResource(
+          args,
+          resources,
+          scope_lister=compute_flags.GetDefaultScopeLister(client))
+    if args.network_endpoint_group:
+      return flags.NETWORK_ENDPOINT_GROUP_ARG.ResolveAsResource(
+          args,
+          resources,
+          scope_lister=compute_flags.GetDefaultScopeLister(client))
+
+  def _CreateBackendMessage(self, messages, group_uri, balancing_mode, args):
+    """Overrides."""
+
+    backend_services_utils.ValidateBalancingModeArgs(
+        messages, args, supports_neg=True)
+    return messages.Backend(
+        balancingMode=balancing_mode,
+        capacityScaler=args.capacity_scaler,
+        description=args.description,
+        group=group_uri,
+        maxRate=args.max_rate,
+        maxRatePerInstance=args.max_rate_per_instance,
+        maxRatePerEndpoint=args.max_rate_per_endpoint,
+        maxUtilization=args.max_utilization,
+        maxConnections=args.max_connections,
+        maxConnectionsPerInstance=args.max_connections_per_instance,
+        maxConnectionsPerEndpoint=args.max_connections_per_endpoint,
+        failover=args.failover)

@@ -11,18 +11,21 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command for setting IAM policies for registries."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import registries
-from googlecloudsdk.api_lib.util import apis
-from googlecloudsdk.command_lib.iam import base_classes
+from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.command_lib.iot import flags
-from googlecloudsdk.command_lib.iot import util
-from googlecloudsdk.core import log
+from googlecloudsdk.command_lib.iot import resource_args
 
 
-class SetIamPolicy(base_classes.BaseIamCommand):
+@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+class SetIamPolicy(base.Command):
   """Set the IAM policy for a device registry.
 
   This command replaces the existing IAM policy for a device registry, given
@@ -40,19 +43,18 @@ class SetIamPolicy(base_classes.BaseIamCommand):
 
   @staticmethod
   def Args(parser):
-    flags.AddRegistryResourceFlags(parser, 'for which to set IAM policy')
+    resource_args.AddRegistryResourceArg(parser, 'for which to set IAM policy')
     flags.GetIamPolicyFileFlag().AddToParser(parser)
 
   def Run(self, args):
     client = registries.RegistriesClient()
-    messages = apis.GetMessagesModule('cloudiot', 'v1beta1')
+    messages = client.messages
 
     policy = iam_util.ParsePolicyFile(args.policy_file, messages.Policy)
-    registry_ref = util.ParseRegistry(args.id, region=args.region)
+    registry_ref = args.CONCEPTS.registry.Parse()
 
     response = client.SetIamPolicy(
         registry_ref,
         set_iam_policy_request=messages.SetIamPolicyRequest(policy=policy))
-    log.status.Print(
-        'Set IAM policy for registry [{}].'.format(registry_ref.Name()))
+    iam_util.LogSetIamPolicy(registry_ref.Name(), 'registry')
     return response

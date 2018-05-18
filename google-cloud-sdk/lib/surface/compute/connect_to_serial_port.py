@@ -14,7 +14,6 @@
 
 """Connects to a serial port gateway using SSH."""
 
-import argparse
 import sys
 
 from googlecloudsdk.api_lib.compute import base_classes
@@ -79,7 +78,7 @@ class ConnectToSerialPort(base.Command):
 
     parser.add_argument(
         'user_host',
-        completer=completers.DeprecatedInstancesCompleter,
+        completer=completers.InstancesCompleter,
         metavar='[USER@]INSTANCE',
         help="""\
         Specifies the user/instance for the serial port connection.
@@ -112,7 +111,8 @@ class ConnectToSerialPort(base.Command):
 
     parser.add_argument(
         '--serial-port-gateway',
-        help=argparse.SUPPRESS,
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.',
         default=SERIAL_PORT_GATEWAY)
 
     flags.AddZoneFlag(
@@ -123,7 +123,6 @@ class ConnectToSerialPort(base.Command):
   def Run(self, args):
     """See ssh_utils.BaseSSHCommand.Run."""
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
-    cua_holder = base_classes.ComputeUserAccountsApiHolder(self.ReleaseTrack())
     client = holder.client
 
     ssh_helper = ssh_utils.BaseSSHHelper()
@@ -150,20 +149,22 @@ class ConnectToSerialPort(base.Command):
         known_hosts.Add(hostname, host_key, overwrite=True)
         known_hosts.Write()
       elif known_hosts.ContainsAlias(hostname):
-        log.warn('Unable to download and update Host Key for [{0}] from [{1}]. '
-                 'Attempting to connect using existing Host Key in [{2}]. If '
-                 'the connection fails, please try again to update the Host '
-                 'Key.'.format(SERIAL_PORT_GATEWAY, HOST_KEY_URL,
-                               known_hosts.file_path))
+        log.warning(
+            'Unable to download and update Host Key for [{0}] from [{1}]. '
+            'Attempting to connect using existing Host Key in [{2}]. If '
+            'the connection fails, please try again to update the Host '
+            'Key.'.format(SERIAL_PORT_GATEWAY, HOST_KEY_URL,
+                          known_hosts.file_path))
       else:
         known_hosts.Add(hostname, DEFAULT_HOST_KEY)
         known_hosts.Write()
-        log.warn('Unable to download Host Key for [{0}] from [{1}]. To ensure '
-                 'the security of the SSH connetion, gcloud will attempt to '
-                 'connect using a hard-coded Host Key value. If the connection '
-                 'fails, please try again. If the problem persists, try '
-                 'updating gcloud and connecting again.'
-                 .format(SERIAL_PORT_GATEWAY, HOST_KEY_URL))
+        log.warning(
+            'Unable to download Host Key for [{0}] from [{1}]. To ensure '
+            'the security of the SSH connection, gcloud will attempt to '
+            'connect using a hard-coded Host Key value. If the connection '
+            'fails, please try again. If the problem persists, try '
+            'updating gcloud and connecting again.'
+            .format(SERIAL_PORT_GATEWAY, HOST_KEY_URL))
     instance_ref = instance_flags.SSH_INSTANCE_RESOLVER.ResolveResources(
         [remote.host],
         compute_scope.ScopeEnum.ZONE,
@@ -186,14 +187,14 @@ class ConnectToSerialPort(base.Command):
     identity_file = ssh_helper.keys.key_file
     options = ssh_helper.GetConfig(hostname, strict_host_key_checking='yes')
     del options['HostKeyAlias']
+    options['ControlPath'] = 'none'
     cmd = ssh.SSHCommand(serial_remote, identity_file=identity_file,
                          port=CONNECTION_PORT,
                          options=options)
     if args.dry_run:
       log.out.Print(' '.join(cmd.Build(ssh_helper.env)))
       return
-    ssh_helper.EnsureSSHKeyExists(client, cua_holder.client, remote.user,
-                                  instance, project)
+    ssh_helper.EnsureSSHKeyExists(client, remote.user, instance, project)
 
     # Don't wait for the instance to become SSHable. We are not connecting to
     # the instance itself through SSH, so the instance doesn't need to have

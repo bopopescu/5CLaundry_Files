@@ -24,6 +24,16 @@ class Start(base.Command):
   """Start a local pubsub emulator.
 
   This command starts a local pubsub emulator.
+
+  On successful start up, you should expect to see:
+
+  ```
+  ...
+  [pubsub] This is the Google Pub/Sub fake.
+  [pubsub] Implementation may be incomplete or differ from the real system.
+  ...
+  [pubsub] INFO: Server started, listening on 8538
+  ```
   """
 
   detailed_help = {
@@ -40,7 +50,8 @@ class Start(base.Command):
         '--host-port',
         required=False,
         type=lambda arg: arg_parsers.HostPort.Parse(arg, ipv6_enabled=True),
-        help='The host:port to which the emulator should be bound.')
+        help='The host:port to which the emulator should be bound. The default '
+             'value is localhost:8085.')
 
   # Override
   def Run(self, args):

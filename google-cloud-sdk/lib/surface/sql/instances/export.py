@@ -16,18 +16,23 @@
 Exports data from a Cloud SQL instance to a Google Cloud Storage bucket as
 a MySQL dump file.
 """
+# TODO(b/67459595): Deprecate this command when `sql export` goes to GA.
+
 
 from googlecloudsdk.api_lib.sql import api_util
 from googlecloudsdk.api_lib.sql import operations
 from googlecloudsdk.api_lib.sql import validate
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib import deprecation_utils
 from googlecloudsdk.command_lib.sql import flags
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+@deprecation_utils.DeprecateCommandAtVersion(
+    remove_version='205.0.0', remove=False, alt_command='gcloud sql export sql')
 class Export(base.Command):
   """Exports data from a Cloud SQL instance.
 
@@ -70,7 +75,8 @@ class Export(base.Command):
         metavar='TABLE',
         required=False,
         help='Tables to export from the specified database. If you specify '
-        'tables, specify one and only one database.')
+        'tables, specify one and only one database. For Postgres instances, '
+        'only one table can be exported at a time.')
 
   def Run(self, args):
     """Exports data from a Cloud SQL instance.
@@ -82,11 +88,6 @@ class Export(base.Command):
     Returns:
       A dict object representing the operations resource describing the export
       operation if the export was successful.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)
     sql_client = client.sql_client

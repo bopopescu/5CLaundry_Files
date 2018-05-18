@@ -125,35 +125,31 @@ class SnapshotDisks(base.SilentCommand):
       disk_key_or_none = csek_utils.MaybeLookupKeyMessage(
           csek_keys, disk_ref, client)
 
-      # TODO(b/35852475) drop test after 'guestFlush' goes GA.
-      if hasattr(args, 'guest_flush') and args.guest_flush:
-        request_kwargs = {'guestFlush': True}
-      else:
-        request_kwargs = {}
+      snapshot_message = messages.Snapshot(
+          name=snapshot_ref.Name(), description=args.description,
+          sourceDiskEncryptionKey=disk_key_or_none)
+      if (hasattr(args, 'storage_location') and
+          args.IsSpecified('storage_location')):
+        snapshot_message.storageLocations = [args.storage_location]
 
       if disk_ref.Collection() == 'compute.disks':
         request = messages.ComputeDisksCreateSnapshotRequest(
             disk=disk_ref.Name(),
-            snapshot=messages.Snapshot(
-                name=snapshot_ref.Name(),
-                description=args.description,
-                sourceDiskEncryptionKey=disk_key_or_none
-            ),
+            snapshot=snapshot_message,
             project=disk_ref.project,
             zone=disk_ref.zone,
-            **request_kwargs)
+            guestFlush=args.guest_flush)
         requests.append((client.disks, 'CreateSnapshot', request))
       elif disk_ref.Collection() == 'compute.regionDisks':
         request = messages.ComputeRegionDisksCreateSnapshotRequest(
             disk=disk_ref.Name(),
-            snapshot=messages.Snapshot(
-                name=snapshot_ref.Name(),
-                description=args.description,
-                sourceDiskEncryptionKey=disk_key_or_none
-            ),
+            snapshot=snapshot_message,
             project=disk_ref.project,
-            region=disk_ref.region,
-            **request_kwargs)
+            region=disk_ref.region)
+        if hasattr(request, 'guestFlush'):  # only available in alpha API
+          guest_flush = getattr(args, 'guest_flush', None)
+          if guest_flush is not None:
+            request.guestFlush = guest_flush
         requests.append((client.regionDisks, 'CreateSnapshot', request))
 
     errors_to_collect = []
@@ -191,7 +187,8 @@ class SnapshotDisksBeta(SnapshotDisks):
 
   @staticmethod
   def Args(parser):
-    SnapshotDisks.disks_arg = disks_flags.MakeDiskArg(plural=True)
+    SnapshotDisks.disks_arg = disks_flags.MakeDiskArgZonalOrRegional(
+        plural=True)
     _CommonArgs(parser)
 
 
@@ -203,8 +200,8 @@ class SnapshotDisksAlpha(SnapshotDisks):
   def Args(parser):
     SnapshotDisks.disks_arg = disks_flags.MakeDiskArgZonalOrRegional(
         plural=True)
+    flags.AddStorageLocationFlag(parser, 'snapshot')
     _CommonArgs(parser)
 
 
 SnapshotDisks.detailed_help = DETAILED_HELP
-SnapshotDisksBeta.detailed_help = DETAILED_HELP

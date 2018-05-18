@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating target VPN Gateways."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags as compute_flags
@@ -49,6 +51,8 @@ class Create(base.CreateCommand):
     parser.add_argument(
         '--description',
         help='An optional, textual description for the target VPN Gateway.')
+
+    parser.display_info.AddCacheUpdater(flags.TargetVpnGatewaysCompleter)
 
   def Run(self, args):
     """Issues API requests to construct Target VPN Gateways.

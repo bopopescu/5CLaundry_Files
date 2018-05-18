@@ -47,13 +47,14 @@ class List(base.ListCommand):
         choices=['ascending', 'descending'],
         help='Sort order for listing.')
     parser.display_info.AddFormat(flags.CHANGES_FORMAT)
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     api_version = 'v1'
     # If in the future there are differences between API version, do NOT use
     # this patter of checking ReleaseTrack. Break this into multiple classes.
     if self.ReleaseTrack() == base.ReleaseTrack.BETA:
-      api_version = 'v2beta1'
+      api_version = 'v1beta2'
 
     dns_client = apis.GetClientInstance('dns', api_version)
 

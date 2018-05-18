@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for replacing instances of managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute.instance_groups import flags as instance_groups_flags
@@ -21,7 +23,7 @@ from googlecloudsdk.command_lib.compute.instance_groups.managed import rolling_a
 from googlecloudsdk.command_lib.compute.managed_instance_groups import update_instances_utils
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class StartUpdate(base.Command):
   """Replaces instances in a managed instance group.
 

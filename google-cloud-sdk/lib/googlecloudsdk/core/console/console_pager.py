@@ -14,6 +14,9 @@
 
 """Simple console pager."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import re
 import sys
 
@@ -99,7 +102,7 @@ class Pager(object):
     # prev_pos, prev_next values to force reprint
     self.prev_pos, self.prev_nxt = self.PREV_POS_NXT_REPRINT
     # Initialize the console attributes.
-    self._attr = console_attr.GetConsoleAttr(out=out)
+    self._attr = console_attr.GetConsoleAttr()
     self._width, self._height = self._attr.GetTermSize()
 
     # Initialize the prompt and the prompt clear string.
@@ -186,7 +189,7 @@ class Pager(object):
         self._out.write('\n'.join(self._lines[pos:nxt]) + '\n')
 
       # Handle the prompt response.
-      percent = self._prompt.format(percent=100 * nxt / len(self._lines))
+      percent = self._prompt.format(percent=100 * nxt // len(self._lines))
       digits = ''
       while True:
         # We want to reset prev values if we just exited out of the while loop

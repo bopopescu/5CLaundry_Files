@@ -14,18 +14,21 @@
 
 """deployments delete command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.deployment_manager import dm_api_util
 from googlecloudsdk.api_lib.deployment_manager import dm_base
 from googlecloudsdk.api_lib.deployment_manager import exceptions
+from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.api_lib.util import exceptions as api_exceptions
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.deployment_manager import dm_v2_base
+from googlecloudsdk.command_lib.deployment_manager import dm_util
 from googlecloudsdk.command_lib.deployment_manager import dm_write
 from googlecloudsdk.command_lib.deployment_manager import flags
 from googlecloudsdk.core import exceptions as core_exceptions
-from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 
 # Number of seconds (approximately) to wait for each delete operation to
@@ -60,6 +63,10 @@ class Delete(base.DeleteCommand, dm_base.DmCommand):
           """,
   }
 
+  _delete_policy_flag_map = flags.GetDeleteFlagEnumMap(
+      (apis.GetMessagesModule('deploymentmanager', 'v2')
+       .DeploymentmanagerDeploymentsDeleteRequest.DeletePolicyValueValuesEnum))
+
   @staticmethod
   def Args(parser):
     """Args is called by calliope to gather arguments for this command.
@@ -70,9 +77,7 @@ class Delete(base.DeleteCommand, dm_base.DmCommand):
           allowed.
     """
     parser.add_argument('deployment_name', nargs='+', help='Deployment name.')
-    flags.AddDeletePolicyFlag(
-        parser, dm_v2_base.GetMessages()
-        .DeploymentmanagerDeploymentsDeleteRequest)
+    Delete._delete_policy_flag_map.choice_arg.AddToParser(parser)
     flags.AddAsyncFlag(parser)
 
   def Run(self, args):
@@ -99,14 +104,17 @@ class Delete(base.DeleteCommand, dm_base.DmCommand):
     operations = []
     errors = []
     for deployment_name in args.deployment_name:
+      deployment_ref = self.resources.Parse(
+          deployment_name,
+          params={'project': properties.VALUES.core.project.GetOrFail},
+          collection='deploymentmanager.deployments')
       try:
         operation = self.client.deployments.Delete(
             self.messages.DeploymentmanagerDeploymentsDeleteRequest(
                 project=dm_base.GetProject(),
-                deployment=deployment_name,
-                deletePolicy=(self.messages
-                              .DeploymentmanagerDeploymentsDeleteRequest
-                              .DeletePolicyValueValuesEnum(args.delete_policy)),
+                deployment=deployment_ref.deployment,
+                deletePolicy=(Delete._delete_policy_flag_map.
+                              GetEnumForChoice(args.delete_policy)),
             )
         )
         if args.async:
@@ -115,19 +123,19 @@ class Delete(base.DeleteCommand, dm_base.DmCommand):
           op_name = operation.name
           try:
             # TODO(b/62720778): Refactor to use waiter.CloudOperationPoller
-            dm_write.WaitForOperation(self.client,
-                                      self.messages,
-                                      op_name,
-                                      'delete',
-                                      dm_base.GetProject(),
-                                      timeout=OPERATION_TIMEOUT)
-            log.status.Print('Delete operation ' + op_name
-                             + ' completed successfully.')
+            operation = dm_write.WaitForOperation(
+                self.client,
+                self.messages,
+                op_name,
+                'delete',
+                dm_base.GetProject(),
+                timeout=OPERATION_TIMEOUT)
+            dm_util.LogOperationStatus(operation, 'Delete')
           except exceptions.OperationError as e:
             errors.append(exceptions.OperationError(
-                u'Delete operation {0} failed.\n{1}'.format(op_name, e)))
-          completed_operation = dm_v2_base.GetClient().operations.Get(
-              dm_v2_base.GetMessages().DeploymentmanagerOperationsGetRequest(
+                'Delete operation {0} failed.\n{1}'.format(op_name, e)))
+          completed_operation = self.client.operations.Get(
+              self.messages.DeploymentmanagerOperationsGetRequest(
                   project=dm_base.GetProject(),
                   operation=op_name,
               )

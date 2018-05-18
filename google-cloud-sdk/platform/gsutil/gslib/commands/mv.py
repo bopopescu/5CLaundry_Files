@@ -22,7 +22,7 @@ from gslib.commands.cp import CP_SUB_ARGS
 from gslib.cs_api_map import ApiSelector
 from gslib.exception import CommandException
 from gslib.storage_url import StorageUrlFromString
-from gslib.util import NO_MAX
+from gslib.utils.constants import NO_MAX
 
 
 _SYNOPSIS = """
@@ -78,11 +78,9 @@ _DETAILED_HELP_TEXT = ("""
   perform a single atomic operation. Rather, it performs a copy from source
   to destination followed by removing the source for each object.
 
-
-<B>CHARGES FOR MOVING NEARLINE OBJECTS</B>
-  If you move a Nearline storage class object, deletion and data retrieval
-  charges apply, because gsutil actually copies the original object and deletes
-  the original. See the `documentation
+  A consequence of this is that, in addition to normal network and operation
+  charges, if you move a Nearline Storage or Coldline Storage object, deletion
+  and data retrieval charges apply. See the `documentation
   <https://cloud.google.com/storage/pricing>`_ for pricing details.
 
 
@@ -155,7 +153,7 @@ class MvCommand(Command):
     unparsed_args.extend(self.unparsed_args)
     self.command_runner.RunNamedCommand(
         'cp', args=unparsed_args, headers=self.headers, debug=self.debug,
-        trace_token=self.trace_token,
+        trace_token=self.trace_token, user_project=self.user_project,
         parallel_operations=self.parallel_operations)
 
     return 0

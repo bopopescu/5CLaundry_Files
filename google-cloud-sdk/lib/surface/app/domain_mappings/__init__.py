@@ -13,10 +13,11 @@
 # limitations under the License.
 """The gcloud app domain-mappings group."""
 
+from __future__ import absolute_import
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class DomainMappings(base.Group):
   """View and manage your App Engine domain mappings.
 
@@ -40,7 +41,8 @@ class DomainMappings(base.Group):
   }
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA,
+                    base.ReleaseTrack.BETA)
 class DomainMappingsAlpha(base.Group):
   """View and manage your App Engine domain mappings.
 
@@ -49,9 +51,9 @@ class DomainMappingsAlpha(base.Group):
 
   App Engine Domain Mappings allow an application to be served via one or many
   custom domains, such as `example.com`, instead of the default `appspot.com`
-  address. You can use a custom domain with or without SSL.
-
-  The Alpha commands add support for automatically managed certificates.
+  address. You can use a custom domain with or without SSL. Use the AUTOMATIC
+  management type to automatically provision an SSL certificate for your domain.
+  Use the MANUAL management type to provide your own certificate or omit SSL.
   """
 
   detailed_help = {
@@ -65,6 +67,11 @@ class DomainMappingsAlpha(base.Group):
 
           To create a domain with an automatically managed certiticate, run:
 
-            $ {command} create 'example.com'
+            $ {command} create 'example.com' --certificate-management=AUTOMATIC
+
+          To create a domain with a manual certificate, run:
+
+            $ {command} create 'example.com' \
+                --certificate-management=manual --certificate-id=1234
       """,
   }

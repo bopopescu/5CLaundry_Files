@@ -14,19 +14,20 @@
 
 """Utilities for dealing with version resources."""
 
+from __future__ import absolute_import
 import re
 
-from googlecloudsdk.api_lib.app import exceptions as app_exceptions
+from apitools.base.py import exceptions as apitools_exceptions
+from googlecloudsdk.api_lib.app import env
 from googlecloudsdk.api_lib.app import metric_names
 from googlecloudsdk.api_lib.app import operations_util
-from googlecloudsdk.api_lib.app import util
-from googlecloudsdk.api_lib.util import exceptions as core_api_exceptions
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import metrics
 from googlecloudsdk.core.util import retry
 from googlecloudsdk.core.util import text
 from googlecloudsdk.core.util import times
+from six.moves import map  # pylint: disable=redefined-builtin
 
 
 class VersionValidationError(exceptions.Error):
@@ -93,13 +94,13 @@ class Version(object):
     except ValueError:
       pass
     if version.env == 'flexible':
-      env = util.Environment.FLEX
+      environment = env.FLEX
     elif version.vm:
-      env = util.Environment.MANAGED_VMS
+      environment = env.MANAGED_VMS
     else:
-      env = util.Environment.STANDARD
+      environment = env.STANDARD
     return cls(project, service_id, version.id, traffic_split=traffic_split,
-               last_deployed_time=last_deployed, environment=env,
+               last_deployed_time=last_deployed, environment=environment,
                version_resource=version)
 
   def IsReceivingAllTraffic(self):
@@ -158,7 +159,7 @@ def ParseVersionResourcePaths(paths, project):
     VersionValidationError: If not all versions are valid resource paths for the
       current project.
   """
-  versions = map(Version.FromResourcePath, paths)
+  versions = list(map(Version.FromResourcePath, paths))
 
   for version in versions:
     if not (version.project or version.service):
@@ -206,9 +207,9 @@ def DeleteVersions(api_client, versions):
   for version in versions:
     version_path = '{0}/{1}'.format(version.service, version.id)
     try:
-      api_client.DeleteVersion(version.service, version.id)
-    except (core_api_exceptions.HttpException, operations_util.OperationError,
-            operations_util.OperationTimeoutError, app_exceptions.Error) as err:
+      operations_util.CallAndCollectOpErrors(
+          api_client.DeleteVersion, version.service, version.id)
+    except operations_util.MiscOperationError as err:
       errors[version_path] = str(err)
 
   if errors:
@@ -250,6 +251,10 @@ def PromoteVersion(all_services, new_version, api_client,
     _StopPreviousVersionIfApplies(old_default_version, api_client)
 
 
+def GetUri(version):
+  return version.version.versionUrl
+
+
 def _GetPreviousVersion(all_services, new_version, api_client):
   """Get the previous default version of which new_version is replacing.
 
@@ -288,7 +293,7 @@ def _SetDefaultVersion(new_version, api_client):
   # TODO(b/31824825): It sometimes takes a while for a new service to show up.
   # Retry it if we get a service not found error.
   def ShouldRetry(exc_type, unused_exc_value, unused_traceback, unused_state):
-    return issubclass(exc_type, core_api_exceptions.HttpException)
+    return issubclass(exc_type, apitools_exceptions.HttpError)
 
   try:
     retryer = retry.Retryer(max_retrials=3, exponential_sleep_multiplier=2)
@@ -298,8 +303,7 @@ def _SetDefaultVersion(new_version, api_client):
   except retry.MaxRetrialsException as e:
     (unused_result, exc_info) = e.last_result
     if exc_info:
-      # This is the 3 tuple of the last exception the function threw.
-      raise exc_info[0], exc_info[1], exc_info[2]
+      exceptions.reraise(exc_info[1], tb=exc_info[2])
     else:
       # This shouldn't happen, but if we don't have the exception info for some
       # reason, just convert the MaxRetrialsException.
@@ -343,18 +347,17 @@ def _StopPreviousVersionIfApplies(old_default_version, api_client):
     # (reports of 2.5 minutes) to deployment. The risk is that if we don't wait,
     # the operation might fail and leave an old version running. But the time
     # savings is substantial.
-    api_client.StopVersion(
+    operations_util.CallAndCollectOpErrors(
+        api_client.StopVersion,
         service_name=old_default_version.service,
         version_id=old_default_version.id,
         block=False)
-  except (core_api_exceptions.HttpException,
-          operations_util.OperationError,
-          operations_util.OperationTimeoutError) as err:
-    log.warn('Error stopping version [{0}]: {1}'.format(old_default_version,
-                                                        str(err)))
-    log.warn('Version [{0}] is still running and you must stop or delete it '
-             'yourself in order to turn it off. (If you do not, you may be '
-             'charged.)'.format(old_default_version))
+  except operations_util.MiscOperationError as err:
+    log.warning('Error stopping version [{0}]: {1}'.format(old_default_version,
+                                                           str(err)))
+    log.warning('Version [{0}] is still running and you must stop or delete it '
+                'yourself in order to turn it off. (If you do not, you may be '
+                'charged.)'.format(old_default_version))
   else:
     # TODO(b/318248525): Switch to refer to `gcloud app operations wait` when
     # available

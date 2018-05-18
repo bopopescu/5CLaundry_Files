@@ -15,7 +15,7 @@ package = 'language'
 
 
 class AnalyzeEntitiesRequest(_messages.Message):
-  """The entity analysis request message.
+  r"""The entity analysis request message.
 
   Enums:
     EncodingTypeValueValuesEnum: The encoding type used by the API to
@@ -27,7 +27,7 @@ class AnalyzeEntitiesRequest(_messages.Message):
   """
 
   class EncodingTypeValueValuesEnum(_messages.Enum):
-    """The encoding type used by the API to calculate offsets.
+    r"""The encoding type used by the API to calculate offsets.
 
     Values:
       NONE: If `EncodingType` is not specified, encoding-dependent information
@@ -52,7 +52,7 @@ class AnalyzeEntitiesRequest(_messages.Message):
 
 
 class AnalyzeEntitiesResponse(_messages.Message):
-  """The entity analysis response message.
+  r"""The entity analysis response message.
 
   Fields:
     entities: The recognized entities in the input document.
@@ -65,8 +65,60 @@ class AnalyzeEntitiesResponse(_messages.Message):
   language = _messages.StringField(2)
 
 
+class AnalyzeEntitySentimentRequest(_messages.Message):
+  r"""The entity-level sentiment analysis request message.
+
+  Enums:
+    EncodingTypeValueValuesEnum: The encoding type used by the API to
+      calculate offsets.
+
+  Fields:
+    document: Input document.
+    encodingType: The encoding type used by the API to calculate offsets.
+  """
+
+  class EncodingTypeValueValuesEnum(_messages.Enum):
+    r"""The encoding type used by the API to calculate offsets.
+
+    Values:
+      NONE: If `EncodingType` is not specified, encoding-dependent information
+        (such as `begin_offset`) will be set at `-1`.
+      UTF8: Encoding-dependent information (such as `begin_offset`) is
+        calculated based on the UTF-8 encoding of the input. C++ and Go are
+        examples of languages that use this encoding natively.
+      UTF16: Encoding-dependent information (such as `begin_offset`) is
+        calculated based on the UTF-16 encoding of the input. Java and
+        Javascript are examples of languages that use this encoding natively.
+      UTF32: Encoding-dependent information (such as `begin_offset`) is
+        calculated based on the UTF-32 encoding of the input. Python is an
+        example of a language that uses this encoding natively.
+    """
+    NONE = 0
+    UTF8 = 1
+    UTF16 = 2
+    UTF32 = 3
+
+  document = _messages.MessageField('Document', 1)
+  encodingType = _messages.EnumField('EncodingTypeValueValuesEnum', 2)
+
+
+class AnalyzeEntitySentimentResponse(_messages.Message):
+  r"""The entity-level sentiment analysis response message.
+
+  Fields:
+    entities: The recognized entities in the input document with associated
+      sentiments.
+    language: The language of the text, which will be the same as the language
+      specified in the request or, if not specified, the automatically-
+      detected language. See Document.language field for more details.
+  """
+
+  entities = _messages.MessageField('Entity', 1, repeated=True)
+  language = _messages.StringField(2)
+
+
 class AnalyzeSentimentRequest(_messages.Message):
-  """The sentiment analysis request message.
+  r"""The sentiment analysis request message.
 
   Enums:
     EncodingTypeValueValuesEnum: The encoding type used by the API to
@@ -79,7 +131,7 @@ class AnalyzeSentimentRequest(_messages.Message):
   """
 
   class EncodingTypeValueValuesEnum(_messages.Enum):
-    """The encoding type used by the API to calculate sentence offsets.
+    r"""The encoding type used by the API to calculate sentence offsets.
 
     Values:
       NONE: If `EncodingType` is not specified, encoding-dependent information
@@ -104,7 +156,7 @@ class AnalyzeSentimentRequest(_messages.Message):
 
 
 class AnalyzeSentimentResponse(_messages.Message):
-  """The sentiment analysis response message.
+  r"""The sentiment analysis response message.
 
   Fields:
     documentSentiment: The overall sentiment of the input document.
@@ -120,7 +172,7 @@ class AnalyzeSentimentResponse(_messages.Message):
 
 
 class AnalyzeSyntaxRequest(_messages.Message):
-  """The syntax analysis request message.
+  r"""The syntax analysis request message.
 
   Enums:
     EncodingTypeValueValuesEnum: The encoding type used by the API to
@@ -132,7 +184,7 @@ class AnalyzeSyntaxRequest(_messages.Message):
   """
 
   class EncodingTypeValueValuesEnum(_messages.Enum):
-    """The encoding type used by the API to calculate offsets.
+    r"""The encoding type used by the API to calculate offsets.
 
     Values:
       NONE: If `EncodingType` is not specified, encoding-dependent information
@@ -157,7 +209,7 @@ class AnalyzeSyntaxRequest(_messages.Message):
 
 
 class AnalyzeSyntaxResponse(_messages.Message):
-  """The syntax analysis response message.
+  r"""The syntax analysis response message.
 
   Fields:
     language: The language of the text, which will be the same as the language
@@ -174,7 +226,7 @@ class AnalyzeSyntaxResponse(_messages.Message):
 
 
 class AnnotateTextRequest(_messages.Message):
-  """The request message for the text annotation API, which can perform
+  r"""The request message for the text annotation API, which can perform
   multiple analysis types (sentiment, entities, and syntax) in one call.
 
   Enums:
@@ -188,7 +240,7 @@ class AnnotateTextRequest(_messages.Message):
   """
 
   class EncodingTypeValueValuesEnum(_messages.Enum):
-    """The encoding type used by the API to calculate offsets.
+    r"""The encoding type used by the API to calculate offsets.
 
     Values:
       NONE: If `EncodingType` is not specified, encoding-dependent information
@@ -214,9 +266,10 @@ class AnnotateTextRequest(_messages.Message):
 
 
 class AnnotateTextResponse(_messages.Message):
-  """The text annotations response message.
+  r"""The text annotations response message.
 
   Fields:
+    categories: Categories identified in the input document.
     documentSentiment: The overall sentiment for the document. Populated if
       the user enables
       AnnotateTextRequest.Features.extract_document_sentiment.
@@ -233,15 +286,51 @@ class AnnotateTextResponse(_messages.Message):
       AnnotateTextRequest.Features.extract_syntax.
   """
 
-  documentSentiment = _messages.MessageField('Sentiment', 1)
-  entities = _messages.MessageField('Entity', 2, repeated=True)
-  language = _messages.StringField(3)
-  sentences = _messages.MessageField('Sentence', 4, repeated=True)
-  tokens = _messages.MessageField('Token', 5, repeated=True)
+  categories = _messages.MessageField('ClassificationCategory', 1, repeated=True)
+  documentSentiment = _messages.MessageField('Sentiment', 2)
+  entities = _messages.MessageField('Entity', 3, repeated=True)
+  language = _messages.StringField(4)
+  sentences = _messages.MessageField('Sentence', 5, repeated=True)
+  tokens = _messages.MessageField('Token', 6, repeated=True)
+
+
+class ClassificationCategory(_messages.Message):
+  r"""Represents a category returned from the text classifier.
+
+  Fields:
+    confidence: The classifier's confidence of the category. Number represents
+      how certain the classifier is that this category represents the given
+      text.
+    name: The name of the category representing the document, from the
+      [predefined taxonomy](/natural-language/docs/categories).
+  """
+
+  confidence = _messages.FloatField(1, variant=_messages.Variant.FLOAT)
+  name = _messages.StringField(2)
+
+
+class ClassifyTextRequest(_messages.Message):
+  r"""The document classification request message.
+
+  Fields:
+    document: Input document.
+  """
+
+  document = _messages.MessageField('Document', 1)
+
+
+class ClassifyTextResponse(_messages.Message):
+  r"""The document classification response message.
+
+  Fields:
+    categories: Categories representing the input document.
+  """
+
+  categories = _messages.MessageField('ClassificationCategory', 1, repeated=True)
 
 
 class DependencyEdge(_messages.Message):
-  """Represents dependency parse tree information for a token. (For more
+  r"""Represents dependency parse tree information for a token. (For more
   information on dependency labels, see
   http://www.aclweb.org/anthology/P13-2017
 
@@ -258,7 +347,7 @@ class DependencyEdge(_messages.Message):
   """
 
   class LabelValueValuesEnum(_messages.Enum):
-    """The parse label for the token.
+    r"""The parse label for the token.
 
     Values:
       UNKNOWN: Unknown
@@ -338,6 +427,12 @@ class DependencyEdge(_messages.Message):
       NUMC: Compound of numeric modifier
       COP: Copula
       DISLOCATED: Dislocated relation (for fronted/topicalized elements)
+      ASP: Aspect marker
+      GMOD: Genitive modifier
+      GOBJ: Genitive object
+      INFMOD: Infinitival modifier
+      MES: Measure
+      NCOMP: Nominal complement of a noun
     """
     UNKNOWN = 0
     ABBREV = 1
@@ -416,13 +511,19 @@ class DependencyEdge(_messages.Message):
     NUMC = 74
     COP = 75
     DISLOCATED = 76
+    ASP = 77
+    GMOD = 78
+    GOBJ = 79
+    INFMOD = 80
+    MES = 81
+    NCOMP = 82
 
   headTokenIndex = _messages.IntegerField(1, variant=_messages.Variant.INT32)
   label = _messages.EnumField('LabelValueValuesEnum', 2)
 
 
 class Document(_messages.Message):
-  """################################################################ #
+  r"""################################################################ #
   Represents the input to API methods.
 
   Enums:
@@ -447,7 +548,7 @@ class Document(_messages.Message):
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """Required. If the type is not set or is `TYPE_UNSPECIFIED`, returns an
+    r"""Required. If the type is not set or is `TYPE_UNSPECIFIED`, returns an
     `INVALID_ARGUMENT` error.
 
     Values:
@@ -466,9 +567,9 @@ class Document(_messages.Message):
 
 
 class Entity(_messages.Message):
-  """Represents a phrase in the text that is a known entity, such as a person,
-  an organization, or location. The API associates information, such as
-  salience and mentions, with entities.
+  r"""Represents a phrase in the text that is a known entity, such as a
+  person, an organization, or location. The API associates information, such
+  as salience and mentions, with entities.
 
   Enums:
     TypeValueValuesEnum: The entity type.
@@ -490,11 +591,15 @@ class Entity(_messages.Message):
       importance or centrality of that entity to the entire document text.
       Scores closer to 0 are less salient, while scores closer to 1.0 are
       highly salient.
+    sentiment: For calls to AnalyzeEntitySentiment or if
+      AnnotateTextRequest.Features.extract_entity_sentiment is set to true,
+      this field will contain the aggregate sentiment expressed for this
+      entity in the provided document.
     type: The entity type.
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """The entity type.
+    r"""The entity type.
 
     Values:
       UNKNOWN: Unknown
@@ -517,7 +622,7 @@ class Entity(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Metadata associated with the entity.  Currently, Wikipedia URLs and
+    r"""Metadata associated with the entity.  Currently, Wikipedia URLs and
     Knowledge Graph MIDs are provided, if available. The associated keys are
     "wikipedia_url" and "mid", respectively.
 
@@ -529,7 +634,7 @@ class Entity(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -545,23 +650,28 @@ class Entity(_messages.Message):
   metadata = _messages.MessageField('MetadataValue', 2)
   name = _messages.StringField(3)
   salience = _messages.FloatField(4, variant=_messages.Variant.FLOAT)
-  type = _messages.EnumField('TypeValueValuesEnum', 5)
+  sentiment = _messages.MessageField('Sentiment', 5)
+  type = _messages.EnumField('TypeValueValuesEnum', 6)
 
 
 class EntityMention(_messages.Message):
-  """Represents a mention for an entity in the text. Currently, proper noun
+  r"""Represents a mention for an entity in the text. Currently, proper noun
   mentions are supported.
 
   Enums:
     TypeValueValuesEnum: The type of the entity mention.
 
   Fields:
+    sentiment: For calls to AnalyzeEntitySentiment or if
+      AnnotateTextRequest.Features.extract_entity_sentiment is set to true,
+      this field will contain the sentiment expressed for this mention of the
+      entity in the provided document.
     text: The mention text.
     type: The type of the entity mention.
   """
 
   class TypeValueValuesEnum(_messages.Enum):
-    """The type of the entity mention.
+    r"""The type of the entity mention.
 
     Values:
       TYPE_UNKNOWN: Unknown
@@ -572,28 +682,34 @@ class EntityMention(_messages.Message):
     PROPER = 1
     COMMON = 2
 
-  text = _messages.MessageField('TextSpan', 1)
-  type = _messages.EnumField('TypeValueValuesEnum', 2)
+  sentiment = _messages.MessageField('Sentiment', 1)
+  text = _messages.MessageField('TextSpan', 2)
+  type = _messages.EnumField('TypeValueValuesEnum', 3)
 
 
 class Features(_messages.Message):
-  """All available features for sentiment, syntax, and semantic analysis.
+  r"""All available features for sentiment, syntax, and semantic analysis.
   Setting each one to true will enable that specific analysis for the input.
 
   Fields:
+    classifyText: Classify the full document into categories.
     extractDocumentSentiment: Extract document-level sentiment.
     extractEntities: Extract entities.
+    extractEntitySentiment: Extract entities and their associated sentiment.
     extractSyntax: Extract syntax information.
   """
 
-  extractDocumentSentiment = _messages.BooleanField(1)
-  extractEntities = _messages.BooleanField(2)
-  extractSyntax = _messages.BooleanField(3)
+  classifyText = _messages.BooleanField(1)
+  extractDocumentSentiment = _messages.BooleanField(2)
+  extractEntities = _messages.BooleanField(3)
+  extractEntitySentiment = _messages.BooleanField(4)
+  extractSyntax = _messages.BooleanField(5)
 
 
 class PartOfSpeech(_messages.Message):
-  """Represents part of speech information for a token. Parts of speech are as
-  defined in http://www.lrec-conf.org/proceedings/lrec2012/pdf/274_Paper.pdf
+  r"""Represents part of speech information for a token. Parts of speech are
+  as defined in http://www.lrec-
+  conf.org/proceedings/lrec2012/pdf/274_Paper.pdf
 
   Enums:
     AspectValueValuesEnum: The grammatical aspect.
@@ -625,7 +741,7 @@ class PartOfSpeech(_messages.Message):
   """
 
   class AspectValueValuesEnum(_messages.Enum):
-    """The grammatical aspect.
+    r"""The grammatical aspect.
 
     Values:
       ASPECT_UNKNOWN: Aspect is not applicable in the analyzed language or is
@@ -640,7 +756,7 @@ class PartOfSpeech(_messages.Message):
     PROGRESSIVE = 3
 
   class CaseValueValuesEnum(_messages.Enum):
-    """The grammatical case.
+    r"""The grammatical case.
 
     Values:
       CASE_UNKNOWN: Case is not applicable in the analyzed language or is not
@@ -677,7 +793,7 @@ class PartOfSpeech(_messages.Message):
     VOCATIVE = 14
 
   class FormValueValuesEnum(_messages.Enum):
-    """The grammatical form.
+    r"""The grammatical form.
 
     Values:
       FORM_UNKNOWN: Form is not applicable in the analyzed language or is not
@@ -708,7 +824,7 @@ class PartOfSpeech(_messages.Message):
     SPECIFIC = 11
 
   class GenderValueValuesEnum(_messages.Enum):
-    """The grammatical gender.
+    r"""The grammatical gender.
 
     Values:
       GENDER_UNKNOWN: Gender is not applicable in the analyzed language or is
@@ -723,7 +839,7 @@ class PartOfSpeech(_messages.Message):
     NEUTER = 3
 
   class MoodValueValuesEnum(_messages.Enum):
-    """The grammatical mood.
+    r"""The grammatical mood.
 
     Values:
       MOOD_UNKNOWN: Mood is not applicable in the analyzed language or is not
@@ -744,7 +860,7 @@ class PartOfSpeech(_messages.Message):
     SUBJUNCTIVE = 6
 
   class NumberValueValuesEnum(_messages.Enum):
-    """The grammatical number.
+    r"""The grammatical number.
 
     Values:
       NUMBER_UNKNOWN: Number is not applicable in the analyzed language or is
@@ -759,7 +875,7 @@ class PartOfSpeech(_messages.Message):
     DUAL = 3
 
   class PersonValueValuesEnum(_messages.Enum):
-    """The grammatical person.
+    r"""The grammatical person.
 
     Values:
       PERSON_UNKNOWN: Person is not applicable in the analyzed language or is
@@ -776,7 +892,7 @@ class PartOfSpeech(_messages.Message):
     REFLEXIVE_PERSON = 4
 
   class ProperValueValuesEnum(_messages.Enum):
-    """The grammatical properness.
+    r"""The grammatical properness.
 
     Values:
       PROPER_UNKNOWN: Proper is not applicable in the analyzed language or is
@@ -789,7 +905,7 @@ class PartOfSpeech(_messages.Message):
     NOT_PROPER = 2
 
   class ReciprocityValueValuesEnum(_messages.Enum):
-    """The grammatical reciprocity.
+    r"""The grammatical reciprocity.
 
     Values:
       RECIPROCITY_UNKNOWN: Reciprocity is not applicable in the analyzed
@@ -802,7 +918,7 @@ class PartOfSpeech(_messages.Message):
     NON_RECIPROCAL = 2
 
   class TagValueValuesEnum(_messages.Enum):
-    """The part of speech tag.
+    r"""The part of speech tag.
 
     Values:
       UNKNOWN: Unknown
@@ -836,7 +952,7 @@ class PartOfSpeech(_messages.Message):
     AFFIX = 13
 
   class TenseValueValuesEnum(_messages.Enum):
-    """The grammatical tense.
+    r"""The grammatical tense.
 
     Values:
       TENSE_UNKNOWN: Tense is not applicable in the analyzed language or is
@@ -857,7 +973,7 @@ class PartOfSpeech(_messages.Message):
     PLUPERFECT = 6
 
   class VoiceValueValuesEnum(_messages.Enum):
-    """The grammatical voice.
+    r"""The grammatical voice.
 
     Values:
       VOICE_UNKNOWN: Voice is not applicable in the analyzed language or is
@@ -886,7 +1002,7 @@ class PartOfSpeech(_messages.Message):
 
 
 class Sentence(_messages.Message):
-  """Represents a sentence in the input document.
+  r"""Represents a sentence in the input document.
 
   Fields:
     sentiment: For calls to AnalyzeSentiment or if
@@ -900,8 +1016,8 @@ class Sentence(_messages.Message):
 
 
 class Sentiment(_messages.Message):
-  """Represents the feeling associated with the entire text or entities in the
-  text.
+  r"""Represents the feeling associated with the entire text or entities in
+  the text.
 
   Fields:
     magnitude: A non-negative number in the [0, +inf) range, which represents
@@ -916,7 +1032,7 @@ class Sentiment(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -945,7 +1061,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -957,7 +1073,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -983,7 +1099,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -1031,7 +1147,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -1043,7 +1159,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -1061,7 +1177,7 @@ class Status(_messages.Message):
 
 
 class TextSpan(_messages.Message):
-  """Represents an output piece of text.
+  r"""Represents an output piece of text.
 
   Fields:
     beginOffset: The API calculates the beginning offset of the content in the
@@ -1075,7 +1191,7 @@ class TextSpan(_messages.Message):
 
 
 class Token(_messages.Message):
-  """Represents the smallest syntactic building block of the text.
+  r"""Represents the smallest syntactic building block of the text.
 
   Fields:
     dependencyEdge: Dependency tree parse for this token.
@@ -1092,11 +1208,8 @@ class Token(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'language')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'language')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'language')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

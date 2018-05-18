@@ -15,11 +15,12 @@
 """A module to get an unauthenticated http object."""
 
 
-import copy
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import platform
+import re
 import time
-import urllib
-import urlparse
 import uuid
 
 from googlecloudsdk.core import config
@@ -29,11 +30,16 @@ from googlecloudsdk.core import metrics
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.resource import session_capturer
+from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import platforms
+
 import httplib2
+import six
+from six.moves import urllib
+from six.moves import zip  # pylint: disable=redefined-builtin
 
 
-def Http(timeout='unset'):
+def Http(timeout='unset', response_encoding=None):
   """Get an httplib2.Http client that is properly configured for use by gcloud.
 
   This method does not add credentials to the client.  For an Http client that
@@ -43,37 +49,41 @@ def Http(timeout='unset'):
     timeout: double, The timeout in seconds to pass to httplib2.  This is the
         socket level timeout.  If timeout is None, timeout is infinite.  If
         default argument 'unset' is given, a sensible default is selected.
+    response_encoding: str, the encoding to use to decode the response.
 
   Returns:
     An httplib2.Http client object configured with all the required settings
     for gcloud.
   """
-  # Compared with setting the default timeout in the function signature (i.e.
-  # timeout=300), this lets you test with short default timeouts by mocking
-  # GetDefaultTimeout.
-  effective_timeout = timeout if timeout != 'unset' else GetDefaultTimeout()
-  no_validate = properties.VALUES.auth.disable_ssl_validation.GetBool()
-  ca_certs = properties.VALUES.core.custom_ca_certs_file.Get()
-  http_client = httplib2.Http(timeout=effective_timeout,
-                              proxy_info=http_proxy.GetHttpProxyInfo(),
-                              ca_certs=ca_certs,
-                              disable_ssl_certificate_validation=no_validate)
-
   # Wrap the request method to put in our own user-agent, and trace reporting.
   gcloud_ua = MakeUserAgentString(properties.VALUES.metrics.command_name.Get())
-  capture_session_file = properties.VALUES.core.capture_session_file.Get()
+  http_client = _CreateRawHttpClient(timeout)
   http_client = _Wrap(
       http_client,
       properties.VALUES.core.trace_token.Get(),
       properties.VALUES.core.trace_email.Get(),
       properties.VALUES.core.trace_log.GetBool(),
+      properties.VALUES.core.request_reason.Get(),
       gcloud_ua,
       properties.VALUES.core.log_http.GetBool(),
-      None if capture_session_file is None else
-      session_capturer.SessionCapturer(open(capture_session_file, 'w'))
+      properties.VALUES.core.log_http_redact_token.GetBool(),
+      response_encoding
   )
 
   return http_client
+
+
+def _CreateRawHttpClient(timeout='unset'):
+  # Compared with setting the default timeout in the function signature (i.e.
+  # timeout=300), this lets you test with short default timeouts by mocking
+  # GetDefaultTimeout.
+  effective_timeout = timeout if timeout != 'unset' else GetDefaultTimeout()
+  no_validate = properties.VALUES.auth.disable_ssl_validation.GetBool() or False
+  ca_certs = properties.VALUES.core.custom_ca_certs_file.Get()
+  return httplib2.Http(timeout=effective_timeout,
+                       proxy_info=http_proxy.GetHttpProxyInfo(),
+                       ca_certs=ca_certs,
+                       disable_ssl_certificate_validation=no_validate)
 
 
 def MakeUserAgentString(cmd_path=None):
@@ -88,30 +98,34 @@ def MakeUserAgentString(cmd_path=None):
   Returns:
     str, User Agent string.
   """
-  return ('gcloud/{0}'
-          ' command/{1}'
-          ' invocation-id/{2}'
-          ' environment/{3}'
-          ' environment-version/{4}'
-          ' interactive/{5}'
-          ' python/{6}'
-          ' {7}').format(
-              config.CLOUD_SDK_VERSION.replace(' ', '_'),
-              cmd_path or properties.VALUES.metrics.command_name.Get(),
-              uuid.uuid4().hex,
-              properties.GetMetricsEnvironment(),
-              properties.VALUES.metrics.environment_version.Get(),
-              console_io.IsInteractive(error=True, heuristic=True),
-              platform.python_version(),
-              platforms.Platform.Current().UserAgentFragment())
+  return ('gcloud/{version}'
+          ' command/{cmd}'
+          ' invocation-id/{inv_id}'
+          ' environment/{environment}'
+          ' environment-version/{env_version}'
+          ' interactive/{is_interactive}'
+          ' from-script/{from_script}'
+          ' python/{py_version}'
+          ' {ua_fragment}').format(
+              version=config.CLOUD_SDK_VERSION.replace(' ', '_'),
+              cmd=(cmd_path or properties.VALUES.metrics.command_name.Get()),
+              inv_id=uuid.uuid4().hex,
+              environment=properties.GetMetricsEnvironment(),
+              env_version=properties.VALUES.metrics.environment_version.Get(),
+              is_interactive=console_io.IsInteractive(error=True,
+                                                      heuristic=True),
+              py_version=platform.python_version(),
+              ua_fragment=platforms.Platform.Current().UserAgentFragment(),
+              from_script=console_io.IsRunFromShellScript())
 
 
 def GetDefaultTimeout():
   return properties.VALUES.core.http_timeout.GetInt() or 300
 
 
-def _Wrap(http_client, trace_token, trace_email, trace_log, gcloud_ua,
-          log_http, capturer):
+def _Wrap(
+    http_client, trace_token, trace_email, trace_log, request_reason, gcloud_ua,
+    log_http, log_http_redact_token, response_encoding):
   """Wrap request with user-agent, and trace reporting.
 
   Args:
@@ -119,9 +133,12 @@ def _Wrap(http_client, trace_token, trace_email, trace_log, gcloud_ua,
     trace_token: str, Token to be used to route service request traces.
     trace_email: str, username to which service request traces should be sent.
     trace_log: bool, Enable/disable server side logging of service requests.
+    request_reason: str, Justification for access.
     gcloud_ua: str, User agent string to be included in the request.
     log_http: bool, True to enable request/response logging.
-    capturer: SessionCapturer, instance to pass request and response to
+    log_http_redact_token: bool, True to avoid logging access tokens if log_http
+                           is set.
+    response_encoding: str, the encoding to use to decode the response.
 
   Returns:
     http, The same http object but with the request method wrapped.
@@ -147,18 +164,23 @@ def _Wrap(http_client, trace_token, trace_email, trace_log, gcloud_ua,
     handlers.append(Modifiers.Handler(
         Modifiers.AddQueryParam('trace', trace_value)))
 
+  if request_reason:
+    handlers.append(Modifiers.Handler(
+        Modifiers.SetHeader('X-Goog-Request-Reason', request_reason)))
+
   # Do this one last so that it sees the affects of the other modifiers.
   if log_http:
     handlers.append(Modifiers.Handler(
-        Modifiers.LogRequest(),
+        Modifiers.LogRequest(log_http_redact_token),
         Modifiers.LogResponse()))
 
-  if capturer is not None:
+  if session_capturer.SessionCapturer.capturer is not None:
     handlers.append(Modifiers.Handler(
-        Modifiers.DumpRequest(capturer),
-        Modifiers.DumpResponse(capturer)))
+        Modifiers.DumpRequest(session_capturer.SessionCapturer.capturer),
+        Modifiers.DumpResponse(session_capturer.SessionCapturer.capturer)))
 
-  return Modifiers.WrapRequest(http_client, handlers)
+  return Modifiers.WrapRequest(http_client, handlers,
+                               response_encoding=response_encoding)
 
 
 class Modifiers(object):
@@ -219,8 +241,8 @@ class Modifiers(object):
       self.data = data
 
   @classmethod
-  def WrapRequest(cls, http_client, handlers,
-                  exc_handler=None, exc_type=Exception):
+  def WrapRequest(cls, http_client, handlers, exc_handler=None,
+                  exc_type=Exception, response_encoding=None):
     """Wraps an http client with request modifiers.
 
     Args:
@@ -231,6 +253,7 @@ class Modifiers(object):
         should also throw an exception if you don't want it to be swallowed.
       exc_type: The type of exception that should be caught and given to the
         handler.
+      response_encoding: str, the encoding to use to decode the response.
 
     Returns:
       The wrapped http client.
@@ -239,13 +262,21 @@ class Modifiers(object):
 
     def WrappedRequest(*args, **kwargs):
       """Replacement http.request() method."""
-      modified_args = args
+      modified_args = list(args)
+
+      if not six.PY2:
+        # httplib2 needs text under Python 3.
+        if modified_args:
+          modified_args[0] = encoding.Decode(modified_args[0])
+        if 'uri' in kwargs:
+          kwargs['uri'] = encoding.Decode(kwargs['uri'])
+
       # We need to make a copy here because if we don't we will be modifying the
       # dictionary that people pass in.
       # TODO(b/37281703): Copy the entire dictionary. This is blocked on making
       # sure anything that comes through is actually copyable.
       if 'headers' in kwargs:
-        kwargs['headers'] = copy.copy(kwargs['headers'])
+        kwargs['headers'] = Modifiers._EncodeHeaders(kwargs['headers'])
       modifier_data = []
 
       for handler in handlers:
@@ -263,6 +294,9 @@ class Modifiers(object):
         else:
           raise
 
+      if response_encoding is not None:
+        response = Modifiers._DecodeResponse(response, response_encoding)
+
       for handler, data in zip(handlers, modifier_data):
         if handler.response:
           handler.response(response, data)
@@ -279,6 +313,26 @@ class Modifiers(object):
     return http_client
 
   @classmethod
+  def _EncodeHeaders(cls, headers):
+    return dict(
+        Modifiers._EncodeHeader(h, v) for h, v in six.iteritems(headers))
+
+  @classmethod
+  def _EncodeHeader(cls, header, value):
+    if isinstance(header, six.text_type):
+      header = header.encode('utf8')
+    if isinstance(value, six.text_type):
+      value = value.encode('utf8')
+    return header, value
+
+  @classmethod
+  def _DecodeResponse(cls, response, response_encoding):
+    """Decodes the response content if an encoding is given."""
+    response, content = response
+    content = content.decode(response_encoding)
+    return response, content
+
+  @classmethod
   def AppendToHeader(cls, header, value):
     """Appends the given value to the existing value in the http request.
 
@@ -289,10 +343,11 @@ class Modifiers(object):
     Returns:
       A function that can be used in a Handler.request.
     """
+    header, value = Modifiers._EncodeHeader(header, value)
     def _AppendToHeader(args, kwargs):
       """Replacement http.request() method."""
-      current_value = Modifiers._GetHeader(args, kwargs, header, '')
-      new_value = '{0} {1}'.format(current_value, value).strip()
+      current_value = Modifiers._GetHeader(args, kwargs, header, b'')
+      new_value = (current_value + b' ' + value).strip()
       modified_args = Modifiers._SetHeader(args, kwargs, header, new_value)
       return Modifiers.Result(args=modified_args)
     return _AppendToHeader
@@ -308,6 +363,7 @@ class Modifiers(object):
     Returns:
       A function that can be used in a Handler.request.
     """
+    header, value = Modifiers._EncodeHeader(header, value)
     def _SetHeader(args, kwargs):
       """Replacement http.request() method."""
       modified_args = Modifiers._SetHeader(args, kwargs, header, value)
@@ -327,21 +383,24 @@ class Modifiers(object):
     """
     def _AddQueryParam(args, unused_kwargs):
       """Replacement http.request() method."""
-      url_parts = urlparse.urlsplit(args[0])
-      query_params = urlparse.parse_qs(url_parts.query)
+      url_parts = urllib.parse.urlsplit(args[0])
+      query_params = urllib.parse.parse_qs(url_parts.query)
       query_params[param] = value
       # Need to do this to convert a SplitResult into a list so it can be
       # modified.
       url_parts = list(url_parts)
-      url_parts[3] = urllib.urlencode(query_params, doseq=True)
+      url_parts[3] = urllib.parse.urlencode(query_params, doseq=True)
       modified_args = list(args)
-      modified_args[0] = urlparse.urlunsplit(url_parts)
+      modified_args[0] = urllib.parse.urlunsplit(url_parts)
       return Modifiers.Result(args=modified_args)
     return _AddQueryParam
 
   @classmethod
-  def LogRequest(cls):
+  def LogRequest(cls, redact_token=True):
     """Logs the contents of the http request.
+
+    Args:
+      redact_token: bool, True to redact auth tokens.
 
     Returns:
       A function that can be used in a Handler.request.
@@ -351,20 +410,44 @@ class Modifiers(object):
 
       uri, method, body, headers = Modifiers._GetRequest(args, kwargs)
 
+      # If set, these prevent the printing of the http body and replace it with
+      # the reason the body is not being printed.
+      redact_req_body_reason = None
+      redact_resp_body_reason = None
+
+      if redact_token and IsTokenUri(uri):
+        redact_req_body_reason = (
+            'Contains oauth token. Set log_http_redact_token property to false '
+            'to print the body of this request.'
+        )
+        redact_resp_body_reason = (
+            'Contains oauth token. Set log_http_redact_token property to false '
+            'to print the body of this response.'
+        )
+
       log.status.Print('=======================')
       log.status.Print('==== request start ====')
       log.status.Print('uri: {uri}'.format(uri=uri))
       log.status.Print('method: {method}'.format(method=method))
       log.status.Print('== headers start ==')
-      for h, v in sorted(headers.iteritems()):
+      for h, v in sorted(six.iteritems(headers)):
+        if redact_token and (h == b'Authorization' or
+                             h == b'x-goog-iam-authorization-token'):
+          v = '--- Token Redacted ---'
         log.status.Print('{0}: {1}'.format(h, v))
       log.status.Print('== headers end ==')
       log.status.Print('== body start ==')
-      log.status.Print(body)
+      if redact_req_body_reason is None:
+        log.status.Print(body)
+      else:
+        log.status.Print('Body redacted: {}'.format(redact_req_body_reason))
       log.status.Print('== body end ==')
       log.status.Print('==== request end ====')
 
-      return Modifiers.Result(data=time.time())
+      return Modifiers.Result(data={
+          'start_time': time.time(),
+          'redact_resp_body_reason': redact_resp_body_reason,
+      })
     return _LogRequest
 
   @classmethod
@@ -381,7 +464,7 @@ class Modifiers(object):
     def _DumpRequest(args, kwargs):
       """Replacement http.request() method."""
 
-      capturer.capture_http_request(*Modifiers._GetRequest(args, kwargs))
+      capturer.CaptureHttpRequest(*Modifiers._GetRequest(args, kwargs))
 
       return Modifiers.Result()
 
@@ -394,17 +477,22 @@ class Modifiers(object):
     Returns:
       A function that can be used in a Handler.response.
     """
-    def _LogResponse(response, start_time):
+    def _LogResponse(response, data):
       """Response handler."""
-      time_taken = time.time() - start_time
+      redact_resp_body_reason = data['redact_resp_body_reason']
+
+      time_taken = time.time() - data['start_time']
       headers, content = response
       log.status.Print('---- response start ----')
       log.status.Print('-- headers start --')
-      for h, v in sorted(headers.iteritems()):
+      for h, v in sorted(six.iteritems(headers)):
         log.status.Print('{0}: {1}'.format(h, v))
       log.status.Print('-- headers end --')
       log.status.Print('-- body start --')
-      log.status.Print(content)
+      if redact_resp_body_reason is None:
+        log.status.Print(content)
+      else:
+        log.status.Print('Body redacted: {}'.format(redact_resp_body_reason))
       log.status.Print('-- body end --')
       log.status.Print('total round trip time (request+response): {0:.3f} secs'
                        .format(time_taken))
@@ -425,7 +513,7 @@ class Modifiers(object):
 
     def _DumpResponse(response, unused_args):
       """Response handler."""
-      capturer.capture_http_response(*response)
+      capturer.CaptureHttpResponse(response[0], response[1])
 
     return _DumpResponse
 
@@ -515,3 +603,18 @@ class Modifiers(object):
       headers = kwargs['headers']
 
     return uri, method, body, headers
+
+
+def IsTokenUri(uri):
+  """Determine if the given URI is for requesting an access token."""
+  if uri in ['https://accounts.google.com/o/oauth2/token',
+             'https://www.googleapis.com/oauth2/v3/token',
+             'https://www.googleapis.com/oauth2/v4/token',
+             'https://oauth2.googleapis.com/token',
+             'https://oauth2.googleapis.com/oauth2/v4/token']:
+    return True
+
+  metadata_regexp = ('metadata.google.internal/computeMetadata/.*?/instance/'
+                     'service-accounts/.*?/token')
+
+  return re.search(metadata_regexp, uri) is not None

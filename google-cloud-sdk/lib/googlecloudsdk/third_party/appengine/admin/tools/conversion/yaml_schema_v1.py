@@ -35,6 +35,10 @@ SCHEMA = s.Message(
             aggregation_window_length_sec=s.Value('aggregation_window_length',
                                                   converter=c.SecondsToDuration)
         ),
+        max_instances=s.Value('max_instances'),
+        min_instances=s.Value('min_instances'),
+        target_cpu_utilization=s.Value('target_cpu_utilization'),
+        target_throughput_utilization=s.Value('target_throughput_utilization'),
         max_num_instances=s.Value('max_total_instances'),
         min_pending_latency=s.Value(converter=c.LatencyToDuration),
         min_idle_instances=s.Value(converter=
@@ -142,6 +146,7 @@ SCHEMA = s.Message(
         subnetwork_name=s.Value(converter=c.ToJsonString),
         forwarded_ports=s.RepeatedField(element=s.Value(converter=
                                                         c.ToJsonString))),
+    zones=s.RepeatedField(element=s.Value(converter=c.ToJsonString)),
     nobuild_files=s.Value('nobuild_files_regex', converter=c.ToJsonString),
     resources=s.Message(
         memory_gb=s.Value(),
@@ -152,6 +157,7 @@ SCHEMA = s.Message(
             volume_type=s.Value(converter=c.ToJsonString),
             size_gb=s.Value()))),
     runtime=s.Value(converter=c.ToJsonString),
+    runtime_channel=s.Value(converter=c.ToJsonString),
     standard_websocket=s.Value('enable_standard_websocket'),
     threadsafe=s.Value(),
     version=s.Value('id', converter=c.ToJsonString),

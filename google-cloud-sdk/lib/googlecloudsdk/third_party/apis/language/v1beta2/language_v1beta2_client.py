@@ -11,7 +11,7 @@ class LanguageV1beta2(base_api.BaseApiClient):
   BASE_URL = u'https://language.googleapis.com/'
 
   _PACKAGE = u'language'
-  _SCOPES = [u'https://www.googleapis.com/auth/cloud-platform']
+  _SCOPES = [u'https://www.googleapis.com/auth/cloud-language', u'https://www.googleapis.com/auth/cloud-platform']
   _VERSION = u'v1beta2'
   _CLIENT_ID = '1042881264118.apps.googleusercontent.com'
   _CLIENT_SECRET = 'x_Tw5K8nnjoRAqULM9PFAC2b'
@@ -24,7 +24,7 @@ class LanguageV1beta2(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new language handle."""
     url = url or self.BASE_URL
     super(LanguageV1beta2, self).__init__(
@@ -33,7 +33,8 @@ class LanguageV1beta2(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
     self.documents = self.DocumentsService(self)
 
   class DocumentsService(base_api.BaseApiService):
@@ -47,7 +48,7 @@ class LanguageV1beta2(base_api.BaseApiClient):
           }
 
     def AnalyzeEntities(self, request, global_params=None):
-      """Finds named entities (currently proper names and common nouns) in the text.
+      r"""Finds named entities (currently proper names and common nouns) in the text.
 along with entity types, salience, mentions for each entity, and
 other properties.
 
@@ -75,7 +76,7 @@ other properties.
     )
 
     def AnalyzeEntitySentiment(self, request, global_params=None):
-      """Finds entities, similar to AnalyzeEntities in the text and analyzes.
+      r"""Finds entities, similar to AnalyzeEntities in the text and analyzes.
 sentiment associated with each entity and its mentions.
 
       Args:
@@ -102,7 +103,7 @@ sentiment associated with each entity and its mentions.
     )
 
     def AnalyzeSentiment(self, request, global_params=None):
-      """Analyzes the sentiment of the provided text.
+      r"""Analyzes the sentiment of the provided text.
 
       Args:
         request: (AnalyzeSentimentRequest) input message
@@ -128,7 +129,7 @@ sentiment associated with each entity and its mentions.
     )
 
     def AnalyzeSyntax(self, request, global_params=None):
-      """Analyzes the syntax of the text and provides sentence boundaries and.
+      r"""Analyzes the syntax of the text and provides sentence boundaries and.
 tokenization along with part of speech tags, dependency trees, and other
 properties.
 
@@ -156,8 +157,8 @@ properties.
     )
 
     def AnnotateText(self, request, global_params=None):
-      """A convenience method that provides all syntax, sentiment, and entity.
-features in one call.
+      r"""A convenience method that provides all syntax, sentiment, entity, and.
+classification features in one call.
 
       Args:
         request: (AnnotateTextRequest) input message
@@ -179,5 +180,31 @@ features in one call.
         request_field='<request>',
         request_type_name=u'AnnotateTextRequest',
         response_type_name=u'AnnotateTextResponse',
+        supports_download=False,
+    )
+
+    def ClassifyText(self, request, global_params=None):
+      r"""Classifies a document into categories.
+
+      Args:
+        request: (ClassifyTextRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (ClassifyTextResponse) The response message.
+      """
+      config = self.GetMethodConfig('ClassifyText')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    ClassifyText.method_config = lambda: base_api.ApiMethodInfo(
+        http_method=u'POST',
+        method_id=u'language.documents.classifyText',
+        ordered_params=[],
+        path_params=[],
+        query_params=[],
+        relative_path=u'v1beta2/documents:classifyText',
+        request_field='<request>',
+        request_type_name=u'ClassifyTextRequest',
+        response_type_name=u'ClassifyTextResponse',
         supports_download=False,
     )

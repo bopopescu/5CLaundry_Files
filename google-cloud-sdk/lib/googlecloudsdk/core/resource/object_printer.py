@@ -14,7 +14,13 @@
 
 """Object representation format resource printer."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core.resource import resource_printer_base
+
+import six
 
 
 class ObjectPrinter(resource_printer_base.ResourcePrinter):
@@ -46,6 +52,6 @@ class ObjectPrinter(resource_printer_base.ResourcePrinter):
       self._first_record = False
     elif delimit and self._separator is not None:
       self._out.Print(self._separator)
-    self._out.write(unicode(record))
+    self._out.write(six.text_type(record))
     if self._terminator is not None:
       self._out.Print(self._terminator)

@@ -1,4 +1,4 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2018 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,11 @@ from apache_beam.metrics import Metrics
 class AggregatorName(object):
   """Names of the metrics."""
   ML_PREDICTIONS = "ml-predictions"
+  ML_FAILED_PREDICTIONS = "ml-failed-predictions"
 
 
 # The aggregator config.
-CONFIG_ = [
-    (AggregatorName.ML_PREDICTIONS),
-]
+CONFIG_ = [AggregatorName.ML_PREDICTIONS, AggregatorName.ML_FAILED_PREDICTIONS]
 
 
 def CreateAggregatorsDict(namespace="main"):

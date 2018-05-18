@@ -42,6 +42,9 @@ naiive datetimes specify tzinfo=None in all calls that have a timezone kwarg.
 The datetime and/or dateutil modules should have covered all of this.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import datetime
 import re
 
@@ -53,6 +56,9 @@ from googlecloudsdk.core import exceptions
 from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import iso_duration
 from googlecloudsdk.core.util import times_data
+
+import six
+
 
 try:
   from dateutil import tzwin  # pylint: disable=g-import-not-at-top, Windows
@@ -86,12 +92,20 @@ LOCAL = tz.tzlocal()  # The local timezone.
 UTC = tz.tzutc()  # The UTC timezone.
 
 
+_MICROSECOND_PRECISION = 6
+
+
 def _StrFtime(dt, fmt):
   """Convert strftime exceptions to Datetime Errors."""
   try:
     return dt.strftime(fmt)
-  except (AttributeError, OverflowError, TypeError, ValueError) as e:
-    raise DateTimeValueError(unicode(e))
+  except TypeError as e:
+    if '%Z' not in fmt:
+      raise DateTimeValueError(six.text_type(e))
+    # Most likely a non-ascii tzname() in python2. Fall back to +-HH:MM.
+    return FormatDateTime(dt, fmt.replace('%Z', '%Ez'))
+  except (AttributeError, OverflowError, ValueError) as e:
+    raise DateTimeValueError(six.text_type(e))
 
 
 def _StrPtime(string, fmt):
@@ -99,9 +113,9 @@ def _StrPtime(string, fmt):
   try:
     return datetime.datetime.strptime(string, fmt)
   except (AttributeError, OverflowError, TypeError) as e:
-    raise DateTimeValueError(unicode(e))
+    raise DateTimeValueError(six.text_type(e))
   except ValueError as e:
-    raise DateTimeSyntaxError(unicode(e))
+    raise DateTimeSyntaxError(six.text_type(e))
 
 
 def FormatDuration(duration, parts=3, precision=3):
@@ -126,6 +140,39 @@ def FormatDuration(duration, parts=3, precision=3):
     An ISO 8601 string representation of the duration.
   """
   return duration.Format(parts=parts, precision=precision)
+
+
+def FormatDurationForJson(duration):
+  """Returns a string representation of the duration, ending in 's'.
+
+  See the section of
+  <https://github.com/google/protobuf/blob/master/src/google/protobuf/duration.proto>
+  on JSON formats.
+
+  For example:
+
+    >>> FormatDurationForJson(iso_duration.Duration(seconds=10))
+    10s
+    >>> FormatDurationForJson(iso_duration.Duration(hours=1))
+    3600s
+    >>> FormatDurationForJson(iso_duration.Duration(seconds=1, microseconds=5))
+    1.000005s
+
+  Args:
+    duration: An iso_duration.Duration object.
+
+  Raises:
+    DurationValueError: A Duration numeric constant exceeded its range.
+
+  Returns:
+    An string representation of the duration.
+  """
+  # Caution: the default precision for formatting floats is also 6, so when
+  # introducing adjustable precision, make sure to account for that.
+  num = '{}'.format(round(duration.total_seconds, _MICROSECOND_PRECISION))
+  if num.endswith('.0'):
+    num = num[:-len('.0')]
+  return num + 's'
 
 
 def ParseDuration(string, calendar=False):
@@ -160,9 +207,9 @@ def ParseDuration(string, calendar=False):
   try:
     return iso_duration.Duration(calendar=calendar).Parse(string)
   except (AttributeError, OverflowError) as e:
-    raise DurationValueError(unicode(e))
+    raise DurationValueError(six.text_type(e))
   except ValueError as e:
-    raise DurationSyntaxError(unicode(e))
+    raise DurationSyntaxError(six.text_type(e))
 
 
 def GetDurationFromTimeDelta(delta, calendar=False):
@@ -210,7 +257,9 @@ def GetTimeZone(name):
     name = times_data.IANA_TO_WINDOWS.get(name, name)
     try:
       tzinfo = tzwin.tzwin(name)
+    # pytype: disable=name-error
     except WindowsError:  # pylint: disable=undefined-variable
+      # pytype: enable=name-error
       pass
   return tzinfo
 
@@ -257,7 +306,7 @@ def FormatDateTime(dt, fmt=None, tzinfo=None):
   while m:
     match = start + m.start()
     if start < match:
-      # Format the preceeding standard part.
+      # Format the preceding standard part.
       parts.append(encoding.Decode(_StrFtime(dt, fmt[start:match])))
 
     # The extensions only have one modifier char.
@@ -324,7 +373,7 @@ class _TzInfoOrOffsetGetter(object):
   def Get(self, name, offset):
     """Returns the tzinfo for name or offset.
 
-    Used by dateutil.parser.parser() to convert timezone names and offsets.
+    Used by dateutil.parser.parse() to convert timezone names and offsets.
 
     Args:
       name: A timezone name or None to use offset. If offset is also None then
@@ -344,6 +393,19 @@ class _TzInfoOrOffsetGetter(object):
   def timezone_was_specified(self):
     """True if the parsed date/time string contained an explicit timezone."""
     return self._timezone_was_specified
+
+
+def _SplitTzFromDate(string):
+  """Returns (prefix,tzinfo) if string has a trailing tz, else (None,None)."""
+  try:
+    match = re.match(r'(.*[\d\s])([^\d\s]+)$', string)
+  except TypeError:
+    return None, None
+  if match:
+    tzinfo = GetTimeZone(match.group(2))
+    if tzinfo:
+      return match.group(1), tzinfo
+  return None, None
 
 
 def ParseDateTime(string, fmt=None, tzinfo=LOCAL):
@@ -372,10 +434,10 @@ def ParseDateTime(string, fmt=None, tzinfo=LOCAL):
 
   # Use tzgetter to determine if string contains an explicit timezone name or
   # offset.
+  defaults = GetDateTimeDefaults(tzinfo=tzinfo)
   tzgetter = _TzInfoOrOffsetGetter()
+
   try:
-    # Check if it's a datetime string.
-    defaults = GetDateTimeDefaults(tzinfo=tzinfo)
     dt = parser.parse(string, tzinfos=tzgetter.Get, default=defaults)
     if tzinfo and not tzgetter.timezone_was_specified:
       # The string had no timezone name or offset => localize dt to tzinfo.
@@ -383,16 +445,29 @@ def ParseDateTime(string, fmt=None, tzinfo=LOCAL):
       dt = dt.replace(tzinfo=tzinfo)
     return dt
   except OverflowError as e:
-    exc = DateTimeValueError
+    exc = DateTimeValueError(six.text_type(e))
   except (AttributeError, ValueError, TypeError) as e:
-    exc = DateTimeSyntaxError
+    exc = DateTimeSyntaxError(six.text_type(e))
+    if not tzgetter.timezone_was_specified:
+      # Good ole parser.parse() has a tzinfos kwarg that it sometimes ignores.
+      # Compensate here when the string ends with a tz.
+      prefix, explicit_tzinfo = _SplitTzFromDate(string)
+      if explicit_tzinfo:
+        try:
+          dt = parser.parse(prefix, default=defaults)
+        except OverflowError as e:
+          exc = DateTimeValueError(six.text_type(e))
+        except (AttributeError, ValueError, TypeError) as e:
+          exc = DateTimeSyntaxError(six.text_type(e))
+        else:
+          return dt.replace(tzinfo=explicit_tzinfo)
 
   try:
-    # Check if its an iso_duration string.
+    # Check if it's an iso_duration string.
     return ParseDuration(string).GetRelativeDateTime(Now(tzinfo=tzinfo))
   except Error:
     # Not a duration - reraise the datetime parse error.
-    raise exc(unicode(e))
+    raise exc
 
 
 def GetDateTimeFromTimeStamp(timestamp, tzinfo=LOCAL):
@@ -412,7 +487,7 @@ def GetDateTimeFromTimeStamp(timestamp, tzinfo=LOCAL):
   try:
     return datetime.datetime.fromtimestamp(timestamp, tzinfo)
   except ValueError as e:
-    raise DateTimeValueError(unicode(e))
+    raise DateTimeValueError(six.text_type(e))
 
 
 def GetTimeStampFromDateTime(dt, tzinfo=LOCAL):
@@ -428,7 +503,7 @@ def GetTimeStampFromDateTime(dt, tzinfo=LOCAL):
   if not dt.tzinfo and tzinfo:
     dt = dt.replace(tzinfo=tzinfo)
   delta = dt - datetime.datetime.fromtimestamp(0, UTC)
-  return iso_duration.GetTotalSecondsFromTimeDelta(delta)
+  return delta.total_seconds()
 
 
 def LocalizeDateTime(dt, tzinfo=LOCAL):

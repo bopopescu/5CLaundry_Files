@@ -14,6 +14,9 @@
 
 """Command to list properties."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.config import completers
 from googlecloudsdk.core import exceptions
@@ -72,6 +75,8 @@ class List(base.ListCommand):
         'referring to properties in the core section.')
     base.PAGE_SIZE_FLAG.RemoveFromParser(parser)
     base.URI_FLAG.RemoveFromParser(parser)
+    parser.display_info.AddFormat('config')
+    parser.display_info.AddCacheUpdater(None)
 
   def _GetPropertiesToDisplay(self, args):
     """List available regular properties."""
@@ -90,9 +95,6 @@ class List(base.ListCommand):
       raise BadConfigListInvocation('`gcloud config list` cannot take both '
                                     'a property name and the `--all` flag.')
     return self._GetPropertiesToDisplay(args)
-
-  def DeprecatedFormat(self, _):
-    return 'config'
 
   def Epilog(self, resources_were_displayed):
     config_name = named_configs.ConfigurationStore.ActiveConfig().name

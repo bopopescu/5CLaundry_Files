@@ -14,11 +14,13 @@
 
 """Command for getting health status of backend(s) in a backend service."""
 
-from googlecloudsdk.api_lib.compute import backend_services_utils
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute.backend_services import client
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags as compute_flags
+from googlecloudsdk.command_lib.compute.backend_services import backend_services_utils
 from googlecloudsdk.command_lib.compute.backend_services import flags
 
 

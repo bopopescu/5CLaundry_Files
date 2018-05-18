@@ -11,21 +11,34 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub topics list command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+from googlecloudsdk.api_lib.pubsub import topics
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.pubsub import util
-from googlecloudsdk.core.resource import resource_printer_base
-from googlecloudsdk.core.resource import resource_projector
+from googlecloudsdk.core import properties
 
 
+def _Run(args, legacy_output=False):
+  client = topics.TopicsClient()
+  for topic in client.List(util.ParseProject(), page_size=args.page_size):
+    if legacy_output:
+      topic = util.ListTopicDisplayDict(topic)
+    yield topic
+
+
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class List(base.ListCommand):
-  """Lists Cloud Pub/Sub topics within a project.
-
-  Lists all of the Cloud Pub/Sub topics that exist in a given project that
-  match the given topic name filter.
-  """
+  """Lists Cloud Pub/Sub topics within a project."""
 
   detailed_help = {
+      'DESCRIPTION': """\
+          Lists all of the Cloud Pub/Sub topics that exist in a given project that
+          match the given topic name filter.""",
       'EXAMPLES': """\
           To filter results by topic name (ie. only show topic 'mytopic'), run:
 
@@ -41,50 +54,19 @@ class List(base.ListCommand):
           """,
   }
 
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat('yaml')
+    parser.display_info.AddUriFunc(util.TopicUriFunc)
+
   def Run(self, args):
-    """This is what gets called when the user runs this command.
-
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
-
-    Yields:
-      Topic paths that match the regular expression in args.name_filter.
-    """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
-
-    page_size = None
-    page_token = None
-
-    if args.page_size:
-      page_size = min(args.page_size, util.MAX_LIST_RESULTS)
-
-    if not args.filter and args.limit:
-      page_size = min(args.limit, page_size or util.MAX_LIST_RESULTS)
-
-    while True:
-      list_topics_request = msgs.PubsubProjectsTopicsListRequest(
-          project=util.ProjectFormat(),
-          pageToken=page_token,
-          pageSize=page_size)
-
-      list_topics_response = pubsub.projects_topics.List(
-          list_topics_request)
-
-      for topic in list_topics_response.topics:
-        yield TopicDict(topic)
-
-      page_token = list_topics_response.nextPageToken
-      if not page_token:
-        break
-      yield resource_printer_base.PageMarker()
+    return _Run(args)
 
 
-def TopicDict(topic):
-  topic_dict = resource_projector.MakeSerializable(topic)
-  topic_info = util.TopicIdentifier(topic.name)
-  topic_dict['topic'] = topic.name
-  topic_dict['topicId'] = topic_info.resource_name
-  del topic_dict['name']
-  return topic_dict
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+class ListBeta(List):
+  """Lists Cloud Pub/Sub topics within a project."""
+
+  def Run(self, args):
+    legacy_output = properties.VALUES.pubsub.legacy_output.GetBool()
+    return _Run(args, legacy_output=legacy_output)

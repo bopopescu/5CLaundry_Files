@@ -14,14 +14,17 @@
 
 """Base classes for checks."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import abc
 import collections
+import six
 
 
-class Checker(object):
+@six.add_metaclass(abc.ABCMeta)
+class Checker(object):  # pytype: disable=ignored-abstractmethod
   """Base class for a single check."""
-
-  __metaclass__ = abc.ABCMeta
 
   @abc.abstractproperty
   def issue(self):

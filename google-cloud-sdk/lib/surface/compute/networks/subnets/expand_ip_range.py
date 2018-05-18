@@ -13,12 +13,15 @@
 # limitations under the License.
 """Command for expanding IP range of a subnetwork."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as exceptions
 from googlecloudsdk.command_lib.compute.networks.subnets import flags
 from googlecloudsdk.core.console import console_io
-import ipaddr
+import ipaddress
+import six
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA,
@@ -82,8 +85,10 @@ class ExpandIpRange(base.SilentCommand):
     unmasked_new_ip_range = '{0}/{1}'.format(
         original_ip_cidr_range.split('/')[0],
         new_prefix_length)
-    network = ipaddr.IPv4Network(unmasked_new_ip_range)
-    return str(network.masked())
+    # ipaddress only allows unicode input
+    network = ipaddress.IPv4Network(six.text_type(unmasked_new_ip_range),
+                                    strict=False)
+    return str(network)
 
   def _PromptToConfirm(
       self, subnetwork_name, original_ip_cidr_range, new_ip_cidr_range):
@@ -123,8 +128,7 @@ class ExpandIpRange(base.SilentCommand):
 ExpandIpRange.detailed_help = {
     'brief': 'Expand the IP range of a Google Compute Engine subnetwork',
     'DESCRIPTION': """\
-        *{command}* is used to expand the IP range of a subnetwork in a custom
-        mode network.
+        *{command}* is used to expand the IP range of a subnetwork.
         """,
     'EXAMPLES': """\
         To expand the IP range of ``SUBNET'' to /16, run:

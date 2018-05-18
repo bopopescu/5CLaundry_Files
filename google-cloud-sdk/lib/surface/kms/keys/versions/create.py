@@ -13,13 +13,13 @@
 # limitations under the License.
 """Create a new version."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os.path
 
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.kms import flags
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
 
 
 class Create(base.CreateCommand):
@@ -50,12 +50,7 @@ class Create(base.CreateCommand):
     client = cloudkms_base.GetClientInstance()
     messages = cloudkms_base.GetMessagesModule()
 
-    crypto_key_ref = resources.REGISTRY.Create(
-        flags.CRYPTO_KEY_COLLECTION,
-        cryptoKeysId=args.MakeGetOrRaise('--key'),
-        keyRingsId=args.MakeGetOrRaise('--keyring'),
-        locationsId=args.MakeGetOrRaise('--location'),
-        projectsId=properties.VALUES.core.project.GetOrFail)
+    crypto_key_ref = flags.ParseCryptoKeyName(args)
 
     req = messages.CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateRequest(
         parent=crypto_key_ref.RelativeName())

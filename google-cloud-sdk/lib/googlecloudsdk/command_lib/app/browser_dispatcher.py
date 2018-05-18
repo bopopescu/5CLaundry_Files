@@ -14,13 +14,14 @@
 
 """Tools for opening URL:s related to the app in the browser."""
 
+from __future__ import absolute_import
+from apitools.base.py import exceptions as apitools_exceptions
 from googlecloudsdk.api_lib.app import deploy_command_util
-from googlecloudsdk.api_lib.app import exceptions as api_lib_exceptions
-from googlecloudsdk.api_lib.app.appinfo import appinfo
 from googlecloudsdk.command_lib.app import exceptions
 from googlecloudsdk.command_lib.util import check_browser
 from googlecloudsdk.core import log
 from googlecloudsdk.core.credentials import devshell
+from googlecloudsdk.third_party.appengine.api import appinfo
 
 
 def OpenURL(url):
@@ -60,7 +61,7 @@ def BrowseApp(project, service, version, launch_browser):
     url = deploy_command_util.GetAppHostname(
         app_id=project, service=service, version=version,
         use_ssl=appinfo.SECURE_HTTPS, deploy=False)
-  except api_lib_exceptions.NotFoundError:
+  except apitools_exceptions.HttpNotFoundError:
     log.debug('No app found:', exc_info=True)
     raise exceptions.MissingApplicationError(project)
   if check_browser.ShouldLaunchBrowser(launch_browser):

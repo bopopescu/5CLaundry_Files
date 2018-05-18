@@ -13,17 +13,22 @@
 # limitations under the License.
 """Update cluster command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.container import api_adapter
 from googlecloudsdk.api_lib.container import kubeconfig as kconfig
 from googlecloudsdk.api_lib.container import util
+from googlecloudsdk.calliope import actions
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.container import container_command_util
 from googlecloudsdk.command_lib.container import flags
 from googlecloudsdk.core import log
 from googlecloudsdk.core.console import console_io
+from six.moves import input  # pylint: disable=redefined-builtin
 
 
 class InvalidAddonValueError(util.Error):
@@ -36,17 +41,11 @@ class InvalidAddonValueError(util.Error):
 
 
 class InvalidPasswordError(util.Error):
-  """A class for invalid --set-password input."""
+  """A class for invalid password input."""
 
   def __init__(self, value, error):
-    message = ('invalid --set-password value "{0}"; {1}'.format(value, error))
+    message = 'invalid password value "{0}"; {1}'.format(value, error)
     super(InvalidPasswordError, self).__init__(message)
-
-
-def _ValidatePassword(val):
-  if len(val) < 16:
-    raise InvalidPasswordError(val, 'Password must be at least length 16')
-  return
 
 
 def _ParseAddonDisabled(val):
@@ -64,46 +63,86 @@ def _AddCommonArgs(parser):
   flags.AddAsyncFlag(parser)
 
 
-def _AddMutuallyExclusiveArgs(mutex_group):
+def _AddMutuallyExclusiveArgs(mutex_group, release_track):
   """Add all arguments that need to be mutually exclusive from each other."""
   mutex_group.add_argument(
       '--monitoring-service',
       help='The monitoring service to use for the cluster. Options '
       'are: "monitoring.googleapis.com" (the Google Cloud Monitoring '
       'service),  "none" (no metrics will be exported from the cluster)')
-  mutex_group.add_argument(
-      '--update-addons',
-      type=arg_parsers.ArgDict(spec={
-          api_adapter.INGRESS: _ParseAddonDisabled,
-          api_adapter.HPA: _ParseAddonDisabled,
-          api_adapter.DASHBOARD: _ParseAddonDisabled,
-      }),
-      dest='disable_addons',
-      metavar='ADDON=ENABLED|DISABLED',
-      help="""Cluster addons to enable or disable. Options are
+
+  if release_track in [base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA]:
+    mutex_group.add_argument(
+        '--update-addons',
+        type=arg_parsers.ArgDict(spec={
+            api_adapter.INGRESS: _ParseAddonDisabled,
+            api_adapter.HPA: _ParseAddonDisabled,
+            api_adapter.DASHBOARD: _ParseAddonDisabled,
+            api_adapter.NETWORK_POLICY: _ParseAddonDisabled,
+            api_adapter.ISTIO: _ParseAddonDisabled,
+        }),
+        dest='disable_addons',
+        metavar='ADDON=ENABLED|DISABLED',
+        help="""Cluster addons to enable or disable. Options are
 {hpa}=ENABLED|DISABLED
 {ingress}=ENABLED|DISABLED
-{dashboard}=ENABLED|DISABLED""".format(
+{dashboard}=ENABLED|DISABLED
+{istio}=ENABLED|DISABLED
+{network_policy}=ENABLED|DISABLED""".format(
     hpa=api_adapter.HPA,
     ingress=api_adapter.INGRESS,
-    dashboard=api_adapter.DASHBOARD))
+    dashboard=api_adapter.DASHBOARD,
+    network_policy=api_adapter.NETWORK_POLICY,
+    istio=api_adapter.ISTIO,))
+
+  else:
+    mutex_group.add_argument(
+        '--update-addons',
+        type=arg_parsers.ArgDict(spec={
+            api_adapter.INGRESS: _ParseAddonDisabled,
+            api_adapter.HPA: _ParseAddonDisabled,
+            api_adapter.DASHBOARD: _ParseAddonDisabled,
+            api_adapter.NETWORK_POLICY: _ParseAddonDisabled,
+        }),
+        dest='disable_addons',
+        metavar='ADDON=ENABLED|DISABLED',
+        help="""Cluster addons to enable or disable. Options are
+{hpa}=ENABLED|DISABLED
+{ingress}=ENABLED|DISABLED
+{dashboard}=ENABLED|DISABLED
+{network_policy}=ENABLED|DISABLED""".format(
+    hpa=api_adapter.HPA,
+    ingress=api_adapter.INGRESS,
+    dashboard=api_adapter.DASHBOARD,
+    network_policy=api_adapter.NETWORK_POLICY,))
+
   mutex_group.add_argument(
       '--generate-password',
       action='store_true',
       default=None,
       help='Ask the server to generate a secure password and use that as the '
-      'admin password.')
+      'basic auth password, keeping the existing username.')
   mutex_group.add_argument(
       '--set-password',
       action='store_true',
       default=None,
-      help='Set the admin password to the user specified value.')
+      help='Set the basic auth password to the specified value, keeping the '
+      'existing username.')
+
+  flags.AddBasicAuthFlags(mutex_group, None, None)
 
 
-def _AddAdditionalZonesArg(mutex_group):
+def _AddAdditionalZonesArg(mutex_group, deprecated=True):
+  action = None
+  if deprecated:
+    action = actions.DeprecationAction(
+        'additional-zones',
+        warn='This flag is deprecated. '
+        'Use --node-locations=PRIMARY_ZONE,[ZONE,...] instead.')
   mutex_group.add_argument(
       '--additional-zones',
       type=arg_parsers.ArgList(),
+      action=action,
       metavar='ZONE',
       help="""\
 The set of additional zones in which the cluster's node footprint should be
@@ -138,15 +177,25 @@ class Update(base.UpdateCommand):
     """
     _AddCommonArgs(parser)
     group = parser.add_mutually_exclusive_group(required=True)
-    _AddMutuallyExclusiveArgs(group)
-    flags.AddClusterAutoscalingFlags(parser, group, hidden=True)
-    flags.AddMasterAuthorizedNetworksFlags(parser, group, hidden=True)
-    flags.AddEnableLegacyAuthorizationFlag(group, hidden=True)
-    flags.AddStartIpRotationFlag(group, hidden=True)
-    flags.AddCompleteIpRotationFlag(group, hidden=True)
-    flags.AddUpdateLabelsFlag(group, suppressed=True)
-    flags.AddRemoveLabelsFlag(group, suppressed=True)
-    flags.AddNetworkPolicyFlags(group, hidden=True)
+    group_locations = group.add_mutually_exclusive_group()
+    _AddMutuallyExclusiveArgs(group, base.ReleaseTrack.GA)
+    flags.AddNodeLocationsFlag(group_locations)
+    flags.AddClusterAutoscalingFlags(parser, group)
+    flags.AddMasterAuthorizedNetworksFlags(parser,
+                                           enable_group_for_update=group)
+    flags.AddEnableLegacyAuthorizationFlag(group)
+    flags.AddStartIpRotationFlag(group)
+    flags.AddStartCredentialRotationFlag(group)
+    flags.AddCompleteIpRotationFlag(group)
+    flags.AddCompleteCredentialRotationFlag(group)
+    flags.AddUpdateLabelsFlag(group)
+    flags.AddRemoveLabelsFlag(group)
+    flags.AddNetworkPolicyFlags(group)
+    flags.AddLoggingServiceFlag(group)
+    flags.AddMaintenanceWindowFlag(group, add_unset_text=True)
+
+  def ParseUpdateOptions(self, args, locations):
+    return container_command_util.ParseUpdateOptionsBase(args, locations)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -175,16 +224,31 @@ class Update(base.UpdateCommand):
     locations = None
     if hasattr(args, 'additional_zones') and args.additional_zones is not None:
       locations = sorted([cluster_ref.zone] + args.additional_zones)
+    if hasattr(args, 'node_locations') and args.node_locations is not None:
+      locations = sorted(args.node_locations)
 
-    if args.generate_password or args.set_password:
+    if args.username is not None or args.enable_basic_auth is not None:
+      flags.MungeBasicAuthFlags(args)
+      options = api_adapter.SetMasterAuthOptions(
+          action=api_adapter.SetMasterAuthOptions.SET_USERNAME,
+          username=args.username,
+          password=args.password)
+
+      try:
+        op_ref = adapter.SetMasterAuth(cluster_ref, options)
+      except apitools_exceptions.HttpError as error:
+        raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
+    elif (args.generate_password or args.set_password or
+          args.password is not None):
       if args.generate_password:
         password = ''
         options = api_adapter.SetMasterAuthOptions(
             action=api_adapter.SetMasterAuthOptions.GENERATE_PASSWORD,
             password=password)
       else:
-        password = raw_input('Please enter the new password:')
-        _ValidatePassword(password)
+        password = args.password
+        if args.password is None:
+          password = input('Please enter the new password:')
         options = api_adapter.SetMasterAuthOptions(
             action=api_adapter.SetMasterAuthOptions.SET_PASSWORD,
             password=password)
@@ -211,30 +275,52 @@ class Update(base.UpdateCommand):
         op_ref = adapter.SetNetworkPolicy(cluster_ref, options)
       except apitools_exceptions.HttpError as error:
         raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
-    elif args.start_ip_rotation:
+    elif args.start_ip_rotation or args.start_credential_rotation:
+      if args.start_ip_rotation:
+        msg_tmpl = """This will start an IP Rotation on cluster [{name}]. The \
+master will be updated to serve on a new IP address in addition to the current \
+IP address. Kubernetes Engine will then recreate all nodes ({num_nodes} nodes) \
+to point to the new IP address. This operation is long-running and will block \
+other operations on the cluster (including delete) until it has run to \
+completion."""
+        rotate_credentials = False
+      elif args.start_credential_rotation:
+        msg_tmpl = """This will start an IP and Credentials Rotation on cluster\
+ [{name}]. The master will be updated to serve on a new IP address in addition \
+to the current IP address, and cluster credentials will be rotated. Kubernetes \
+Engine will then recreate all nodes ({num_nodes} nodes) to point to the new IP \
+address. This operation is long-running and will block other operations on the \
+cluster (including delete) until it has run to completion."""
+        rotate_credentials = True
       console_io.PromptContinue(
-          message='This will start an IP Rotation on cluster [{name}]. The '
-          'master will be updated to serve on a new IP address in addition to '
-          'the current IP address. Container Engine will then recreate all '
-          'nodes ({num_nodes} nodes) to point to the new IP address. This '
-          'operation is long-running and will block other operations on the '
-          'cluster (including delete) until it has run to completion.'.format(
+          message=msg_tmpl.format(
               name=cluster.name, num_nodes=cluster.currentNodeCount),
           cancel_on_no=True)
       try:
-        op_ref = adapter.StartIpRotation(cluster_ref)
+        op_ref = adapter.StartIpRotation(
+            cluster_ref, rotate_credentials=rotate_credentials)
       except apitools_exceptions.HttpError as error:
         raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
-    elif args.complete_ip_rotation:
+    elif args.complete_ip_rotation or args.complete_credential_rotation:
+      if args.complete_ip_rotation:
+        msg_tmpl = """This will complete the in-progress IP Rotation on \
+cluster [{name}]. The master will be updated to stop serving on the old IP \
+address and only serve on the new IP address. Make sure all API clients have \
+been updated to communicate with the new IP address (e.g. by running `gcloud \
+container clusters get-credentials --project {project} --zone {zone} {name}`). \
+This operation is long-running and will block other operations on the cluster \
+(including delete) until it has run to completion."""
+      elif args.complete_credential_rotation:
+        msg_tmpl = """This will complete the in-progress Credential Rotation on\
+ cluster [{name}]. The master will be updated to stop serving on the old IP \
+address and only serve on the new IP address. Old cluster credentials will be \
+invalidated. Make sure all API clients have been updated to communicate with \
+the new IP address (e.g. by running `gcloud container clusters get-credentials \
+--project {project} --zone {zone} {name}`). This operation is long-running and \
+will block other operations on the cluster (including delete) until it has run \
+to completion."""
       console_io.PromptContinue(
-          message='This will complete the in-progress IP Rotation on cluster '
-          '[{name}]. The master will be updated to stop serving on the old IP '
-          'address and only serve on the new IP address. Make sure all API '
-          'clients have been updated to communicate with the new IP address '
-          '(e.g. by running `gcloud container clusters get-credentials '
-          '--project {project} --zone {zone} {name}`). This operation is long-'
-          'running and will block other operations on the cluster (including '
-          'delete) until it has run to completion.'.format(
+          message=msg_tmpl.format(
               name=cluster.name,
               project=cluster_ref.projectId,
               zone=cluster.zone),
@@ -253,23 +339,23 @@ class Update(base.UpdateCommand):
         op_ref = adapter.RemoveLabels(cluster_ref, args.remove_labels)
       except apitools_exceptions.HttpError as error:
         raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
+    elif args.logging_service is not None:
+      try:
+        op_ref = adapter.SetLoggingService(cluster_ref, args.logging_service)
+      except apitools_exceptions.HttpError as error:
+        raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
+    elif args.maintenance_window is not None:
+      try:
+        op_ref = adapter.SetMaintenanceWindow(cluster_ref,
+                                              args.maintenance_window)
+      except apitools_exceptions.HttpError as error:
+        raise exceptions.HttpException(error, util.HTTP_ERROR_FORMAT)
     else:
-      enable_master_authorized_networks = args.enable_master_authorized_networks
-
       if args.enable_legacy_authorization is not None:
         op_ref = adapter.SetLegacyAuthorization(
             cluster_ref, args.enable_legacy_authorization)
       else:
-        options = api_adapter.UpdateClusterOptions(
-            monitoring_service=args.monitoring_service,
-            disable_addons=args.disable_addons,
-            enable_autoscaling=args.enable_autoscaling,
-            min_nodes=args.min_nodes,
-            max_nodes=args.max_nodes,
-            node_pool=args.node_pool,
-            locations=locations,
-            enable_master_authorized_networks=enable_master_authorized_networks,
-            master_authorized_networks=args.master_authorized_networks)
+        options = self.ParseUpdateOptions(args, locations)
         op_ref = adapter.UpdateCluster(cluster_ref, options)
 
     if not args.async:
@@ -277,13 +363,17 @@ class Update(base.UpdateCommand):
                                'Updating {0}'.format(cluster_ref.clusterId))
 
       log.UpdatedResource(cluster_ref)
+      cluster_url = util.GenerateClusterUrl(cluster_ref)
+      log.status.Print(
+          'To inspect the contents of your cluster, go to: ' + cluster_url)
 
-      if args.start_ip_rotation or args.complete_ip_rotation:
+      if (args.start_ip_rotation or args.complete_ip_rotation or
+          args.start_credential_rotation or args.complete_credential_rotation):
         cluster = adapter.GetCluster(cluster_ref)
         try:
           util.ClusterConfig.Persist(cluster, cluster_ref.projectId)
         except kconfig.MissingEnvVarError as error:
-          log.warning(error.message)
+          log.warning(error)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA)
@@ -294,16 +384,29 @@ class UpdateBeta(Update):
   def Args(parser):
     _AddCommonArgs(parser)
     group = parser.add_mutually_exclusive_group(required=True)
-    _AddMutuallyExclusiveArgs(group)
-    flags.AddClusterAutoscalingFlags(parser, group, hidden=True)
-    _AddAdditionalZonesArg(group)
-    flags.AddMasterAuthorizedNetworksFlags(parser, group)
+    _AddMutuallyExclusiveArgs(group, base.ReleaseTrack.BETA)
+    flags.AddClusterAutoscalingFlags(parser, group)
+    group_locations = group.add_mutually_exclusive_group()
+    _AddAdditionalZonesArg(group_locations, deprecated=True)
+    flags.AddNodeLocationsFlag(group_locations)
+    flags.AddMasterAuthorizedNetworksFlags(parser,
+                                           enable_group_for_update=group)
     flags.AddEnableLegacyAuthorizationFlag(group)
     flags.AddStartIpRotationFlag(group)
+    flags.AddStartCredentialRotationFlag(group)
     flags.AddCompleteIpRotationFlag(group)
+    flags.AddCompleteCredentialRotationFlag(group)
     flags.AddUpdateLabelsFlag(group)
     flags.AddRemoveLabelsFlag(group)
-    flags.AddNetworkPolicyFlags(group, hidden=True)
+    flags.AddNetworkPolicyFlags(group)
+    flags.AddLoggingServiceFlag(group)
+    flags.AddMaintenanceWindowFlag(group, add_unset_text=True)
+    flags.AddPodSecurityPolicyFlag(group)
+
+  def ParseUpdateOptions(self, args, locations):
+    opts = container_command_util.ParseUpdateOptionsBase(args, locations)
+    opts.enable_pod_security_policy = args.enable_pod_security_policy
+    return opts
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
@@ -314,13 +417,39 @@ class UpdateAlpha(Update):
   def Args(parser):
     _AddCommonArgs(parser)
     group = parser.add_mutually_exclusive_group(required=True)
-    _AddMutuallyExclusiveArgs(group)
+    _AddMutuallyExclusiveArgs(group, base.ReleaseTrack.ALPHA)
     flags.AddClusterAutoscalingFlags(parser, group)
-    _AddAdditionalZonesArg(group)
-    flags.AddMasterAuthorizedNetworksFlags(parser, group)
+    group_locations = group.add_mutually_exclusive_group()
+    _AddAdditionalZonesArg(group_locations, deprecated=True)
+    flags.AddNodeLocationsFlag(group_locations)
+    flags.AddMasterAuthorizedNetworksFlags(parser,
+                                           enable_group_for_update=group)
     flags.AddEnableLegacyAuthorizationFlag(group)
     flags.AddStartIpRotationFlag(group)
+    flags.AddStartCredentialRotationFlag(group)
     flags.AddCompleteIpRotationFlag(group)
+    flags.AddCompleteCredentialRotationFlag(group)
     flags.AddUpdateLabelsFlag(group)
     flags.AddRemoveLabelsFlag(group)
-    flags.AddNetworkPolicyFlags(group, hidden=False)
+    flags.AddNetworkPolicyFlags(group)
+    flags.AddLoggingServiceFlag(group)
+    flags.AddAutoprovisioningFlags(group, hidden=False)
+    flags.AddMaintenanceWindowFlag(group, add_unset_text=True)
+    flags.AddPodSecurityPolicyFlag(group)
+    flags.AddEnableBinAuthzFlag(group, hidden=True)
+    flags.AddIstioConfigFlag(parser)
+
+  def ParseUpdateOptions(self, args, locations):
+    opts = container_command_util.ParseUpdateOptionsBase(args, locations)
+    opts.enable_autoprovisioning = args.enable_autoprovisioning
+    opts.min_cpu = args.min_cpu
+    opts.max_cpu = args.max_cpu
+    opts.min_memory = args.min_memory
+    opts.max_memory = args.max_memory
+    opts.min_accelerator = args.min_accelerator
+    opts.max_accelerator = args.max_accelerator
+    opts.enable_pod_security_policy = args.enable_pod_security_policy
+    opts.enable_binauthz = args.enable_binauthz
+    opts.istio_config = args.istio_config
+    flags.ValidateIstioConfigUpdateArgs(args.istio_config, args.disable_addons)
+    return opts

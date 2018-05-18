@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command to update labels for addresses."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute.operations import poller
 from googlecloudsdk.api_lib.util import waiter
@@ -20,7 +22,7 @@ from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 from googlecloudsdk.command_lib.compute.addresses import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
@@ -63,9 +65,8 @@ class Update(base.UpdateCommand):
         holder.resources,
         scope_lister=compute_flags.GetDefaultScopeLister(holder.client))
 
-    update_labels = labels_util.GetUpdateLabelsDictFromArgs(args)
-    remove_labels = labels_util.GetRemoveLabelsListFromArgs(args)
-    if update_labels is None and remove_labels is None:
+    labels_diff = labels_util.Diff.FromUpdateArgs(args)
+    if not labels_diff.MayHaveUpdates():
       raise calliope_exceptions.RequiredArgumentException(
           'LABELS', 'At least one of --update-labels or '
           '--remove-labels must be specified.')
@@ -81,13 +82,9 @@ class Update(base.UpdateCommand):
               **address_ref.AsDict()))
       labels_value = messages.RegionSetLabelsRequest.LabelsValue
 
-    replacement = labels_util.UpdateLabels(
-        address.labels,
-        labels_value,
-        update_labels=update_labels,
-        remove_labels=remove_labels)
+    labels_update = labels_diff.Apply(labels_value, address.labels)
 
-    if not replacement:
+    if not labels_update.needs_update:
       return address
 
     if address_ref.Collection() == 'compute.globalAddresses':
@@ -96,7 +93,7 @@ class Update(base.UpdateCommand):
           resource=address_ref.Name(),
           globalSetLabelsRequest=messages.GlobalSetLabelsRequest(
               labelFingerprint=address.labelFingerprint,
-              labels=replacement))
+              labels=labels_update.labels))
 
       operation = client.globalAddresses.SetLabels(request)
       operation_ref = holder.resources.Parse(
@@ -110,7 +107,7 @@ class Update(base.UpdateCommand):
           region=address_ref.region,
           regionSetLabelsRequest=messages.RegionSetLabelsRequest(
               labelFingerprint=address.labelFingerprint,
-              labels=replacement))
+              labels=labels_update.labels))
 
       operation = client.addresses.SetLabels(request)
       operation_ref = holder.resources.Parse(

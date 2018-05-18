@@ -16,24 +16,19 @@
    There are separate alpha, beta, and GA command classes in this file.
 """
 
-from googlecloudsdk.api_lib.compute import backend_services_utils
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.compute import flags as compute_flags
+from googlecloudsdk.command_lib.compute import signed_url_flags
+from googlecloudsdk.command_lib.compute.backend_services import backend_services_utils
 from googlecloudsdk.command_lib.compute.backend_services import flags
 from googlecloudsdk.core import log
 
 
-def _ResolvePort(args):
-  if args.port:
-    return args.port
-  if args.protocol in ['HTTPS', 'SSL']:
-    return 443
-  # Default to port 80, which is used for HTTP and TCP.
-  return 80
-
-
+# TODO(b/73642225): Determine whether 'https' should be default
 def _ResolvePortName(args):
   """Determine port name if one was not specified."""
   if args.port_name:
@@ -41,6 +36,8 @@ def _ResolvePortName(args):
 
   if args.protocol == 'HTTPS':
     return 'https'
+  if args.protocol == 'HTTP2':
+    return 'http2'
   if args.protocol == 'SSL':
     return 'ssl'
   if args.protocol == 'TCP':
@@ -49,6 +46,7 @@ def _ResolvePortName(args):
   return 'http'
 
 
+# TODO(b/73642225): Determine whether 'HTTPS' should be default
 def _ResolveProtocol(messages, args, default='HTTP'):
   return messages.BackendService.ProtocolValueValuesEnum(
       args.protocol or default)
@@ -117,6 +115,7 @@ class CreateGA(base.CreateCommand):
     flags.AddCacheKeyIncludeQueryString(parser, default=True)
     flags.AddCacheKeyQueryStringList(parser)
     AddIapFlag(parser)
+    parser.display_info.AddCacheUpdater(flags.BackendServicesCompleter)
 
   def _CreateBackendService(self, holder, args, backend_services_ref):
     health_checks = flags.GetHealthCheckUris(args, self, holder.resources)
@@ -129,7 +128,6 @@ class CreateGA(base.CreateCommand):
         description=args.description,
         name=backend_services_ref.Name(),
         healthChecks=health_checks,
-        port=_ResolvePort(args),
         portName=_ResolvePortName(args),
         protocol=_ResolveProtocol(holder.client.messages, args),
         timeoutSec=args.timeout,
@@ -261,7 +259,10 @@ class CreateAlpha(CreateGA):
         parser, cust_metavar='HTTPS_HEALTH_CHECK')
     flags.AddTimeout(parser)
     flags.AddPortName(parser)
-    flags.AddProtocol(parser, default=None)
+    flags.AddProtocol(
+        parser,
+        default=None,
+        choices=['HTTP', 'HTTPS', 'HTTP2', 'SSL', 'TCP', 'UDP'])
     flags.AddEnableCdn(parser, default=False)
     flags.AddCacheKeyIncludeProtocol(parser, default=True)
     flags.AddCacheKeyIncludeHost(parser, default=True)
@@ -271,12 +272,23 @@ class CreateAlpha(CreateGA):
     flags.AddAffinityCookieTtl(parser)
     flags.AddConnectionDrainingTimeout(parser)
     flags.AddLoadBalancingScheme(parser)
+    flags.AddCustomRequestHeaders(parser, remove_all_flag=False, default=False)
+    signed_url_flags.AddSignedUrlCacheMaxAge(parser, required=False)
+    flags.AddConnectionDrainOnFailover(parser, default=None)
+    flags.AddDropTrafficIfUnhealthy(parser, default=None)
+    flags.AddFailoverRatio(parser)
     AddIapFlag(parser)
+    parser.display_info.AddCacheUpdater(flags.BackendServicesCompleter)
 
   def CreateGlobalRequests(self, holder, args, backend_services_ref):
     if args.load_balancing_scheme == 'INTERNAL':
       raise exceptions.ToolException(
           'Must specify --region for internal load balancer.')
+    if (args.connection_drain_on_failover is not None or
+        args.drop_traffic_if_unhealthy is not None or args.failover_ratio):
+      raise exceptions.InvalidArgumentException(
+          '--global',
+          'cannot specify failover policies for global backend services.')
     backend_service = self._CreateBackendService(holder, args,
                                                  backend_services_ref)
 
@@ -289,7 +301,11 @@ class CreateAlpha(CreateGA):
       backend_service.enableCDN = args.enable_cdn
 
     backend_services_utils.ApplyCdnPolicyArgs(
-        client, args, backend_service, is_update=False)
+        client,
+        args,
+        backend_service,
+        is_update=False,
+        apply_signed_url_cache_max_age=True)
 
     if args.session_affinity is not None:
       backend_service.sessionAffinity = (
@@ -297,6 +313,8 @@ class CreateAlpha(CreateGA):
               args.session_affinity))
     if args.affinity_cookie_ttl is not None:
       backend_service.affinityCookieTtlSec = args.affinity_cookie_ttl
+    if args.custom_request_header is not None:
+      backend_service.customRequestHeaders = args.custom_request_header
 
     self._ApplyIapArgs(client.messages, args.iap, backend_service)
 
@@ -321,6 +339,10 @@ class CreateAlpha(CreateGA):
     if args.connection_draining_timeout is not None:
       backend_service.connectionDraining = client.messages.ConnectionDraining(
           drainingTimeoutSec=args.connection_draining_timeout)
+    if args.custom_request_header is not None:
+      backend_service.customRequestHeaders = args.custom_request_header
+    backend_services_utils.ApplyFailoverPolicyArgs(client.messages, args,
+                                                   backend_service)
 
     request = client.messages.ComputeRegionBackendServicesInsertRequest(
         backendService=backend_service,
@@ -390,10 +412,12 @@ class CreateBeta(CreateGA):
     flags.AddAffinityCookieTtl(parser)
     flags.AddConnectionDrainingTimeout(parser)
     flags.AddLoadBalancingScheme(parser)
+    flags.AddCustomRequestHeaders(parser, remove_all_flag=False)
     flags.AddCacheKeyIncludeProtocol(parser, default=True)
     flags.AddCacheKeyIncludeHost(parser, default=True)
     flags.AddCacheKeyIncludeQueryString(parser, default=True)
     flags.AddCacheKeyQueryStringList(parser)
+    signed_url_flags.AddSignedUrlCacheMaxAge(parser, required=False)
     AddIapFlag(parser)
 
   def CreateGlobalRequests(self, holder, args, backend_services_ref):
@@ -414,9 +438,15 @@ class CreateBeta(CreateGA):
               args.session_affinity))
     if args.session_affinity is not None:
       backend_service.affinityCookieTtlSec = args.affinity_cookie_ttl
+    if args.IsSpecified('custom_request_header'):
+      backend_service.customRequestHeaders = args.custom_request_header
 
     backend_services_utils.ApplyCdnPolicyArgs(
-        client, args, backend_service, is_update=False)
+        client,
+        args,
+        backend_service,
+        is_update=False,
+        apply_signed_url_cache_max_age=True)
 
     self._ApplyIapArgs(client.messages, args.iap, backend_service)
 
@@ -434,6 +464,8 @@ class CreateBeta(CreateGA):
     if args.connection_draining_timeout is not None:
       backend_service.connectionDraining = client.messages.ConnectionDraining(
           drainingTimeoutSec=args.connection_draining_timeout)
+    if args.IsSpecified('custom_request_header'):
+      backend_service.customRequestHeaders = args.custom_request_header
 
     request = client.messages.ComputeRegionBackendServicesInsertRequest(
         backendService=backend_service,

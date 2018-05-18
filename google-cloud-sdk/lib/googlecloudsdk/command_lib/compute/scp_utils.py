@@ -14,10 +14,13 @@
 
 """Base class for commands copying files from and to virtual machines."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import sys
 from argcomplete.completers import FilesCompleter
 
 from googlecloudsdk.calliope import actions
+from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute import scope as compute_scope
 from googlecloudsdk.command_lib.compute import ssh_utils
@@ -61,26 +64,24 @@ class BaseScpHelper(ssh_utils.BaseSSHCLIHelper):
 
   def RunScp(self,
              compute_holder,
-             cua_holder,
              args,
              port=None,
              recursive=False,
              compress=False,
              extra_flags=None,
-             use_account_service=False):
+             release_track=None):
     """SCP files between local and remote GCE instance.
 
     Run this method from subclasses' Run methods.
 
     Args:
       compute_holder: The ComputeApiHolder.
-      cua_holder: The ComputeUserAccountsApiHolder.
       args: argparse.Namespace, the args the command was invoked with.
       port: str, int or None, Port number to use for SSH connection.
       recursive: bool, Whether to use recursive copying using -R flag.
       compress: bool, Whether to use compression.
       extra_flags: [str] or None, extra flags to add to command invocation.
-      use_account_service: bool, Whether to use Cloud User Accounts API
+      release_track: obj, The current release track.
 
     Raises:
       ssh_utils.NetworkError: Network issue which likely is due to failure
@@ -88,6 +89,8 @@ class BaseScpHelper(ssh_utils.BaseSSHCLIHelper):
       ssh.CommandError: The SSH command exited with SSH exit code, which
         usually implies that a connection problem occurred.
     """
+    if release_track is None:
+      release_track = base.ReleaseTrack.GA
     super(BaseScpHelper, self).Run(args)
 
     dst = ssh.FileReference.FromPath(args.destination)
@@ -115,6 +118,11 @@ class BaseScpHelper(ssh_utils.BaseSSHCLIHelper):
     remote.host = ssh_utils.GetExternalIPAddress(instance)
     if not remote.user:
       remote.user = ssh.GetDefaultSshUsername(warn_on_account_user=True)
+    if args.plain:
+      use_oslogin = False
+    else:
+      remote.user, use_oslogin = self.CheckForOsloginAndGetUser(
+          instance, project, remote.user, release_track)
 
     identity_file = None
     options = None
@@ -132,16 +140,14 @@ class BaseScpHelper(ssh_utils.BaseSSHCLIHelper):
       log.out.Print(' '.join(cmd.Build(self.env)))
       return
 
-    if args.plain:
+    if args.plain or use_oslogin:
       keys_newly_added = False
     else:
       keys_newly_added = self.EnsureSSHKeyExists(
           compute_holder.client,
-          cua_holder.client,
           remote.user,
           instance,
-          project,
-          use_account_service=use_account_service)
+          project)
 
     if keys_newly_added:
       poller = ssh.SSHPoller(

@@ -21,7 +21,7 @@ from googlecloudsdk.command_lib.compute import flags
 from googlecloudsdk.command_lib.compute import labels_doc_helper
 from googlecloudsdk.command_lib.compute import labels_flags
 from googlecloudsdk.command_lib.compute.images import flags as images_flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 @base.ReleaseTracks(
@@ -50,12 +50,10 @@ class ImagesAddLabels(base.UpdateCommand):
     image = client.images.Get(
         messages.ComputeImagesGetRequest(**image_ref.AsDict()))
 
-    replacement = labels_util.UpdateLabels(
-        image.labels,
-        messages.GlobalSetLabelsRequest.LabelsValue,
-        update_labels=add_labels)
+    labels_update = labels_util.Diff(additions=add_labels).Apply(
+        messages.GlobalSetLabelsRequest.LabelsValue, image.labels)
 
-    if not replacement:
+    if not labels_update.needs_update:
       return image
 
     request = messages.ComputeImagesSetLabelsRequest(
@@ -64,7 +62,7 @@ class ImagesAddLabels(base.UpdateCommand):
         globalSetLabelsRequest=
         messages.GlobalSetLabelsRequest(
             labelFingerprint=image.labelFingerprint,
-            labels=replacement))
+            labels=labels_update.labels))
 
     operation = client.images.SetLabels(request)
     operation_ref = holder.resources.Parse(

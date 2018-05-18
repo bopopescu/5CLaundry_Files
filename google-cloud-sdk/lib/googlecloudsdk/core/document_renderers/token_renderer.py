@@ -40,7 +40,7 @@ Cloud SDK.
 
 Usage:
 
-  import StringIO
+  from six.moves import StringIO
 
   from googlecloudsdk.core.document_renderers import token_renderer
   from googlecloudsdk.core.document_renderers import render_document
@@ -48,14 +48,19 @@ Usage:
   markdown = <markdown document string>
   tokens = render_document.MarkdownRenderer(
       token_renderer.TokenRenderer(width=W, height=H),
-      StringIO.StringIO(markdown)).Run()
+      StringIO(markdown)).Run()
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import re
 
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.document_renderers import renderer
+
 from prompt_toolkit.token import Token
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class TokenRenderer(renderer.Renderer):
@@ -294,7 +299,7 @@ class TokenRenderer(renderer.Renderer):
         if self._level >= len(self._indent):
           self._indent.append(self.Indent())
         self._indent[self._level].indent = (
-            self._indent[prev_level].indent + indent)
+            self._indent[prev_level].indent + indent)  # pytype: disable=wrong-arg-types
         if (self._level > 1 and
             self._indent[prev_level].hanging_indent ==
             self._indent[prev_level].indent):

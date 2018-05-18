@@ -13,7 +13,12 @@
 # limitations under the License.
 """Command util functions for gcloud container commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from googlecloudsdk.api_lib.container import api_adapter
+from googlecloudsdk.api_lib.container import util
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
+from googlecloudsdk.command_lib.container import constants
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.util import text
@@ -38,7 +43,7 @@ def _NodePoolFromCluster(cluster, node_pool_name):
 
 
 def ClusterUpgradeMessage(cluster, master=False, node_pool=None,
-                          new_version=None):
+                          new_version=None, concurrent_node_count=None):
   """Get a message to print during gcloud container clusters upgrade.
 
   Args:
@@ -47,6 +52,7 @@ def ClusterUpgradeMessage(cluster, master=False, node_pool=None,
     node_pool: str, the name of the node pool if the upgrade is for a specific
         node pool.
     new_version: str, the name of the new version, if given.
+    concurrent_node_count: int, the number of nodes to upgrade concurrently.
 
   Raises:
     NodePoolError: if the node pool name can't be found in the cluster.
@@ -71,11 +77,16 @@ def ClusterUpgradeMessage(cluster, master=False, node_pool=None,
         cluster.currentNodeCount,
         text.Pluralize(cluster.currentNodeCount, 'node'))
     current_version = cluster.currentNodeVersion
-  return ('{} of cluster [{}] will be upgraded from version [{}] to {}. '
+  concurrent_message = ''
+  if not master and concurrent_node_count:
+    concurrent_message = '{} {} will be upgraded at a time. '.format(
+        concurrent_node_count,
+        text.Pluralize(concurrent_node_count, 'node'))
+  return ('{} of cluster [{}] will be upgraded from version [{}] to {}. {}'
           'This operation is long-running and will block other operations '
           'on the cluster (including delete) until it has run to completion.'
           .format(node_message, cluster.name, current_version,
-                  new_version_message))
+                  new_version_message, concurrent_message))
 
 
 def GetZone(args, ignore_property=False, required=True):
@@ -142,3 +153,57 @@ def GetZoneOrRegion(args, ignore_property=False, required=True):
         ['--zone', '--region'], 'Please specify location.')
 
   return location
+
+
+def ParseUpdateOptionsBase(args, locations):
+  """Helper function to build ClusterUpdateOptions object from args.
+
+  Args:
+    args: an argparse namespace. All the arguments that were provided to this
+        command invocation.
+    locations: list of strings. Zones in which cluster has nodes.
+
+  Returns:
+    ClusterUpdateOptions, object with data used to update cluster.
+  """
+  return api_adapter.UpdateClusterOptions(
+      monitoring_service=args.monitoring_service,
+      disable_addons=args.disable_addons,
+      enable_autoscaling=args.enable_autoscaling,
+      min_nodes=args.min_nodes,
+      max_nodes=args.max_nodes,
+      node_pool=args.node_pool,
+      locations=locations,
+      enable_master_authorized_networks=args.enable_master_authorized_networks,
+      master_authorized_networks=args.master_authorized_networks)
+
+
+def GetUseV1APIProperty():
+  """Returns whether v1 API should be used."""
+
+  new_set = properties.VALUES.container.use_v1_api.IsExplicitlySet()
+  if new_set:
+    new_val = properties.VALUES.container.use_v1_api.GetBool()
+
+  old_set = properties.VALUES.container.use_v1_api_client.IsExplicitlySet()
+  if old_set:
+    old_val = properties.VALUES.container.use_v1_api_client.GetBool()
+
+  # use_v1_api is set but use_v1_api_client is not set
+  if new_set and not old_set:
+    return new_val
+  # use_v1_api is not set but use_v1_api_client is set
+  elif not new_set and old_set:
+    return old_val
+  # both use_v1_api and use_v1_api_client are not set
+  elif not new_set and not old_set:
+    # default behavior is using non-v1 api
+    return False
+  # both use_v1_api and use_v1_api_client are set
+  else:
+    # if the values of use_v1_api and use_v1_api match, return either one
+    if new_val == old_val:
+      return new_val
+    else:
+      raise util.Error(
+          constants.CANNOT_SET_BOTH_USE_V1_API_PROPERTIES_WITH_DIFF_VALUES)

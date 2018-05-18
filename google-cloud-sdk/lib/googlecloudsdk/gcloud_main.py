@@ -16,6 +16,9 @@
 
 """gcloud command line tool."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import time
 START_TIME = time.time()
 
@@ -28,6 +31,7 @@ import sys
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import cli
 from googlecloudsdk.command_lib import crash_handling
+from googlecloudsdk.command_lib.util.apis import yaml_command_translator
 from googlecloudsdk.core import config
 from googlecloudsdk.core import log
 from googlecloudsdk.core import metrics
@@ -44,12 +48,6 @@ import surface
 keyboard_interrupt.InstallHandler()
 
 
-def _DoStartupChecks():
-  if not platforms.PythonVersion().IsCompatible():
-    sys.exit(1)
-
-_DoStartupChecks()
-
 if not config.Paths().sdk_root:
   # Don't do update checks if there is no install root.
   properties.VALUES.component_manager.disable_update_check.Set(True)
@@ -64,13 +62,14 @@ def UpdateCheck(command_path, **unused_kwargs):
     log.debug('Failed to perform update check.', exc_info=True)
 
 
-def CreateCLI(surfaces):
+def CreateCLI(surfaces, translator=None):
   """Generates the gcloud CLI from 'surface' folder with extra surfaces.
 
   Args:
     surfaces: list(tuple(dot_path, dir_path)), extra commands or subsurfaces
               to add, where dot_path is calliope command path and dir_path
               path to command group or command.
+    translator: yaml_command_translator.Translator, an alternative translator.
   Returns:
     calliope cli object.
   """
@@ -86,7 +85,10 @@ def CreateCLI(surfaces):
       command_root_directory=os.path.join(pkg_root, 'surface'),
       allow_non_existing_modules=True,
       version_func=VersionFunc,
-      known_error_handler=HandleKnownErrorFunc)
+      known_error_handler=HandleKnownErrorFunc,
+      yaml_command_translator=(translator or
+                               yaml_command_translator.Translator()),
+  )
   loader.AddReleaseTrack(base.ReleaseTrack.ALPHA,
                          os.path.join(pkg_root, 'surface', 'alpha'),
                          component='alpha')
@@ -97,6 +99,15 @@ def CreateCLI(surfaces):
   for dot_path, dir_path in surfaces:
     loader.AddModule(dot_path, dir_path, component=None)
 
+  # TODO(b/63771276): Remove cloned xpn commands and PreRunHook after a
+  # suitable deprecation period.
+  # Clone 'compute shared-vpc' surface into 'compute xpn' for backward
+  # compatibility.
+  loader.AddModule('compute.xpn',
+                   os.path.join(pkg_root, 'surface', 'compute', 'shared_vpc'))
+  loader.RegisterPreRunHook(
+      _IssueTestWarning, include_commands=r'gcloud\.compute\.xpn\..*')
+
   # Check for updates on shutdown but not for any of the updater commands.
   loader.RegisterPostRunHook(UpdateCheck,
                              exclude_commands=r'gcloud\.components\..*')
@@ -104,7 +115,17 @@ def CreateCLI(surfaces):
   return generated_cli
 
 
+def _IssueTestWarning(command_path=None):
+  del command_path  # Unused in _IssueTestWarning
+  log.warning(
+      'The `gcloud compute xpn` commands have been renamed and will soon be '
+      'removed. Please use `gcloud compute shared-vpc` instead.')
+
+
 def main(gcloud_cli=None, credential_providers=None):
+  if not platforms.PythonVersion().IsCompatible(
+      allow_py3=properties.VALUES.core.allow_py3.GetBool()):
+    sys.exit(1)
   metrics.Started(START_TIME)
   # TODO(b/36049857): Put a real version number here
   metrics.Executions(

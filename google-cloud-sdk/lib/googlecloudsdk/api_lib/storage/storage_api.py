@@ -19,7 +19,9 @@ tool. We use the command-line tool for syncing the contents of buckets as well
 as listing the contents. We use the API for checking ACLs.
 """
 
-import cStringIO
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from io import BytesIO
 import mimetypes
 import os
 
@@ -28,7 +30,9 @@ from apitools.base.py import list_pager
 from apitools.base.py import transfer
 
 from googlecloudsdk.api_lib.storage import storage_util
+from googlecloudsdk.api_lib.util import exceptions as http_exc
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.core import exceptions as core_exc
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 
@@ -42,7 +46,7 @@ GCS_URL_PATTERN = (
     'https://www.googleapis.com/storage/v1/b/{bucket}/o/{obj}?alt=media')
 
 
-class Error(Exception):
+class Error(core_exc.Error):
   """Base exception for storage API module."""
 
 
@@ -161,8 +165,9 @@ class StorageClient(object):
       response = self.client.objects.Insert(insert_req, upload=upload)
     except api_exceptions.HttpError as err:
       raise exceptions.BadFileException(
-          'Could not copy [{local_file}] to [{gcs}]: {err}. Please retry.'
-          .format(local_file=local_path, gcs=target_path, err=err))
+          'Could not copy [{local_file}] to [{gcs}]. Please retry: {err}'
+          .format(local_file=local_path, gcs=target_path,
+                  err=http_exc.HttpException(err)))
 
     if response.size != file_size:
       log.debug('Response size: {0} bytes, but local file is {1} bytes.'.format(
@@ -201,8 +206,9 @@ class StorageClient(object):
       response = self.client.objects.Get(get_req)
     except api_exceptions.HttpError as err:
       raise exceptions.BadFileException(
-          'Could not copy [{gcs}] to [{local_file}]: {err}. Please retry.'
-          .format(local_file=local_path, gcs=object_path, err=err))
+          'Could not copy [{gcs}] to [{local_file}]. Please retry: {err}'
+          .format(local_file=local_path, gcs=object_path,
+                  err=http_exc.HttpException(err)))
 
     file_size = _GetFileSize(local_path)
     if response.size != file_size:
@@ -224,7 +230,7 @@ class StorageClient(object):
     Returns:
       file-like object containing the data read.
     """
-    data = cStringIO.StringIO()
+    data = BytesIO()
     download = transfer.Download.FromStream(data)
     get_req = self.messages.StorageObjectsGetRequest(
         bucket=object_ref.bucket,
@@ -235,8 +241,8 @@ class StorageClient(object):
       self.client.objects.Get(get_req, download=download)
     except api_exceptions.HttpError as err:
       raise exceptions.BadFileException(
-          'Could not read [{object_}]: {err}. Please retry.'.format(
-              object_=object_ref, err=err))
+          'Could not read [{object_}]. Please retry: {err}'.format(
+              object_=object_ref, err=http_exc.HttpException(err)))
 
     data.seek(0)
     return data
@@ -263,10 +269,8 @@ class StorageClient(object):
               bucket=self.messages.Bucket(
                   name=bucket,
               )))
-    except api_exceptions.HttpError as e:
+    except api_exceptions.HttpConflictError:
       # It's ok if the error was 409, which means the resource already exists.
-      if e.status_code != 409:
-        raise
       # Make sure we have access to the bucket.  Storage returns a 409 whether
       # the already-existing bucket is owned by you or by someone else, so we
       # do a quick test to figure out which it was.
@@ -274,24 +278,25 @@ class StorageClient(object):
           bucket=bucket,
       ))
 
-  def ListBucket(self, bucket_ref):
+  def ListBucket(self, bucket_ref, prefix=None):
     """Lists the contents of a cloud storage bucket.
 
     Args:
       bucket_ref: The reference to the bucket.
-    Returns:
-      A set of names of items.
+      prefix: str, Filter results to those whose names begin with this prefix.
+    Yields:
+      Object messages.
     """
-    request = self.messages.StorageObjectsListRequest(bucket=bucket_ref.bucket)
-    items = set()
+    request = self.messages.StorageObjectsListRequest(
+        bucket=bucket_ref.bucket, prefix=prefix)
     try:
       # batch_size=None gives us the API default
-      for item in list_pager.YieldFromList(self.client.objects, request,
-                                           batch_size=None):
-        items.add(item.name)
+      for obj in list_pager.YieldFromList(self.client.objects,
+                                          request, batch_size=None):
+        yield obj
     except api_exceptions.HttpError as e:
-      raise UploadError('Error uploading files: {e}'.format(e=e))
-    return items
+      raise UploadError('Error uploading files: {e}'.format(
+          e=http_exc.HttpException(e)))
 
   def DeleteObject(self, bucket_ref, object_path):
     """Delete the specified object.
@@ -331,10 +336,10 @@ def Rsync(source_dir, dest_dir, exclude_pattern=None):
   # -c Causes gsutil to compute checksums when comparing files.
   # -R recursively copy all files
   # -x Ignore files using the specified pattern.
-  command_arg_str = '-R -c '
+  command_args = ['-R', '-c']
   if exclude_pattern:
-    command_arg_str += '-x \'{0}\' '.format(exclude_pattern)
+    command_args += ['-x', exclude_pattern]
 
-  command_arg_str += ' '.join([source_dir, dest_dir])
-  return storage_util.RunGsutilCommand('rsync', command_arg_str,
+  command_args += [source_dir, dest_dir]
+  return storage_util.RunGsutilCommand('rsync', command_args,
                                        run_concurrent=True)

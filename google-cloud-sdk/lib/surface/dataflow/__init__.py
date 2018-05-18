@@ -23,10 +23,8 @@ for this command tree.  You can implement methods in this class to override some
 of the default behavior.
 """
 
-import argparse
-
-from googlecloudsdk.api_lib.util import apis
-from googlecloudsdk.calliope import actions
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import log
 
@@ -53,12 +51,17 @@ class Dataflow(base.Group):
   here: https://cloud.google.com/dataflow/docs/
   """
 
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()
+
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
 class DataflowDeprecated(base.Group):
-  """Read and manipulate Google Dataflow resources.
-  """
+  """Read and manipulate Google Dataflow resources."""
 
-  def __init__(self):
-    log.warn('The Dataflow Alpha CLI is now deprecated and will soon be '
-             'removed. Please use the new `gcloud beta dataflow` commands.')
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()
+    log.warning('The Dataflow Alpha CLI is now deprecated and will soon be '
+                'removed. Please use the new `gcloud beta dataflow` commands.')

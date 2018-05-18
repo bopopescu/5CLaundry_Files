@@ -11,68 +11,87 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub subscription pull command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
+from googlecloudsdk.api_lib.pubsub import subscriptions
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.pubsub import util
+from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.pubsub import flags
+from googlecloudsdk.command_lib.pubsub import resource_args
 
 
+MESSAGE_FORMAT = """\
+table[box](
+  message.data.decode(base64).decode(utf-8),
+  message.messageId,
+  message.attributes.list(separator='\n'),
+  ackId.if(NOT auto_ack)
+)
+"""
+
+
+def _Run(args, max_messages, return_immediately=True):
+  """Pulls messages from a subscription."""
+  client = subscriptions.SubscriptionsClient()
+
+  subscription_ref = args.CONCEPTS.subscription.Parse()
+  pull_response = client.Pull(subscription_ref, max_messages,
+                              return_immediately)
+
+  if args.auto_ack and pull_response.receivedMessages:
+    ack_ids = [message.ackId for message in pull_response.receivedMessages]
+    client.Ack(ack_ids, subscription_ref)
+
+  return pull_response.receivedMessages
+
+
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class Pull(base.ListCommand):
-  """Pulls one or more Cloud Pub/Sub messages from a subscription.
+  """Pulls one or more Cloud Pub/Sub messages from a subscription."""
 
-  Returns one or more messages from the specified Cloud Pub/Sub subscription,
-  if there are any messages enqueued.
-  """
+  detailed_help = {
+      'DESCRIPTION': """\
+          Returns one or more messages from the specified Cloud Pub/Sub
+          subscription, if there are any messages enqueued.
+
+          By default, this command returns only one message from the
+          subscription. Use the `--limit` flag to specify the max messages to
+          return."""
+  }
 
   @staticmethod
   def Args(parser):
-    """Registers flags for this command."""
+    parser.display_info.AddFormat(MESSAGE_FORMAT)
+    resource_args.AddSubscriptionResourceArg(parser, 'to pull messages from.')
+    flags.AddPullFlags(parser)
 
-    parser.add_argument('subscription',
-                        help='Name of subscription to pull messages from.')
-    parser.add_argument(
-        '--max-messages', type=int, default=1,
-        help=('The maximum number of messages that Cloud Pub/Sub can return'
-              ' in this response.'))
-    parser.add_argument(
-        '--auto-ack', action='store_true', default=False,
-        help=('Automatically ACK every message pulled from this subscription.'))
-    parser.display_info.AddFormat("""
-          table[box](
-            message.data.decode(base64),
-            message.messageId,
-            message.attributes.list(separator=' '),
-            ackId.if(NOT auto_ack)
-          )
-        """)
+    base.LIMIT_FLAG.SetDefault(parser, 1)
 
   def Run(self, args):
-    """This is what gets called when the user runs this command.
+    return _Run(args, args.limit)
 
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
 
-    Returns:
-      A PullResponse message with the response of the Pull operation.
-    """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+class PullBeta(Pull):
+  """Pulls one or more Cloud Pub/Sub messages from a subscription."""
 
-    subscription = util.SubscriptionFormat(args.subscription)
-    pull_req = msgs.PubsubProjectsSubscriptionsPullRequest(
-        pullRequest=msgs.PullRequest(
-            maxMessages=args.max_messages, returnImmediately=True),
-        subscription=subscription)
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat(MESSAGE_FORMAT)
+    resource_args.AddSubscriptionResourceArg(parser, 'to pull messages from.')
+    flags.AddPullFlags(parser, add_deprecated=True, add_wait=True)
 
-    pull_response = pubsub.projects_subscriptions.Pull(pull_req)
-
-    if args.auto_ack and pull_response.receivedMessages:
-      ack_ids = [message.ackId for message in pull_response.receivedMessages]
-
-      ack_req = msgs.PubsubProjectsSubscriptionsAcknowledgeRequest(
-          acknowledgeRequest=msgs.AcknowledgeRequest(ackIds=ack_ids),
-          subscription=subscription)
-      pubsub.projects_subscriptions.Acknowledge(ack_req)
-
-    return pull_response.receivedMessages
+  def Run(self, args):
+    if args.IsSpecified('limit'):
+      if args.IsSpecified('max_messages'):
+        raise exceptions.ConflictingArgumentsException('--max-messages',
+                                                       '--limit')
+      max_messages = args.limit
+    else:
+      max_messages = args.max_messages
+    return_immediately = not args.wait if args.IsSpecified('wait') else True
+    return _Run(args, max_messages, return_immediately)

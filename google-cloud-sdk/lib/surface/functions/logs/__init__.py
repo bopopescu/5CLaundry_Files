@@ -12,11 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""The command group for Google Cloud Functions logs access."""
+"""Display log entries produced by Google Cloud Functions."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
 class Logs(base.Group):
-  """Manages Google Cloud Functions logs access."""
+  """Display log entries produced by Google Cloud Functions."""
   pass

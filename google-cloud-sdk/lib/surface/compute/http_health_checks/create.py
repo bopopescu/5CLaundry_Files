@@ -13,9 +13,12 @@
 # limitations under the License.
 """Command for creating HTTP health checks."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.command_lib.compute.http_health_checks import flags
 
 
@@ -36,6 +39,7 @@ class Create(base.CreateCommand):
     parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
     cls.HTTP_HEALTH_CHECKS_ARG = flags.HttpHealthCheckArgument()
     cls.HTTP_HEALTH_CHECKS_ARG.AddArgument(parser, operation_type='create')
+    parser.display_info.AddCacheUpdater(completers.HttpHealthChecksCompleter)
 
     parser.add_argument(
         '--host',
@@ -69,9 +73,9 @@ class Create(base.CreateCommand):
         default='5s',
         help="""\
         How often to perform a health check for an instance. For example,
-        specifying ``10s'' will run the check every 10 seconds. Valid units
-        for this flag are ``s'' for seconds and ``m'' for minutes.
-        The default value is ``5s''.
+        specifying ``10s'' will run the check every 10 seconds. The default
+        value is ``5s''. See $ gcloud topic datetimes for information on
+        duration formats.
         """)
 
     parser.add_argument(
@@ -83,8 +87,8 @@ class Create(base.CreateCommand):
         instance by the time specified by the value of this flag, the health
         check request is considered a failure. For example, specifying ``10s''
         will cause the check to wait for 10 seconds before considering the
-        request a failure.  Valid units for this flag are ``s'' for seconds and
-        ``m'' for minutes.  The default value is ``5s''.
+        request a failure. The default value is ``5s''.
+        See $ gcloud topic datetimes for information on duration formats.
         """)
 
     parser.add_argument(

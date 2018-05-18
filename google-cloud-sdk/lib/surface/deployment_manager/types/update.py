@@ -14,20 +14,22 @@
 
 """types update command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.deployment_manager import dm_base
 from googlecloudsdk.api_lib.deployment_manager import dm_labels
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.deployment_manager import composite_types
 from googlecloudsdk.command_lib.deployment_manager import dm_write
 from googlecloudsdk.command_lib.deployment_manager import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 
 
-def LogResource(request, async):
+def LogResource(request, is_async):
   log.UpdatedResource(request.compositeType,
                       kind='composite_type',
-                      async=async)
+                      is_async=is_async)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
@@ -56,7 +58,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
     composite_types.AddCompositeTypeNameFlag(parser)
     composite_types.AddDescriptionFlag(parser)
     composite_types.AddStatusFlag(parser)
-    labels_util.AddUpdateLabelsFlags(parser)
+    labels_util.AddUpdateLabelsFlags(parser, enable_clear=False)
 
   def Run(self, args):
     """Run 'types update'.
@@ -69,7 +71,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
       HttpException: An http error response was received while executing api
           request.
     """
-    composite_type_ref = composite_types.GetReference(args.name)
+    composite_type_ref = composite_types.GetReference(self.resources, args.name)
     get_request = self.messages.DeploymentmanagerCompositeTypesGetRequest(
         project=composite_type_ref.project,
         compositeType=args.name)

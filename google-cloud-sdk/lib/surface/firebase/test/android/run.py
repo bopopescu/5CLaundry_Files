@@ -69,10 +69,10 @@ class _BaseRun(object):
 
             $ {command} --app APP_APK --device model=NexusLowRes,orientation=landscape
 
-          To invoke an instrumentation test against a physical Nexus 4 device
-          (MODEL_ID: mako) which is running Android API level 19 in French, run:
+          To invoke an instrumentation test against a physical Nexus 6 device
+          (MODEL_ID: shamu) which is running Android API level 21 in French, run:
 
-            $ {command} --app APP_APK --test TEST_APK --device model=mako,version=19,locale=fr
+            $ {command} --app APP_APK --test TEST_APK --device model=shamu,version=21,locale=fr
 
           To test against multiple devices, specify --device more than once:
 
@@ -89,7 +89,7 @@ class _BaseRun(object):
           comprehensive matrix of virtual and physical devices, OS versions,
           locales and orientations, run:
 
-            $ {command} --app APP_APK --timeout 5m --device-ids=mako,NexusLowRes,Nexus5,g3,zeroflte --os-version-ids=19,21,22,23,24,25 --locales=en_GB,es,fr,ru,zh --orientations=portrait,landscape
+            $ {command} --app APP_APK --timeout 5m --device-ids=shamu,NexusLowRes,Nexus5,g3,zeroflte --os-version-ids=19,21,22,23,24,25 --locales=en_GB,es,fr,ru,zh --orientations=portrait,landscape
 
           The above command will generate a test matrix with a total of 300 test
           executions, but only the subset of executions with valid dimension
@@ -162,6 +162,8 @@ class _BaseRun(object):
             'Final test results will be available at [{0}].', [])
           )
       """
+    log.status.Print('\nHave questions, feedback, or issues? Get support by '
+                     'visiting:\n  https://firebase.google.com/support/\n')
 
     arg_manager.AndroidArgsManager().Prepare(args)
 
@@ -178,6 +180,13 @@ class _BaseRun(object):
       bucket_ops.UploadFileToGcs(args.test)
     for obb_file in (args.obb_files or []):
       bucket_ops.UploadFileToGcs(obb_file)
+    if getattr(args, 'robo_script', None):
+      bucket_ops.UploadFileToGcs(args.robo_script)
+    additional_apks = getattr(args, 'additional_apks', None) or []
+    for additional_apk in additional_apks:
+      bucket_ops.UploadFileToGcs(additional_apk)
+    for other_files in getattr(args, 'other-files', None) or {}:
+      bucket_ops.UploadFileToGcs(other_files)
     bucket_ops.LogGcsResultsUrl()
 
     tr_history_picker = history_picker.ToolResultsHistoryPicker(
@@ -185,8 +194,9 @@ class _BaseRun(object):
     history_name = PickHistoryName(args)
     history_id = tr_history_picker.GetToolResultsHistoryId(history_name)
 
-    matrix = matrix_creator.CreateMatrix(
-        args, self.context, history_id, bucket_ops.gcs_results_root)
+    matrix = matrix_creator.CreateMatrix(args, self.context, history_id,
+                                         bucket_ops.gcs_results_root,
+                                         str(self.ReleaseTrack()))
     monitor = matrix_ops.MatrixMonitor(
         matrix.testMatrixId, args.type, self.context)
 
@@ -227,6 +237,7 @@ class RunGA(_BaseRun, base.ListCommand):
     arg_util.AddMatrixArgs(parser)
     arg_util.AddAndroidTestArgs(parser)
     arg_util.AddGaArgs(parser)
+    base.URI_FLAG.RemoveFromParser(parser)
     parser.display_info.AddFormat(util.OUTCOMES_FORMAT)
 
 
@@ -240,6 +251,7 @@ class RunBeta(_BaseRun, base.ListCommand):
     arg_util.AddMatrixArgs(parser)
     arg_util.AddAndroidTestArgs(parser)
     arg_util.AddBetaArgs(parser)
+    base.URI_FLAG.RemoveFromParser(parser)
     parser.display_info.AddFormat(util.OUTCOMES_FORMAT)
 
 

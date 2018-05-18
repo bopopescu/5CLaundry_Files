@@ -14,21 +14,25 @@
 
 """A module for walking the Cloud SDK CLI tree."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.console import progress_tracker
+import six
 
 
 class Walker(object):
   """Base class for walking the Cloud SDK CLI tree.
 
   Attributes:
-    _root: The root element of the CLI tree.
+    _roots: The root elements of the CLI tree that will be walked.
     _num_nodes: The total number of nodes in the tree.
     _num_visited: The count of visited nodes so far.
     _progress_callback: The progress bar function to call to update progress.
   """
 
-  def __init__(self, cli, progress_callback=None, ignore_load_errors=False):
+  def __init__(self, cli, progress_callback=None, ignore_load_errors=False,
+               restrict=None):
     """Constructor.
 
     Args:
@@ -38,18 +42,42 @@ class Walker(object):
       ignore_load_errors: bool, True to ignore command load failures. This
         should only be used when it is not critical that all data is returned,
         like for optimizations like static tab completion.
+      restrict: Restricts the walk to the command/group dotted paths in this
+        list. For example, restrict=['gcloud.alpha.test', 'gcloud.topic']
+        restricts the walk to the 'gcloud topic' and 'gcloud alpha test'
+        commands/groups. When provided here, any groups above the restrictions
+        in the tree will not be loaded or visited.
     """
-    self._root = cli._TopElement()  # pylint: disable=protected-access
+    top = cli._TopElement()  # pylint: disable=protected-access
+    if restrict:
+      roots = [self._GetSubElement(top, r) for r in restrict]
+      self._roots = [r for r in roots if r]
+    else:
+      self._roots = [top]
+
+    self._num_nodes = 0
     if progress_callback:
       with progress_tracker.ProgressTracker('Loading CLI Tree'):
-        self._num_nodes = 1.0 + self._root.LoadAllSubElements(
-            recursive=True, ignore_load_errors=ignore_load_errors)
+        for root in self._roots:
+          self._num_nodes += 1.0 + root.LoadAllSubElements(
+              recursive=True, ignore_load_errors=ignore_load_errors)
     else:
-      self._num_nodes = 1.0 + self._root.LoadAllSubElements(
-          recursive=True, ignore_load_errors=ignore_load_errors)
+      for root in self._roots:
+        self._num_nodes += 1.0 + root.LoadAllSubElements(
+            recursive=True, ignore_load_errors=ignore_load_errors)
+
     self._num_visited = 0
     self._progress_callback = (progress_callback or
-                               console_io.ProgressBar.DEFAULT_CALLBACK)
+                               console_io.DefaultProgressBarCallback)
+
+  def _GetSubElement(self, top_element, path):
+    parts = path.split('.')[1:]
+    current = top_element
+    for part in parts:
+      current = current.LoadSubElement(part)
+      if not current:
+        return None
+    return current
 
   def Walk(self, hidden=False, restrict=None):
     """Calls self.Visit() on each node in the CLI tree.
@@ -61,7 +89,9 @@ class Walker(object):
       restrict: Restricts the walk to the command/group dotted paths in this
         list. For example, restrict=['gcloud.alpha.test', 'gcloud.topic']
         restricts the walk to the 'gcloud topic' and 'gcloud alpha test'
-        commands/groups.
+        commands/groups. When provided here, parent groups will still be visited
+        as the walk progresses down to these leaves, but only parent groups
+        between the restrictions and the root.
 
     Returns:
       The return value of the top level Visit() call.
@@ -101,11 +131,11 @@ class Walker(object):
       parent = self._Visit(node, parent, is_group=True)
       commands_and_groups = []
       if node.commands:
-        for name, command in node.commands.iteritems():
+        for name, command in six.iteritems(node.commands):
           if _Include(command):
             commands_and_groups.append((name, command, False))
       if node.groups:
-        for name, command in node.groups.iteritems():
+        for name, command in six.iteritems(node.groups):
           if _Include(command, traverse=True):
             commands_and_groups.append((name, command, True))
       for _, command, is_group in sorted(commands_and_groups):
@@ -116,7 +146,9 @@ class Walker(object):
       return parent
 
     self._num_visited = 0
-    parent = _Walk(self._root, self.Init())
+    parent = None
+    for root in self._roots:
+      parent = _Walk(root, None)
     self.Done()
     return parent
 
@@ -137,17 +169,9 @@ class Walker(object):
 
     Returns:
       A new parent value for the node subtree. This value is the parent arg
-      for the Vistit() calls for the children of this node.
+      for the Visit() calls for the children of this node.
     """
     pass
-
-  def Init(self):
-    """Sets up before any node in the CLI tree has been visited.
-
-    Returns:
-      The initial parent value for the first Visit() call.
-    """
-    return None
 
   def Done(self):
     """Cleans up after all nodes in the CLI tree have been visited."""

@@ -14,6 +14,8 @@
 
 """Create command for gcloud debug logpoints command group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.debug import debug
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import log
@@ -33,7 +35,7 @@ class Create(base.CreateCommand):
 
           The default lifetime of a logpoint is 24 hours from creation, and the
           output will go to the standard log for the programming language of the
-          target (java.logging for Java, logging.* for Python, etc.)
+          target (``java.logging'' for Java, ``logging'' for Python, etc.)
       """
   }
 

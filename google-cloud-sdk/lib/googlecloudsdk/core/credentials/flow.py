@@ -16,13 +16,18 @@
 
 """
 
-from httplib import ResponseNotReady
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core import log
 from googlecloudsdk.core.util import pkg_resources
 from googlecloudsdk.core.util import platforms
 
 from oauth2client import client
 from oauth2client import tools
+from six.moves import input  # pylint: disable=redefined-builtin
+from six.moves.http_client import ResponseNotReady
 
 
 try:
@@ -155,13 +160,13 @@ def Run(flow, launch_browser=True, http=None,
                  'between {start_port} and {end_port}. Please check your '
                  'firewall settings or locally running programs that may be '
                  'blocking or using those ports.')
-      log.warn(message.format(
+      log.warning(message.format(
           start_port=auth_host_port_start,
           end_port=port_number,
       ))
 
       launch_browser = False
-      log.warn('Defaulting to URL copy/paste mode.')
+      log.warning('Defaulting to URL copy/paste mode.')
 
   if not launch_browser:
     flow.redirect_uri = client.OOB_CALLBACK_URN
@@ -172,7 +177,7 @@ def Run(flow, launch_browser=True, http=None,
         url=authorize_url,
     ))
     try:
-      code = raw_input('Enter verification code: ').strip()
+      code = input('Enter verification code: ').strip()
     except EOFError as e:
       raise AuthRequestRejectedException(e)
 

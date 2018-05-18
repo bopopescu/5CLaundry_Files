@@ -11,7 +11,7 @@ class OsloginV1alpha(base_api.BaseApiClient):
   BASE_URL = u'https://oslogin.googleapis.com/'
 
   _PACKAGE = u'oslogin'
-  _SCOPES = [u'https://www.googleapis.com/auth/cloud-platform', u'https://www.googleapis.com/auth/cloud-platform.read-only']
+  _SCOPES = [u'https://www.googleapis.com/auth/cloud-platform', u'https://www.googleapis.com/auth/cloud-platform.read-only', u'https://www.googleapis.com/auth/compute', u'https://www.googleapis.com/auth/compute.readonly']
   _VERSION = u'v1alpha'
   _CLIENT_ID = '1042881264118.apps.googleusercontent.com'
   _CLIENT_SECRET = 'x_Tw5K8nnjoRAqULM9PFAC2b'
@@ -24,7 +24,7 @@ class OsloginV1alpha(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new oslogin handle."""
     url = url or self.BASE_URL
     super(OsloginV1alpha, self).__init__(
@@ -33,9 +33,48 @@ class OsloginV1alpha(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
+    self.users_projects = self.UsersProjectsService(self)
     self.users_sshPublicKeys = self.UsersSshPublicKeysService(self)
     self.users = self.UsersService(self)
+
+  class UsersProjectsService(base_api.BaseApiService):
+    """Service class for the users_projects resource."""
+
+    _NAME = u'users_projects'
+
+    def __init__(self, client):
+      super(OsloginV1alpha.UsersProjectsService, self).__init__(client)
+      self._upload_configs = {
+          }
+
+    def Delete(self, request, global_params=None):
+      r"""Deletes a POSIX account.
+
+      Args:
+        request: (OsloginUsersProjectsDeleteRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (Empty) The response message.
+      """
+      config = self.GetMethodConfig('Delete')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    Delete.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1alpha/users/{usersId}/projects/{projectsId}',
+        http_method=u'DELETE',
+        method_id=u'oslogin.users.projects.delete',
+        ordered_params=[u'name'],
+        path_params=[u'name'],
+        query_params=[u'operatingSystemType'],
+        relative_path=u'v1alpha/{+name}',
+        request_field='',
+        request_type_name=u'OsloginUsersProjectsDeleteRequest',
+        response_type_name=u'Empty',
+        supports_download=False,
+    )
 
   class UsersSshPublicKeysService(base_api.BaseApiService):
     """Service class for the users_sshPublicKeys resource."""
@@ -48,7 +87,7 @@ class OsloginV1alpha(base_api.BaseApiClient):
           }
 
     def Delete(self, request, global_params=None):
-      """Deletes an SSH public key.
+      r"""Deletes an SSH public key.
 
       Args:
         request: (OsloginUsersSshPublicKeysDeleteRequest) input message
@@ -75,7 +114,7 @@ class OsloginV1alpha(base_api.BaseApiClient):
     )
 
     def Get(self, request, global_params=None):
-      """Retrieves an SSH public key.
+      r"""Retrieves an SSH public key.
 
       Args:
         request: (OsloginUsersSshPublicKeysGetRequest) input message
@@ -102,7 +141,7 @@ class OsloginV1alpha(base_api.BaseApiClient):
     )
 
     def Patch(self, request, global_params=None):
-      """Updates an SSH public key and returns the profile information. This method.
+      r"""Updates an SSH public key and returns the profile information. This method.
 supports patch semantics.
 
       Args:
@@ -140,7 +179,7 @@ supports patch semantics.
           }
 
     def GetLoginProfile(self, request, global_params=None):
-      """Retrieves the profile information used for logging in to a virtual machine.
+      r"""Retrieves the profile information used for logging in to a virtual machine.
 on Google Compute Engine.
 
       Args:
@@ -168,7 +207,7 @@ on Google Compute Engine.
     )
 
     def ImportSshPublicKey(self, request, global_params=None):
-      """Adds an SSH public key and returns the profile information. Default POSIX.
+      r"""Adds an SSH public key and returns the profile information. Default POSIX.
 account information is set when no username and UID exist as part of the
 login profile.
 
@@ -188,7 +227,7 @@ login profile.
         method_id=u'oslogin.users.importSshPublicKey',
         ordered_params=[u'parent'],
         path_params=[u'parent'],
-        query_params=[],
+        query_params=[u'projectId'],
         relative_path=u'v1alpha/{+parent}:importSshPublicKey',
         request_field=u'sshPublicKey',
         request_type_name=u'OsloginUsersImportSshPublicKeyRequest',

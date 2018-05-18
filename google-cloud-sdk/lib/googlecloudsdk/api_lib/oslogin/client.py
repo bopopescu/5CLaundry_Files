@@ -12,10 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """oslogin client functions."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.api_lib.util import apis_util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import exceptions as core_exceptions
+from googlecloudsdk.core import properties
 
 VERSION_MAP = {base.ReleaseTrack.ALPHA: 'v1alpha',
                base.ReleaseTrack.BETA: 'v1beta',
@@ -30,11 +33,16 @@ class OsloginException(core_exceptions.Error):
   """OsloginException is for non-code-bug errors in oslogin client utils."""
 
 
+class OsloginKeyNotFoundError(OsloginException):
+  """OsloginKeyNotFoundError is raised when requested SSH key is not found."""
+
+
 class OsloginClient(object):
   """Class for working with oslogin users."""
 
   def __init__(self, release_track):
     version = VERSION_MAP[release_track]
+    self.project = properties.VALUES.core.project.Get()
     try:
       self.client = _GetClient(version)
       self.messages = self.client.MESSAGES_MODULE
@@ -57,25 +65,91 @@ class OsloginClient(object):
     Returns:
       The login profile for the user.
     """
+    # TODO(b/70287338): Update these calls to use Resource references.
     message = self.messages.OsloginUsersGetLoginProfileRequest(
         name='users/{0}'.format(user))
     res = self.client.users.GetLoginProfile(message)
     return res
 
-  def ImportSshPublicKey(self, user, public_key):
+  def DeletePosixAccounts(self, project_ref):
+    """Delete the posix accounts for an account in the current project.
+
+    Args:
+      project_ref: The oslogin.users.projects resource.
+    Returns:
+      None
+    """
+    message = self.messages.OsloginUsersProjectsDeleteRequest(
+        name=project_ref.RelativeName())
+    self.client.users_projects.Delete(message)
+
+  def ImportSshPublicKey(self, user, public_key, expiration_time=None):
     """Upload an SSH public key to the user's login profile.
 
     Args:
       user: str, The email address of the OS Login user.
       public_key: str, An SSH public key.
+      expiration_time: int, microseconds since epoch.
     Returns:
       The login profile for the user.
     """
     public_key_message = self.messages.SshPublicKey(
-        key=public_key)
+        key=public_key,
+        expirationTimeUsec=expiration_time)
     message = self.messages.OsloginUsersImportSshPublicKeyRequest(
         parent='users/{0}'.format(user),
+        projectId=self.project,
         sshPublicKey=public_key_message)
     res = self.client.users.ImportSshPublicKey(message)
+    return res
+
+  def DeleteSshPublicKey(self, user, fingerprint):
+    """Delete an SSH public key from the user's login profile.
+
+    Args:
+      user: str, The email address of the OS Login user.
+      fingerprint: str, The fingerprint of the SSH key to delete.
+    Returns:
+      None
+    """
+    message = self.messages.OsloginUsersSshPublicKeysDeleteRequest(
+        name='users/{0}/sshPublicKeys/{1}'.format(user, fingerprint))
+    self.client.users_sshPublicKeys.Delete(message)
+
+  def GetSshPublicKey(self, user, fingerprint):
+    """Get an SSH public key from the user's login profile.
+
+    Args:
+      user: str, The email address of the OS Login user.
+      fingerprint: str, The fingerprint of the SSH key to delete.
+    Returns:
+      The requested SSH public key.
+    """
+    message = self.messages.OsloginUsersSshPublicKeysGetRequest(
+        name='users/{0}/sshPublicKeys/{1}'.format(user, fingerprint))
+    res = self.client.users_sshPublicKeys.Get(message)
+    return res
+
+  def UpdateSshPublicKey(self, user, fingerprint, public_key, update_mask,
+                         expiration_time=None):
+    """Update an existing SSH public key in a user's login profile.
+
+    Args:
+      user: str, The email address of the OS Login user.
+      fingerprint: str, The fingerprint of the SSH key to update.
+      public_key: str, An SSH public key.
+      update_mask: str, A mask to contraol which fields get updated.
+      expiration_time: int, microseconds since epoch.
+    Returns:
+      The login profile for the user.
+    """
+    public_key_message = self.messages.SshPublicKey(
+        key=public_key,
+        expirationTimeUsec=expiration_time)
+    message = self.messages.OsloginUsersSshPublicKeysPatchRequest(
+        name='users/{0}/sshPublicKeys/{1}'.format(user, fingerprint),
+        sshPublicKey=public_key_message,
+        updateMask=update_mask)
+    res = self.client.users_sshPublicKeys.Patch(message)
     return res
 

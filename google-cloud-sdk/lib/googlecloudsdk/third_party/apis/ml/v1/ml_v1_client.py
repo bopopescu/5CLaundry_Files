@@ -24,7 +24,7 @@ class MlV1(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new ml handle."""
     url = url or self.BASE_URL
     super(MlV1, self).__init__(
@@ -33,8 +33,10 @@ class MlV1(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
     self.projects_jobs = self.ProjectsJobsService(self)
+    self.projects_locations = self.ProjectsLocationsService(self)
     self.projects_models_versions = self.ProjectsModelsVersionsService(self)
     self.projects_models = self.ProjectsModelsService(self)
     self.projects_operations = self.ProjectsOperationsService(self)
@@ -51,7 +53,7 @@ class MlV1(base_api.BaseApiClient):
           }
 
     def Cancel(self, request, global_params=None):
-      """Cancels a running job.
+      r"""Cancels a running job.
 
       Args:
         request: (MlProjectsJobsCancelRequest) input message
@@ -78,7 +80,7 @@ class MlV1(base_api.BaseApiClient):
     )
 
     def Create(self, request, global_params=None):
-      """Creates a training or a batch prediction job.
+      r"""Creates a training or a batch prediction job.
 
       Args:
         request: (MlProjectsJobsCreateRequest) input message
@@ -105,7 +107,7 @@ class MlV1(base_api.BaseApiClient):
     )
 
     def Get(self, request, global_params=None):
-      """Describes a job.
+      r"""Describes a job.
 
       Args:
         request: (MlProjectsJobsGetRequest) input message
@@ -131,8 +133,40 @@ class MlV1(base_api.BaseApiClient):
         supports_download=False,
     )
 
+    def GetIamPolicy(self, request, global_params=None):
+      r"""Gets the access control policy for a resource.
+Returns an empty policy if the resource exists and does not have a policy
+set.
+
+      Args:
+        request: (MlProjectsJobsGetIamPolicyRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleIamV1Policy) The response message.
+      """
+      config = self.GetMethodConfig('GetIamPolicy')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    GetIamPolicy.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/jobs/{jobsId}:getIamPolicy',
+        http_method=u'GET',
+        method_id=u'ml.projects.jobs.getIamPolicy',
+        ordered_params=[u'resource'],
+        path_params=[u'resource'],
+        query_params=[],
+        relative_path=u'v1/{+resource}:getIamPolicy',
+        request_field='',
+        request_type_name=u'MlProjectsJobsGetIamPolicyRequest',
+        response_type_name=u'GoogleIamV1Policy',
+        supports_download=False,
+    )
+
     def List(self, request, global_params=None):
-      """Lists the jobs in the project.
+      r"""Lists the jobs in the project.
+
+If there are no jobs that match the request parameters, the list
+request returns an empty response body: {}.
 
       Args:
         request: (MlProjectsJobsListRequest) input message
@@ -158,6 +192,161 @@ class MlV1(base_api.BaseApiClient):
         supports_download=False,
     )
 
+    def Patch(self, request, global_params=None):
+      r"""Updates a specific job resource.
+
+Currently the only supported fields to update are `labels`.
+
+      Args:
+        request: (MlProjectsJobsPatchRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleCloudMlV1Job) The response message.
+      """
+      config = self.GetMethodConfig('Patch')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    Patch.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/jobs/{jobsId}',
+        http_method=u'PATCH',
+        method_id=u'ml.projects.jobs.patch',
+        ordered_params=[u'name'],
+        path_params=[u'name'],
+        query_params=[u'updateMask'],
+        relative_path=u'v1/{+name}',
+        request_field=u'googleCloudMlV1Job',
+        request_type_name=u'MlProjectsJobsPatchRequest',
+        response_type_name=u'GoogleCloudMlV1Job',
+        supports_download=False,
+    )
+
+    def SetIamPolicy(self, request, global_params=None):
+      r"""Sets the access control policy on the specified resource. Replaces any.
+existing policy.
+
+      Args:
+        request: (MlProjectsJobsSetIamPolicyRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleIamV1Policy) The response message.
+      """
+      config = self.GetMethodConfig('SetIamPolicy')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    SetIamPolicy.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/jobs/{jobsId}:setIamPolicy',
+        http_method=u'POST',
+        method_id=u'ml.projects.jobs.setIamPolicy',
+        ordered_params=[u'resource'],
+        path_params=[u'resource'],
+        query_params=[],
+        relative_path=u'v1/{+resource}:setIamPolicy',
+        request_field=u'googleIamV1SetIamPolicyRequest',
+        request_type_name=u'MlProjectsJobsSetIamPolicyRequest',
+        response_type_name=u'GoogleIamV1Policy',
+        supports_download=False,
+    )
+
+    def TestIamPermissions(self, request, global_params=None):
+      r"""Returns permissions that a caller has on the specified resource.
+If the resource does not exist, this will return an empty set of
+permissions, not a NOT_FOUND error.
+
+Note: This operation is designed to be used for building permission-aware
+UIs and command-line tools, not for authorization checking. This operation
+may "fail open" without warning.
+
+      Args:
+        request: (MlProjectsJobsTestIamPermissionsRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleIamV1TestIamPermissionsResponse) The response message.
+      """
+      config = self.GetMethodConfig('TestIamPermissions')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    TestIamPermissions.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/jobs/{jobsId}:testIamPermissions',
+        http_method=u'POST',
+        method_id=u'ml.projects.jobs.testIamPermissions',
+        ordered_params=[u'resource'],
+        path_params=[u'resource'],
+        query_params=[],
+        relative_path=u'v1/{+resource}:testIamPermissions',
+        request_field=u'googleIamV1TestIamPermissionsRequest',
+        request_type_name=u'MlProjectsJobsTestIamPermissionsRequest',
+        response_type_name=u'GoogleIamV1TestIamPermissionsResponse',
+        supports_download=False,
+    )
+
+  class ProjectsLocationsService(base_api.BaseApiService):
+    """Service class for the projects_locations resource."""
+
+    _NAME = u'projects_locations'
+
+    def __init__(self, client):
+      super(MlV1.ProjectsLocationsService, self).__init__(client)
+      self._upload_configs = {
+          }
+
+    def Get(self, request, global_params=None):
+      r"""Get the complete list of CMLE capabilities in a location, along with their.
+location-specific properties.
+
+      Args:
+        request: (MlProjectsLocationsGetRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleCloudMlV1Location) The response message.
+      """
+      config = self.GetMethodConfig('Get')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    Get.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/locations/{locationsId}',
+        http_method=u'GET',
+        method_id=u'ml.projects.locations.get',
+        ordered_params=[u'name'],
+        path_params=[u'name'],
+        query_params=[],
+        relative_path=u'v1/{+name}',
+        request_field='',
+        request_type_name=u'MlProjectsLocationsGetRequest',
+        response_type_name=u'GoogleCloudMlV1Location',
+        supports_download=False,
+    )
+
+    def List(self, request, global_params=None):
+      r"""List all locations that provides at least one type of CMLE capability.
+
+      Args:
+        request: (MlProjectsLocationsListRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleCloudMlV1ListLocationsResponse) The response message.
+      """
+      config = self.GetMethodConfig('List')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    List.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/locations',
+        http_method=u'GET',
+        method_id=u'ml.projects.locations.list',
+        ordered_params=[u'parent'],
+        path_params=[u'parent'],
+        query_params=[u'pageSize', u'pageToken'],
+        relative_path=u'v1/{+parent}/locations',
+        request_field='',
+        request_type_name=u'MlProjectsLocationsListRequest',
+        response_type_name=u'GoogleCloudMlV1ListLocationsResponse',
+        supports_download=False,
+    )
+
   class ProjectsModelsVersionsService(base_api.BaseApiService):
     """Service class for the projects_models_versions resource."""
 
@@ -169,7 +358,7 @@ class MlV1(base_api.BaseApiClient):
           }
 
     def Create(self, request, global_params=None):
-      """Creates a new version of a model from a trained TensorFlow model.
+      r"""Creates a new version of a model from a trained TensorFlow model.
 
 If the version created in the cloud by this call is the first deployed
 version of the specified model, it will be made the default version of the
@@ -203,7 +392,7 @@ new version to be the default, you must call
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a model version.
+      r"""Deletes a model version.
 
 Each model can have multiple versions deployed and in use at any given
 time. Use this method to remove a single version.
@@ -236,7 +425,7 @@ of the model unless it is the only remaining version.
     )
 
     def Get(self, request, global_params=None):
-      """Gets information about a model version.
+      r"""Gets information about a model version.
 
 Models can have multiple versions. You can call
 [projects.models.versions.list](/ml-engine/reference/rest/v1/projects.models.versions/list)
@@ -268,11 +457,14 @@ versions of a model.
     )
 
     def List(self, request, global_params=None):
-      """Gets basic information about all the versions of a model.
+      r"""Gets basic information about all the versions of a model.
 
-If you expect that a model has a lot of versions, or if you need to handle
+If you expect that a model has many versions, or if you need to handle
 only a limited number of results at a time, you can request that the list
-be retrieved in batches (called pages):
+be retrieved in batches (called pages).
+
+If there are no versions that match the request parameters, the list
+request returns an empty response body: {}.
 
       Args:
         request: (MlProjectsModelsVersionsListRequest) input message
@@ -290,7 +482,7 @@ be retrieved in batches (called pages):
         method_id=u'ml.projects.models.versions.list',
         ordered_params=[u'parent'],
         path_params=[u'parent'],
-        query_params=[u'pageSize', u'pageToken'],
+        query_params=[u'filter', u'pageSize', u'pageToken'],
         relative_path=u'v1/{+parent}/versions',
         request_field='',
         request_type_name=u'MlProjectsModelsVersionsListRequest',
@@ -298,8 +490,37 @@ be retrieved in batches (called pages):
         supports_download=False,
     )
 
+    def Patch(self, request, global_params=None):
+      r"""Updates the specified Version resource.
+
+Currently the only supported field to update is `description`.
+
+      Args:
+        request: (MlProjectsModelsVersionsPatchRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleLongrunningOperation) The response message.
+      """
+      config = self.GetMethodConfig('Patch')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    Patch.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/models/{modelsId}/versions/{versionsId}',
+        http_method=u'PATCH',
+        method_id=u'ml.projects.models.versions.patch',
+        ordered_params=[u'name'],
+        path_params=[u'name'],
+        query_params=[u'updateMask'],
+        relative_path=u'v1/{+name}',
+        request_field=u'googleCloudMlV1Version',
+        request_type_name=u'MlProjectsModelsVersionsPatchRequest',
+        response_type_name=u'GoogleLongrunningOperation',
+        supports_download=False,
+    )
+
     def SetDefault(self, request, global_params=None):
-      """Designates a version to be the default for the model.
+      r"""Designates a version to be the default for the model.
 
 The default version is used for prediction requests made against the model
 that don't specify a version.
@@ -343,7 +564,7 @@ setting manually using this method.
           }
 
     def Create(self, request, global_params=None):
-      """Creates a model which will later contain one or more versions.
+      r"""Creates a model which will later contain one or more versions.
 
 You must add at least one version before you can request predictions from
 the model. Add versions by calling
@@ -374,7 +595,7 @@ the model. Add versions by calling
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a model.
+      r"""Deletes a model.
 
 You can only delete a model if there are no versions in it. You can delete
 versions by calling
@@ -405,7 +626,7 @@ versions by calling
     )
 
     def Get(self, request, global_params=None):
-      """Gets information about a model, including its name, the description (if.
+      r"""Gets information about a model, including its name, the description (if.
 set), and the default version (if at least one version of the model has
 been deployed).
 
@@ -434,7 +655,7 @@ been deployed).
     )
 
     def GetIamPolicy(self, request, global_params=None):
-      """Gets the access control policy for a resource.
+      r"""Gets the access control policy for a resource.
 Returns an empty policy if the resource exists and does not have a policy
 set.
 
@@ -463,10 +684,13 @@ set.
     )
 
     def List(self, request, global_params=None):
-      """Lists the models in a project.
+      r"""Lists the models in a project.
 
 Each project can contain multiple models, and each model can have multiple
 versions.
+
+If there are no models that match the request parameters, the list request
+returns an empty response body: {}.
 
       Args:
         request: (MlProjectsModelsListRequest) input message
@@ -484,7 +708,7 @@ versions.
         method_id=u'ml.projects.models.list',
         ordered_params=[u'parent'],
         path_params=[u'parent'],
-        query_params=[u'pageSize', u'pageToken'],
+        query_params=[u'filter', u'pageSize', u'pageToken'],
         relative_path=u'v1/{+parent}/models',
         request_field='',
         request_type_name=u'MlProjectsModelsListRequest',
@@ -492,8 +716,38 @@ versions.
         supports_download=False,
     )
 
+    def Patch(self, request, global_params=None):
+      r"""Updates a specific model resource.
+
+Currently the only supported fields to update are `description` and
+`default_version.name`.
+
+      Args:
+        request: (MlProjectsModelsPatchRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (GoogleLongrunningOperation) The response message.
+      """
+      config = self.GetMethodConfig('Patch')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    Patch.method_config = lambda: base_api.ApiMethodInfo(
+        flat_path=u'v1/projects/{projectsId}/models/{modelsId}',
+        http_method=u'PATCH',
+        method_id=u'ml.projects.models.patch',
+        ordered_params=[u'name'],
+        path_params=[u'name'],
+        query_params=[u'updateMask'],
+        relative_path=u'v1/{+name}',
+        request_field=u'googleCloudMlV1Model',
+        request_type_name=u'MlProjectsModelsPatchRequest',
+        response_type_name=u'GoogleLongrunningOperation',
+        supports_download=False,
+    )
+
     def SetIamPolicy(self, request, global_params=None):
-      """Sets the access control policy on the specified resource. Replaces any.
+      r"""Sets the access control policy on the specified resource. Replaces any.
 existing policy.
 
       Args:
@@ -521,7 +775,7 @@ existing policy.
     )
 
     def TestIamPermissions(self, request, global_params=None):
-      """Returns permissions that a caller has on the specified resource.
+      r"""Returns permissions that a caller has on the specified resource.
 If the resource does not exist, this will return an empty set of
 permissions, not a NOT_FOUND error.
 
@@ -564,7 +818,7 @@ may "fail open" without warning.
           }
 
     def Cancel(self, request, global_params=None):
-      """Starts asynchronous cancellation on a long-running operation.  The server.
+      r"""Starts asynchronous cancellation on a long-running operation.  The server.
 makes a best effort to cancel the operation, but success is not
 guaranteed.  If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.  Clients can use
@@ -600,7 +854,7 @@ corresponding to `Code.CANCELLED`.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a long-running operation. This method indicates that the client is.
+      r"""Deletes a long-running operation. This method indicates that the client is.
 no longer interested in the operation result. It does not cancel the
 operation. If the server doesn't support this method, it returns
 `google.rpc.Code.UNIMPLEMENTED`.
@@ -630,7 +884,7 @@ operation. If the server doesn't support this method, it returns
     )
 
     def Get(self, request, global_params=None):
-      """Gets the latest state of a long-running operation.  Clients can use this.
+      r"""Gets the latest state of a long-running operation.  Clients can use this.
 method to poll the operation result at intervals as recommended by the API
 service.
 
@@ -659,7 +913,7 @@ service.
     )
 
     def List(self, request, global_params=None):
-      """Lists operations that match the specified filter in the request. If the.
+      r"""Lists operations that match the specified filter in the request. If the.
 server doesn't support this method, it returns `UNIMPLEMENTED`.
 
 NOTE: the `name` binding allows API services to override the binding
@@ -705,8 +959,8 @@ is the parent resource, without the operations collection id.
           }
 
     def GetConfig(self, request, global_params=None):
-      """Get the service account information associated with your project. You need.
-this information in order to grant the service account persmissions for
+      r"""Get the service account information associated with your project. You need.
+this information in order to grant the service account permissions for
 the Google Cloud Storage location where you put your model training code
 for training the model with Google Cloud Machine Learning.
 
@@ -735,9 +989,10 @@ for training the model with Google Cloud Machine Learning.
     )
 
     def Predict(self, request, global_params=None):
-      """Performs prediction on the data in the request.
-
-**** REMOVE FROM GENERATED DOCUMENTATION
+      r"""Performs prediction on the data in the request.
+Cloud ML Engine implements a custom `predict` verb on top of an HTTP POST
+method. <p>For details of the request and response format, see the **guide
+to the [predict request format](/ml-engine/docs/v1/predict-request)**.
 
       Args:
         request: (MlProjectsPredictRequest) input message

@@ -14,6 +14,8 @@
 
 """Resource filters supplementary help."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import textwrap
 
 from googlecloudsdk.calliope import base
@@ -24,8 +26,8 @@ class Filters(base.TopicCommand):
   """Resource filters supplementary help."""
 
   detailed_help = {
-
-      'DESCRIPTION': textwrap.dedent("""\
+      'DESCRIPTION':
+          textwrap.dedent("""\
           {description}
 
           === Filter Expressions ===
@@ -53,8 +55,8 @@ class Filters(base.TopicCommand):
 
           _term-1_ _term-2_:::
 
-          True if both _term-1_ and _term-2_ are true. Implicit conjunction has
-          lower precedence than *OR*.
+          Term conjunction (implicit *AND*) is True if both _term-1_
+          and _term-2_ are true.  Conjunction has lower precedence than *OR*.
 
           *Terms*::
 
@@ -74,9 +76,37 @@ class Filters(base.TopicCommand):
 
           *Operator Terms*::
 
+          _key_ *:* _simple-pattern_:::
+
+          *:* operator evaluation is changing for consistency across Google
+          APIs.  The current default is deprecated and will be dropped shortly.
+          A warning will be displayed when a --filter expression would return
+          different matches using both the deprecated and new implementations.
+          +
+          The current deprecated default is True if _key_ contains
+          _simple-pattern_.  The match is case insensitive.  It allows one
+          ```*``` that matches any sequence of 0 or more characters.
+          If ```*``` is specified then the match is anchored, meaning all
+          characters from the beginning and end of the value must match.
+          +
+          The new implementation is True if _simple-pattern_ matches any
+          _word_ in _key_.  Words are locale specific but typically consist of
+          alpha-numeric characters.  Non-word characters that do not appear in
+          _simple-pattern_ are ignored.  The matching is anchored and case
+          insensitive.  An optional trailing ```*``` does a word prefix match.
+          +
+          Use _key_```:*``` to test if _key_ is defined and
+          ```-```_key_```:*``` to test if _key_ is undefined.
+
+          _key_ *:(* _simple-pattern_ ... *)*:::
+
+          True if _key_ matches any _simple-pattern_ in the
+          (space, tab, newline, comma) separated list.
+
           _key_ *=* _value_:::
 
-          True if _key_ is equal to _value_.
+          True if _key_ is equal to _value_.  Equivalent to *:*, with the
+          exception that the trailing ```*``` prefix match is not supported.
 
           _key_ *=(* _value_ ... *)*:::
 
@@ -112,22 +142,6 @@ class Filters(base.TopicCommand):
           _value_ are numeric then numeric comparison is used, otherwise
           lexicographic string comparison is used.
 
-          _key_ *:* _simple-pattern_:::
-
-          True if _key_ matches _simple-pattern_. The match is anchored (all
-          characters must match), case insensitive, and allows one ```*```
-          operator that matches any sequence of 0 or more characters. The
-          pattern ```abc``` matches ```abc```, the pattern ```abc*``` matches
-          ```abc``` and ```abcxyz```, the pattern ```*xyz``` matches ```xyz```
-          and ```abcxyz```, and the pattern ```*``` matches any non-empty
-          string. Use _key_```:*``` to test if _key_ is defined and
-          ```-```_key_```:*``` to test if _key_ is undefined.
-
-          _key_ *:(* _simple-pattern_ ... *)*:::
-
-          True if _key_ matches any _simple-pattern_ in the
-          (space, tab, newline, comma) separated list.
-
           _key_ *~* _value_:::
 
           True if _key_ matches the RE (regular expression) pattern _value_.
@@ -137,10 +151,10 @@ class Filters(base.TopicCommand):
           True if _key_ does not match the RE (regular expression)
           pattern _value_.
 
-          """).format(
-              description=resource_topics.ResourceDescription('filter')),
-
-      'EXAMPLES': textwrap.dedent("""\
+          """)
+          .format(description=resource_topics.ResourceDescription('filter')),
+      'EXAMPLES':
+          textwrap.dedent("""\
           List all instances resources:
 
             $ gcloud compute instances list
@@ -153,17 +167,73 @@ class Filters(base.TopicCommand):
 
             $ gcloud compute instances list --filter='zone ~ ^us AND -machineType:f1-micro'
 
+          List resources with tag *my-tag*:
+
+            $ gcloud compute instances list --filter='tags.items=my-tag'
+
+          List resources with tag *my-tag* or *my-other-tag*:
+
+            $ gcloud compute instances list --filter='tags.items=(my-tag,my-other-tag)'
+
+          List resources with tag *my-tag* and *my-other-tag*:
+
+            $ gcloud compute instances list --filter='tags.items=my-tag AND tags.items=my-other-tag'
+
+          List resources which either have tag *my-tag* but not *my-other-tag* or have tag *alternative-tag*:
+
+            $ gcloud compute instances list --filter='(tags.items=my-tag AND -tags.items=my-other-tag) OR tags.items=alternative-tag'
+
+          List resources with label *my-label* with any value:
+
+            $ gcloud compute instances list --filter='labels.my-label:*'
+
           List in JSON format those projects where the labels match specific
           values (e.g. label.env is 'test' and label.version is alpha):
 
             $ gcloud projects list --format="json" --filter="labels.env=test AND labels.version=alpha"
 
-          List projects that were created after a specific date:
+          List projects that were created on and after a specific date:
 
-            $ gcloud projects list --format="table(projectNumber,projectId,createTime)" --filter="createTime.date('%Y-%m-%d', Z)='2016-05-11'"
+            $ gcloud projects list --format="table(projectNumber,projectId,createTime)" --filter="createTime>=2018-01-15"
 
-          Note that in the last example, a projection on the key was used. The
-          filter is applied on the createTime key after the date formatting is
-          set.
+          List projects that were created on and after a specific date and time
+          and sort from oldest to newest (with dates and times listed according
+          to the local timezone):
+
+            $ gcloud projects list --format="table(projectNumber,projectId,createTime.date(tz=LOCAL))" --filter="createTime>=2018-01-15T12:00:00" --sort-by=createTime
+
+          List projects that were created within the last two weeks, using
+          ISO8601 durations:
+
+            $ gcloud projects list --format="table(projectNumber,projectId,createTime)" --filter="createTime>-P2W"
+
+          For more about ISO8601 durations, see:
+          https://en.wikipedia.org/wiki/ISO_8601
+
+
+          This table shows : operator pattern matching:
+
+          [format="csv",options="header"]
+          |========
+          PATTERN,VALUE,MATCHES,DEPRECATED_MATCHES
+          abc```*```,abcpdqxyz,True,True
+          abc,abcpdqxyz,False,True
+          pdq```*```,abcpdqxyz,False,False
+          pdq,abcpdqxyz,False,True
+          xyz```*```,abcpdqxyz,False,False
+          xyz,abcpdqxyz,False,True
+          ```*```,abcpdqxyz,True,True
+          ```*```,<None>,False,False
+          ```*```,<''>,False,False
+          ```*```,<otherwise>,True,True
+          abc```*```,abc.pdq.xyz,True,True
+          abc,abc.pdq.xyz,True,True
+          abc.pdq,abc.pdq.xyz,True,True
+          pdq```*```,abc.pdq.xyz,True,False
+          pdq,abc.pdq.xyz,True,True
+          pdq.xyz,abc.pdq.xyz,True,True
+          xyz```*```,abc.pdq.xyz,True,False
+          xyz,abc.pdq.xyz,True,True
+          |========
           """),
-      }
+  }

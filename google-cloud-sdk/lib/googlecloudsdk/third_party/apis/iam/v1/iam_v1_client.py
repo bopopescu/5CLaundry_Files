@@ -24,7 +24,7 @@ class IamV1(base_api.BaseApiClient):
                get_credentials=True, http=None, model=None,
                log_request=False, log_response=False,
                credentials_args=None, default_global_params=None,
-               additional_http_headers=None):
+               additional_http_headers=None, response_encoding=None):
     """Create a new iam handle."""
     url = url or self.BASE_URL
     super(IamV1, self).__init__(
@@ -33,7 +33,9 @@ class IamV1(base_api.BaseApiClient):
         log_request=log_request, log_response=log_response,
         credentials_args=credentials_args,
         default_global_params=default_global_params,
-        additional_http_headers=additional_http_headers)
+        additional_http_headers=additional_http_headers,
+        response_encoding=response_encoding)
+    self.iamPolicies = self.IamPoliciesService(self)
     self.organizations_roles = self.OrganizationsRolesService(self)
     self.organizations = self.OrganizationsService(self)
     self.permissions = self.PermissionsService(self)
@@ -42,6 +44,43 @@ class IamV1(base_api.BaseApiClient):
     self.projects_serviceAccounts = self.ProjectsServiceAccountsService(self)
     self.projects = self.ProjectsService(self)
     self.roles = self.RolesService(self)
+
+  class IamPoliciesService(base_api.BaseApiService):
+    """Service class for the iamPolicies resource."""
+
+    _NAME = u'iamPolicies'
+
+    def __init__(self, client):
+      super(IamV1.IamPoliciesService, self).__init__(client)
+      self._upload_configs = {
+          }
+
+    def QueryAuditableServices(self, request, global_params=None):
+      r"""Returns a list of services that support service level audit logging.
+configuration for the given resource.
+
+      Args:
+        request: (QueryAuditableServicesRequest) input message
+        global_params: (StandardQueryParameters, default: None) global arguments
+      Returns:
+        (QueryAuditableServicesResponse) The response message.
+      """
+      config = self.GetMethodConfig('QueryAuditableServices')
+      return self._RunMethod(
+          config, request, global_params=global_params)
+
+    QueryAuditableServices.method_config = lambda: base_api.ApiMethodInfo(
+        http_method=u'POST',
+        method_id=u'iam.iamPolicies.queryAuditableServices',
+        ordered_params=[],
+        path_params=[],
+        query_params=[],
+        relative_path=u'v1/iamPolicies:queryAuditableServices',
+        request_field='<request>',
+        request_type_name=u'QueryAuditableServicesRequest',
+        response_type_name=u'QueryAuditableServicesResponse',
+        supports_download=False,
+    )
 
   class OrganizationsRolesService(base_api.BaseApiService):
     """Service class for the organizations_roles resource."""
@@ -54,7 +93,7 @@ class IamV1(base_api.BaseApiClient):
           }
 
     def Create(self, request, global_params=None):
-      """Creates a new Role.
+      r"""Creates a new Role.
 
       Args:
         request: (IamOrganizationsRolesCreateRequest) input message
@@ -81,7 +120,7 @@ class IamV1(base_api.BaseApiClient):
     )
 
     def Delete(self, request, global_params=None):
-      """Soft deletes a role. The role is suspended and cannot be used to create new.
+      r"""Soft deletes a role. The role is suspended and cannot be used to create new.
 IAM Policy Bindings.
 The Role will not be included in `ListRoles()` unless `show_deleted` is set
 in the `ListRolesRequest`. The Role contains the deleted boolean set.
@@ -114,7 +153,7 @@ with the role are removed.
     )
 
     def Get(self, request, global_params=None):
-      """Gets a Role definition.
+      r"""Gets a Role definition.
 
       Args:
         request: (IamOrganizationsRolesGetRequest) input message
@@ -141,7 +180,7 @@ with the role are removed.
     )
 
     def List(self, request, global_params=None):
-      """Lists the Roles defined on a resource.
+      r"""Lists the Roles defined on a resource.
 
       Args:
         request: (IamOrganizationsRolesListRequest) input message
@@ -168,7 +207,7 @@ with the role are removed.
     )
 
     def Patch(self, request, global_params=None):
-      """Updates a Role definition.
+      r"""Updates a Role definition.
 
       Args:
         request: (IamOrganizationsRolesPatchRequest) input message
@@ -195,7 +234,7 @@ with the role are removed.
     )
 
     def Undelete(self, request, global_params=None):
-      """Undelete a Role, bringing it back in its previous state.
+      r"""Undelete a Role, bringing it back in its previous state.
 
       Args:
         request: (IamOrganizationsRolesUndeleteRequest) input message
@@ -242,7 +281,7 @@ with the role are removed.
           }
 
     def QueryTestablePermissions(self, request, global_params=None):
-      """Lists the permissions testable on a resource.
+      r"""Lists the permissions testable on a resource.
 A permission is testable if it can be tested for an identity on a resource.
 
       Args:
@@ -279,7 +318,7 @@ A permission is testable if it can be tested for an identity on a resource.
           }
 
     def Create(self, request, global_params=None):
-      """Creates a new Role.
+      r"""Creates a new Role.
 
       Args:
         request: (IamProjectsRolesCreateRequest) input message
@@ -306,7 +345,7 @@ A permission is testable if it can be tested for an identity on a resource.
     )
 
     def Delete(self, request, global_params=None):
-      """Soft deletes a role. The role is suspended and cannot be used to create new.
+      r"""Soft deletes a role. The role is suspended and cannot be used to create new.
 IAM Policy Bindings.
 The Role will not be included in `ListRoles()` unless `show_deleted` is set
 in the `ListRolesRequest`. The Role contains the deleted boolean set.
@@ -339,7 +378,7 @@ with the role are removed.
     )
 
     def Get(self, request, global_params=None):
-      """Gets a Role definition.
+      r"""Gets a Role definition.
 
       Args:
         request: (IamProjectsRolesGetRequest) input message
@@ -366,7 +405,7 @@ with the role are removed.
     )
 
     def List(self, request, global_params=None):
-      """Lists the Roles defined on a resource.
+      r"""Lists the Roles defined on a resource.
 
       Args:
         request: (IamProjectsRolesListRequest) input message
@@ -393,7 +432,7 @@ with the role are removed.
     )
 
     def Patch(self, request, global_params=None):
-      """Updates a Role definition.
+      r"""Updates a Role definition.
 
       Args:
         request: (IamProjectsRolesPatchRequest) input message
@@ -420,7 +459,7 @@ with the role are removed.
     )
 
     def Undelete(self, request, global_params=None):
-      """Undelete a Role, bringing it back in its previous state.
+      r"""Undelete a Role, bringing it back in its previous state.
 
       Args:
         request: (IamProjectsRolesUndeleteRequest) input message
@@ -457,7 +496,7 @@ with the role are removed.
           }
 
     def Create(self, request, global_params=None):
-      """Creates a ServiceAccountKey.
+      r"""Creates a ServiceAccountKey.
 and returns it.
 
       Args:
@@ -485,7 +524,7 @@ and returns it.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a ServiceAccountKey.
+      r"""Deletes a ServiceAccountKey.
 
       Args:
         request: (IamProjectsServiceAccountsKeysDeleteRequest) input message
@@ -512,7 +551,7 @@ and returns it.
     )
 
     def Get(self, request, global_params=None):
-      """Gets the ServiceAccountKey.
+      r"""Gets the ServiceAccountKey.
 by key id.
 
       Args:
@@ -540,7 +579,7 @@ by key id.
     )
 
     def List(self, request, global_params=None):
-      """Lists ServiceAccountKeys.
+      r"""Lists ServiceAccountKeys.
 
       Args:
         request: (IamProjectsServiceAccountsKeysListRequest) input message
@@ -577,7 +616,7 @@ by key id.
           }
 
     def Create(self, request, global_params=None):
-      """Creates a ServiceAccount.
+      r"""Creates a ServiceAccount.
 and returns it.
 
       Args:
@@ -605,7 +644,7 @@ and returns it.
     )
 
     def Delete(self, request, global_params=None):
-      """Deletes a ServiceAccount.
+      r"""Deletes a ServiceAccount.
 
       Args:
         request: (IamProjectsServiceAccountsDeleteRequest) input message
@@ -632,7 +671,7 @@ and returns it.
     )
 
     def Get(self, request, global_params=None):
-      """Gets a ServiceAccount.
+      r"""Gets a ServiceAccount.
 
       Args:
         request: (IamProjectsServiceAccountsGetRequest) input message
@@ -659,7 +698,7 @@ and returns it.
     )
 
     def GetIamPolicy(self, request, global_params=None):
-      """Returns the IAM access control policy for a.
+      r"""Returns the IAM access control policy for a.
 ServiceAccount.
 
       Args:
@@ -687,7 +726,7 @@ ServiceAccount.
     )
 
     def List(self, request, global_params=None):
-      """Lists ServiceAccounts for a project.
+      r"""Lists ServiceAccounts for a project.
 
       Args:
         request: (IamProjectsServiceAccountsListRequest) input message
@@ -714,7 +753,7 @@ ServiceAccount.
     )
 
     def SetIamPolicy(self, request, global_params=None):
-      """Sets the IAM access control policy for a.
+      r"""Sets the IAM access control policy for a.
 ServiceAccount.
 
       Args:
@@ -742,7 +781,7 @@ ServiceAccount.
     )
 
     def SignBlob(self, request, global_params=None):
-      """Signs a blob using a service account's system-managed private key.
+      r"""Signs a blob using a service account's system-managed private key.
 
       Args:
         request: (IamProjectsServiceAccountsSignBlobRequest) input message
@@ -769,7 +808,7 @@ ServiceAccount.
     )
 
     def SignJwt(self, request, global_params=None):
-      """Signs a JWT using a service account's system-managed private key.
+      r"""Signs a JWT using a service account's system-managed private key.
 
 If no expiry time (`exp`) is provided in the `SignJwtRequest`, IAM sets an
 an expiry time of one hour by default. If you request an expiry time of
@@ -800,7 +839,7 @@ more than one hour, the request will fail.
     )
 
     def TestIamPermissions(self, request, global_params=None):
-      """Tests the specified permissions against the IAM access control policy.
+      r"""Tests the specified permissions against the IAM access control policy.
 for a ServiceAccount.
 
       Args:
@@ -828,7 +867,7 @@ for a ServiceAccount.
     )
 
     def Update(self, request, global_params=None):
-      """Updates a ServiceAccount.
+      r"""Updates a ServiceAccount.
 
 Currently, only the following fields are updatable:
 `display_name` .
@@ -879,7 +918,7 @@ The `etag` is mandatory.
           }
 
     def Get(self, request, global_params=None):
-      """Gets a Role definition.
+      r"""Gets a Role definition.
 
       Args:
         request: (IamRolesGetRequest) input message
@@ -906,7 +945,7 @@ The `etag` is mandatory.
     )
 
     def List(self, request, global_params=None):
-      """Lists the Roles defined on a resource.
+      r"""Lists the Roles defined on a resource.
 
       Args:
         request: (IamRolesListRequest) input message
@@ -932,7 +971,7 @@ The `etag` is mandatory.
     )
 
     def QueryGrantableRoles(self, request, global_params=None):
-      """Queries roles that can be granted on a particular resource.
+      r"""Queries roles that can be granted on a particular resource.
 A role is grantable if it can be used as the role in a binding for a policy
 for that resource.
 

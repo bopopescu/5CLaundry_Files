@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command to add values to an Organization Policy whitelist."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.resource_manager import exceptions
 from googlecloudsdk.api_lib.resource_manager import org_policies
 from googlecloudsdk.calliope import base
@@ -41,8 +43,13 @@ class Allow(base.Command):
     flags.AddIdArgToParser(parser)
     flags.AddResourceFlagsToParser(parser)
     base.Argument(
-        'allowed_value', metavar='ALLOWED_VALUE', nargs='+').AddToParser(parser)
+        'allowed_value',
+        metavar='ALLOWED_VALUE',
+        nargs='+',
+        help='The values to add to the allowed_values list policy.',
+    ).AddToParser(parser)
 
+  # TODO(b/73831954):consider refactoring
   def Run(self, args):
     flags.CheckResourceFlags(args)
     messages = org_policies.OrgPoliciesMessages()
@@ -50,15 +57,18 @@ class Allow(base.Command):
 
     policy = service.GetOrgPolicy(org_policies_base.GetOrgPolicyRequest(args))
 
-    if policy.booleanPolicy or (
-        policy.listPolicy and
-        (policy.listPolicy.deniedValues or policy.listPolicy.allValues)):
+    if policy.booleanPolicy or (policy.listPolicy and
+                                policy.listPolicy.deniedValues):
       raise exceptions.ResourceManagerError(
           'Cannot add values to a non-allowed_values list policy.')
 
+    if policy.listPolicy and policy.listPolicy.allValues:
+      raise exceptions.ResourceManagerError(
+          'Cannot add values if all_values is already specified.')
+
     if policy.listPolicy and policy.listPolicy.allowedValues:
       for value in args.allowed_value:
-        policy.listPolicy.allowedValues.append(unicode(value))
+        policy.listPolicy.allowedValues.append(str(value))
     else:
       policy.listPolicy = messages.ListPolicy(allowedValues=args.allowed_value)
 

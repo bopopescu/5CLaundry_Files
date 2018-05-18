@@ -22,13 +22,23 @@ Example usage:
     OperateOnProjectedResource(obj)
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import datetime
+import json
 
-from apitools.base.protorpclite import messages
-from apitools.base.py import encoding
+from apitools.base.protorpclite import messages as protorpc_message
+from apitools.base.py import encoding as protorpc_encoding
 
 from googlecloudsdk.core.resource import resource_projection_parser
 from googlecloudsdk.core.resource import resource_property
+from googlecloudsdk.core.util import encoding
+
+import six
+from six.moves import range  # pylint: disable=redefined-builtin
+from google.protobuf import json_format as protobuf_encoding
+from google.protobuf import message as protobuf_message
 
 
 def MakeSerializable(resource):
@@ -82,12 +92,14 @@ class Projector(object):
     self._ignore_default_transforms = ignore_default_transforms
     self._retain_none_values = retain_none_values
     self._been_here_done_that = []
-    if 'transforms' in projection.Attributes():
+    attributes = projection.Attributes()
+    if 'transforms' in attributes:
       self._transforms_enabled_attribute = True
-    elif 'no-transforms' in projection.Attributes():
+    elif 'no-transforms' in attributes:
       self._transforms_enabled_attribute = False
     else:
       self._transforms_enabled_attribute = None
+    self._json_decode = 'json-decode' in attributes
 
   def _TransformIsEnabled(self, transform):
     """Returns True if transform is enabled.
@@ -142,7 +154,7 @@ class Projector(object):
       # The datetime.tzinfo object does not serialize, so we save the original
       # string representation, which by default has enough information to
       # reconstruct tzinfo.
-      r['datetime'] = unicode(obj)
+      r['datetime'] = six.text_type(obj)
       # Exclude tzinfo and the default recursive attributes that really should
       # be external constants anyway.
       exclude.update(('max', 'min', 'resolution', 'tzinfo'))
@@ -188,7 +200,11 @@ class Projector(object):
     if not obj:
       return obj
     res = {}
-    for key, val in obj.iteritems():
+    try:
+      six.iteritems(obj)
+    except ValueError:
+      return None
+    for key, val in six.iteritems(obj):
       f = flag
       if key in projection.tree:
         child_projection = projection.tree[key]
@@ -204,7 +220,10 @@ class Projector(object):
       if (val is not None or self._retain_none_values or
           f >= self._projection.PROJECT and self._columns):
         # Explicit projection paths always show none values.
-        res[unicode(key)] = val
+        try:
+          res[encoding.Decode(key)] = val
+        except UnicodeError:
+          res[key] = val
     return res or None
 
   def _ProjectList(self, obj, projection, flag):
@@ -232,7 +251,10 @@ class Projector(object):
         # Convert a set like object to an ordered list.
         obj = sorted(obj)
     except TypeError:
-      obj = list(obj)
+      try:
+        obj = list(obj)
+      except TypeError:
+        return None
 
     # Determine the explicit indices or slice.
     # If there is a slice index then every index is projected.
@@ -249,8 +271,8 @@ class Projector(object):
           if (flag >= self._projection.PROJECT or
               projection.tree[index].attribute.flag):
             sliced = projection.tree[index]
-        elif (isinstance(index, (int, long)) and
-              index in xrange(-len(obj), len(obj))):
+        elif (isinstance(index, six.integer_types) and
+              index in range(-len(obj), len(obj))):
           indices.add(index)
 
     # Everything below a PROJECT node is projected.
@@ -349,20 +371,39 @@ class Projector(object):
       return None
     elif obj is None:
       pass
-    elif isinstance(obj, (basestring, bool, int, long, float, complex)):
+    elif isinstance(obj, six.text_type) or isinstance(obj, six.binary_type):
+      # Don't use six.string_types because bytes are not considered a string
+      # on Python 3.
+      if isinstance(obj, six.binary_type):
+        # If it's bytes, first decode it, then continue.
+        obj = encoding.Decode(obj)
+      # Check for {" because valid compact JSON keys are always "..." quoted.
+      if (self._json_decode and (
+          obj.startswith('{"') and obj.endswith('}') or
+          obj.startswith('[') and obj.endswith(']'))):
+        try:
+          return self._Project(json.loads(obj), projection, flag, leaf=leaf)
+        except ValueError:
+          # OK if it's not JSON.
+          pass
+    elif (isinstance(obj, (bool, float, complex)) or
+          isinstance(obj, six.integer_types)):
       # primitive data type
       pass
     elif isinstance(obj, bytearray):
       # bytearray copied to disassociate from original obj.
-      obj = unicode(obj)
+      obj = encoding.Decode(bytes(obj))
+    elif isinstance(obj, protorpc_message.Enum):
+      # protorpc enum
+      obj = obj.name
     else:
       self._been_here_done_that.append(obj)
-      if isinstance(obj, messages.Message):
-        # protorpc message.
-        obj = encoding.MessageToDict(obj)
-      elif isinstance(obj, messages.Enum):
-        # protorpc enum
-        obj = obj.name
+      if isinstance(obj, protorpc_message.Message):
+        # protorpc message
+        obj = protorpc_encoding.MessageToDict(obj)
+      elif isinstance(obj, protobuf_message.Message):
+        # protobuf message
+        obj = protobuf_encoding.MessageToDict(obj)
       elif not hasattr(obj, '__iter__') or hasattr(obj, '_fields'):
         # class object or collections.namedtuple() (via the _fields test).
         obj = self._ProjectClass(obj, projection, flag)
@@ -373,10 +414,16 @@ class Projector(object):
         obj = projection.attribute.transform.Evaluate(obj)
       elif ((flag >= self._projection.PROJECT or projection and projection.tree)
             and hasattr(obj, '__iter__')):
-        if hasattr(obj, 'iteritems'):
-          obj = self._ProjectDict(obj, projection, flag)
+        if hasattr(obj, 'items'):
+          try:
+            obj = self._ProjectDict(obj, projection, flag)
+          except (IOError, TypeError):
+            obj = None
         else:
-          obj = self._ProjectList(obj, projection, flag)
+          try:
+            obj = self._ProjectList(obj, projection, flag)
+          except (IOError, TypeError):
+            obj = None
       self._been_here_done_that.pop()
       return obj
     # _ProjectAttribute() may apply transforms functions on obj, even if it is

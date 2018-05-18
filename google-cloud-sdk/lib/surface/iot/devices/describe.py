@@ -11,24 +11,28 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """`gcloud iot devices describe` command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import devices
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.iot import flags
-from googlecloudsdk.command_lib.iot import util
+from googlecloudsdk.command_lib.iot import resource_args
 
 
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class Describe(base.DescribeCommand):
   """Show details about a device."""
 
   @staticmethod
   def Args(parser):
-    flags.AddDeviceResourceFlags(parser, 'to describe')
+    resource_args.AddDeviceResourceArg(parser, 'to describe')
 
   def Run(self, args):
     client = devices.DevicesClient()
 
-    device_ref = util.ParseDevice(
-        args.id, registry=args.registry, region=args.region)
+    device_ref = args.CONCEPTS.device.Parse()
 
     return client.Get(device_ref)

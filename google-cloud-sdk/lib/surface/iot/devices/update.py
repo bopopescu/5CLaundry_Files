@@ -11,10 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """`gcloud iot devices update` command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.cloudiot import devices
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.iot import flags
+from googlecloudsdk.command_lib.iot import resource_args
 from googlecloudsdk.command_lib.iot import util
 from googlecloudsdk.core import log
 
@@ -24,17 +30,17 @@ class Update(base.UpdateCommand):
 
   @staticmethod
   def Args(parser):
-    flags.AddDeviceResourceFlags(parser, 'to update')
-    for flag in flags.GetDeviceFlags(defaults=False):
-      flag.AddToParser(parser)
+    resource_args.AddDeviceResourceArg(parser, 'to update')
+    flags.AddDeviceFlagsToParser(parser, default_for_blocked_flags=False)
 
   def Run(self, args):
     client = devices.DevicesClient()
 
-    device_ref = util.ParseDevice(args.id, registry=args.registry,
-                                  region=args.region)
-    enabled_state = util.ParseEnableDevice(args.enable_device, client=client)
+    device_ref = args.CONCEPTS.device.Parse()
 
-    device = client.Patch(device_ref, enabled_state=enabled_state)
+    metadata = util.ParseMetadata(args.metadata, args.metadata_from_file,
+                                  client.messages)
+
+    device = client.Patch(device_ref, blocked=args.blocked, metadata=metadata)
     log.UpdatedResource(device_ref.Name(), 'device')
     return device

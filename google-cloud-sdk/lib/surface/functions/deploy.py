@@ -12,359 +12,156 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""'functions deploy' command."""
-import httplib
-
-from apitools.base.py import exceptions as apitools_exceptions
-
+"""Creates or updates a Google Cloud Function."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import utils
-from googlecloudsdk.api_lib.functions import operations
-from googlecloudsdk.api_lib.functions import util
-from googlecloudsdk.calliope import arg_parsers
+from googlecloudsdk.api_lib.functions import util as api_util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.functions import flags
-from googlecloudsdk.command_lib.functions.deploy import util as deploy_util
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
-from googlecloudsdk.core.util import files as file_utils
-
-_DEPLOY_WAIT_NOTICE = 'Deploying function (may take a while - up to 2 minutes)'
-
-
-def _FunctionArgs(parser):
-  """Add arguments specyfying functions behavior to the parser."""
-  parser.add_argument(
-      'name', help='Intended name of the new function.',
-      type=util.ValidateFunctionNameOrRaise)
-  parser.add_argument(
-      '--memory',
-      type=arg_parsers.BinarySize(
-          suggested_binary_size_scales=['KB', 'MB', 'MiB', 'GB', 'GiB'],
-          default_unit='MB'),
-      help="""\
-      The amount of memory allocated to your function.
-
-      Allowed values are: 128MB, 256MB, 512MB, 1024MB, and 2048MB. By default,
-      256 MB is allocated to each function.""")
-  parser.add_argument(
-      '--timeout',
-      help=('The function execution timeout, e.g. 30s for 30 seconds. '
-            'Defaults to 60 seconds.'),
-      type=arg_parsers.Duration(lower_bound='1s'))
+from googlecloudsdk.command_lib.functions.deploy import labels_util
+from googlecloudsdk.command_lib.functions.deploy import source_util
+from googlecloudsdk.command_lib.functions.deploy import trigger_util
+from googlecloudsdk.command_lib.util.args import labels_util as args_labels_util
+from googlecloudsdk.core import log
 
 
-def _SourceCodeArgs(parser):
-  """Add arguments specyfying functions source code to the parser."""
-  path_group = parser.add_mutually_exclusive_group()
-  path_group.add_argument(
-      '--local-path',
-      help=('Path to local directory with source code. Required with '
-            '--stage-bucket flag. Size of uncompressed files to deploy must be '
-            'no more than 512MB.'))
-  path_group.add_argument(
-      '--source-path',
-      help=('Path to directory with source code in Cloud Source '
-            'Repositories, when you specify this parameter --source-url flag '
-            'is required.'))
-  path_group.add_argument(
-      '--source',
-      help="""\
-      Location of source code to deploy.
+def _Run(args, enable_runtime=False):
+  """Run a function deployment with the given args."""
+  # Check for labels that start with `deployment`, which is not allowed.
+  labels_util.CheckNoDeploymentLabels('--remove-labels', args.remove_labels)
+  labels_util.CheckNoDeploymentLabels('--update-labels', args.update_labels)
 
-      Location of the source can be one of the following:
+  # Check that exactly one trigger type is specified properly.
+  trigger_util.ValidateTriggerArgs(
+      args.trigger_event, args.trigger_resource,
+      args.IsSpecified('retry'), args.IsSpecified('trigger_http'))
 
-      * Source code in Google Cloud Storage,
-      * Reference to source repository or,
-      * Local filesystem path.
+  trigger_params = trigger_util.GetTriggerEventParams(
+      args.trigger_http, args.trigger_bucket, args.trigger_topic,
+      args.trigger_event, args.trigger_resource)
 
-      Value of the flag will be interpreted as Google Cloud Storage location if
-      it starts with `gs://`.
+  function_ref = api_util.GetFunctionRef(args.name)
+  function_url = function_ref.RelativeName()
 
-      The value will be interpreted as reference to source repository if it
-      starts with `https://`..
+  messages = api_util.GetApiMessagesModule()
 
-      Otherwise it will be interpeted as local filesystem path.
+  # Get an existing function or create a new one.
+  function = api_util.GetFunction(function_url)
+  is_new_function = function is None
+  if is_new_function:
+    trigger_util.CheckTriggerSpecified(args)
+    function = messages.CloudFunction()
+    function.name = function_url
+  elif trigger_params:
+    # If the new deployment would implicitly change the trigger_event type
+    # raise error
+    trigger_util.CheckLegacyTriggerUpdate(function.eventTrigger,
+                                          trigger_params['trigger_event'])
 
-      If you provide reference to source repository it should be in one of the
-      following formats:
+  # Keep track of which fields are updated in the case of patching.
+  updated_fields = []
 
-      * https://source.developers.google.com/projects/([^/]+)/repos/([^/]+)/revisions/([^/]+)/paths/(.+)
-        * Unlike other patterns this can include slashes in last group.
-      * https://source.developers.google.com/projects/([^/]+)/repos/([^/]+)/moveable-aliases/([^/]+)
-      * https://source.developers.google.com/projects/([^/]+)/repos/([^/]+)/fixed-aliases/([^/]+)
-      * https://source.developers.google.com/projects/([^/]+)/repos/([^/]+)
-      """)
+  # Populate function properties based on args.
+  if args.entry_point:
+    function.entryPoint = args.entry_point
+    updated_fields.append('entryPoint')
+  if args.timeout:
+    function.timeout = '{}s'.format(args.timeout)
+    updated_fields.append('timeout')
+  if args.memory:
+    function.availableMemoryMb = utils.BytesToMb(args.memory)
+    updated_fields.append('availableMemoryMb')
+  if enable_runtime:
+    if args.IsSpecified('runtime'):
+      function.runtime = args.runtime
+      updated_fields.append('runtime')
 
-  source_group = parser.add_mutually_exclusive_group()
-  source_group.add_argument(
-      '--stage-bucket',
-      help=('Name of Google Cloud Storage bucket in which source code will '
-            'be stored. Required if a function is deployed from a local '
-            'directory.'),
-      type=util.ValidateAndStandarizeBucketUriOrRaise)
-  source_group.add_argument(
-      '--source-url',
-      help=('The Url of a remote repository that holds the function being '
-            'deployed. It is of the form: '
-            'https://source.developers.google.com/p/{project_id}/'
-            'r/{repo_name}/, where you should substitute your data for '
-            'values inside the curly brackets. You can omit "r/{repo_name}/" '
-            'in which case the "default" repository is taken. '
-            'One of the parameters --source-revision, --source-branch, '
-            'or --source-tag can be given to specify the version in the '
-            'repository. If none of them are provided, the last revision '
-            'from the master branch is used. If this parameter is given, '
-            'the parameter --source is required and describes the path '
-            'inside the repository.'))
-  source_version_group = parser.add_mutually_exclusive_group()
-  source_version_group.add_argument(
-      '--source-revision',
-      help=('The revision ID (for instance, git commit hash) that will be '
-            'used to get the source code of the function. Can be specified '
-            'only together with --source-url parameter.'))
-  source_version_group.add_argument(
-      '--source-branch',
-      help=('The branch that will be used to get the source code of the '
-            'function.  The most recent revision on this branch will be '
-            'used. Can be specified only together with --source-url '
-            'parameter. If not specified defaults to `master`.'))
-  source_version_group.add_argument(
-      '--source-tag',
-      help="""\
-      The revision tag for the source that will be used as the source
-      code of the function. Can be specified only together with
-      --source-url parameter.""")
-  parser.add_argument(
-      '--entry-point',
-      type=util.ValidateEntryPointNameOrRaise,
-      help="""\
-      By default when a Google Cloud Function is triggered, it executes a
-      JavaScript function with the same name. Or, if it cannot find a
-      function with the same name, it executes a function named `function`.
-      You can use this flag to override the default behavior, by specifying
-      the name of a JavaScript function that will be executed when the
-      Google Cloud Function is triggered."""
-  )
-  parser.add_argument(
-      '--include-ignored-files',
-      help=('Deploy sources together with files which are normally ignored '
-            '(contents of node_modules directory). This flag has an effect '
-            'only if a function is deployed from a local directory.'),
-      default=False,
-      action='store_true')
+  # Populate trigger properties of function based on trigger args.
+  if args.trigger_http:
+    function.httpsTrigger = messages.HttpsTrigger()
+    function.eventTrigger = None
+    updated_fields.extend(['eventTrigger', 'httpsTrigger'])
+  if trigger_params:
+    function.eventTrigger = trigger_util.CreateEventTrigger(**trigger_params)
+    function.httpsTrigger = None
+    updated_fields.extend(['eventTrigger', 'httpsTrigger'])
+  if args.IsSpecified('retry'):
+    updated_fields.append('eventTrigger.failurePolicy')
+    if args.retry:
+      function.eventTrigger.failurePolicy = messages.FailurePolicy()
+      function.eventTrigger.failurePolicy.retry = messages.Retry()
+    else:
+      function.eventTrigger.failurePolicy = None
+  elif function.eventTrigger:
+    function.eventTrigger.failurePolicy = None
+
+  # Populate source properties of function based on source args.
+  # Only Add source to function if its explicitly provided, a new function,
+  # using a stage budget or deploy of an existing function that previously
+  # used local source.
+  if (args.source or args.stage_bucket or is_new_function or
+      function.sourceUploadUrl):
+    updated_fields.extend(source_util.SetFunctionSourceProps(
+        function, function_ref, args.source, args.stage_bucket))
+
+  # Apply label args to function
+  if labels_util.SetFunctionLabels(function, args.update_labels,
+                                   args.remove_labels, args.clear_labels):
+    updated_fields.append('labels')
+
+  if is_new_function:
+    return api_util.CreateFunction(function)
+  if updated_fields:
+    return api_util.PatchFunction(function, updated_fields)
+  log.status.Print('Nothing to update.')
 
 
-def _TriggerArgs(parser):
-  """Add arguments specyfying functions trigger to the parser."""
-  trigger_group = parser.add_mutually_exclusive_group(required=True)
-  trigger_group.add_argument(
-      '--trigger-topic',
-      help=('Name of Pub/Sub topic. Every message published in this topic '
-            'will trigger function execution with message contents passed as '
-            'input data.'),
-      type=util.ValidatePubsubTopicNameOrRaise)
-  trigger_group.add_argument(
-      '--trigger-bucket',
-      help=('Google Cloud Storage bucket name. Every change in files in this '
-            'bucket will trigger function execution.'),
-      type=util.ValidateAndStandarizeBucketUriOrRaise)
-  trigger_group.add_argument(
-      '--trigger-http', action='store_true',
-      help="""\
-      Function will be assigned an endpoint, which you can view by using
-      the `describe` command. Any HTTP request (of a supported type) to the
-      endpoint will trigger function execution. Supported HTTP request
-      types are: POST, PUT, GET, DELETE, and OPTIONS.""")
-  trigger_group.add_argument(
-      '--trigger-provider',
-      metavar='PROVIDER',
-      choices=sorted(util.input_trigger_provider_registry.ProvidersLabels()),
-      help=('Trigger this function in response to an event in another '
-            'service. For a list of acceptable values, call `gcloud '
-            'functions event-types list`.'),
-      hidden=True,
-      )
-  trigger_provider_spec_group = parser.add_argument_group()
-  # The validation performed by argparse is incomplete, as the set of valid
-  # provider/event combinations is limited. This should be more thoroughly
-  # validated at runtime.
-  trigger_provider_spec_group.add_argument(
-      '--trigger-event',
-      metavar='EVENT_TYPE',
-      choices=['topic.publish', 'object.change', 'user.create', 'user.delete',
-               'data.write'],
-      help=('Specifies which action should trigger the function. If omitted, '
-            'a default EVENT_TYPE for --trigger-provider will be used. For a '
-            'list of acceptable values, call functions event_types list.'),
-      hidden=True,
-  )
-  # check later as type of applicable input depends on options above
-  trigger_provider_spec_group.add_argument(
-      '--trigger-resource',
-      metavar='RESOURCE',
-      help=('Specifies which resource from --trigger-provider is being '
-            'observed. E.g. if --trigger-provider is cloud.storage, '
-            '--trigger-resource must be a bucket name. For a list of '
-            'expected resources, call functions event_types list.'),
-      hidden=True,
-  )
-
-
+@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.GA)
 class Deploy(base.Command):
-  """Creates a new function or updates an existing one."""
+  """Create or update a Google Cloud Function."""
 
   @staticmethod
   def Args(parser):
     """Register flags for this command."""
-    _FunctionArgs(parser)
-    _SourceCodeArgs(parser)
-    _TriggerArgs(parser)
-    flags.AddRegionFlag(parser)
+    # Add args for function properties
+    flags.AddFunctionNameArg(parser)
+    flags.AddFunctionMemoryFlag(parser)
+    flags.AddFunctionTimeoutFlag(parser)
+    flags.AddFunctionRetryFlag(parser)
+    args_labels_util.AddUpdateLabelsFlags(
+        parser,
+        extra_update_message=
+        ' ' + labels_util.NO_LABELS_STARTING_WITH_DEPLOY_MESSAGE,
+        extra_remove_message=
+        ' ' + labels_util.NO_LABELS_STARTING_WITH_DEPLOY_MESSAGE)
 
-  @util.CatchHTTPErrorRaiseHTTPException
-  def _GetExistingFunction(self, name):
-    client = util.GetApiClientInstance()
-    messages = client.MESSAGES_MODULE
-    try:
-      # We got response for a get request so a function exists.
-      return client.projects_locations_functions.Get(
-          messages.CloudfunctionsProjectsLocationsFunctionsGetRequest(
-              name=name))
-    except apitools_exceptions.HttpError as error:
-      if error.status_code == httplib.NOT_FOUND:
-        # The function has not been found.
-        return None
-      raise
+    # Add args for specifying the function source code
+    flags.AddSourceFlag(parser)
+    flags.AddStageBucketFlag(parser)
+    flags.AddEntryPointFlag(parser)
 
-  def _EventTrigger(self, trigger_provider, trigger_event,
-                    trigger_resource):
-    messages = util.GetApiMessagesModule()
-    event_trigger = messages.EventTrigger()
-    event_type_ref = resources.REGISTRY.Parse(
-        None,
-        params={
-            'triggerProvider': trigger_provider,
-            'triggerEvent': trigger_event
-        },
-        collection='cloudfunctions.providers.event_types'
+    # Add args for specifying the function trigger
+    flags.AddTriggerFlagGroup(parser)
+
+    flags.AddRegionFlag(
+        parser,
+        help_text='The region in which the function will run.',
     )
-    event_trigger.eventType = event_type_ref.RelativeName()
-    event_trigger.resource = (
-        deploy_util.ConvertTriggerArgsToRelativeName(
-            trigger_provider,
-            trigger_event,
-            trigger_resource))
-    return event_trigger
-
-  def _PrepareFunctionWithoutSources(
-      self, name, entry_point, timeout_sec, trigger_http, trigger_params):
-    """Creates a function object without filling in the sources properties.
-
-    Args:
-      name: str, name of the function (resource).
-      entry_point: str, name of the function (in deployed code) to be executed.
-      timeout_sec: int, maximum time allowed for function execution, in seconds.
-      trigger_http: bool, indicates whether function should have a HTTPS
-                    trigger; when truthy trigger_params argument is ignored.
-      trigger_params: None or dict from str to str, the dict is assmed to
-                      contain exactly the following keys: trigger_provider,
-                      trigger_event, trigger_resource.
-
-    Returns:
-      The specified function with its description and configured filter.
-    """
-    messages = util.GetApiMessagesModule()
-    function = messages.CloudFunction()
-    function.name = name
-    if entry_point:
-      function.entryPoint = entry_point
-    if timeout_sec:
-      function.timeout = str(timeout_sec) + 's'
-    if trigger_http:
-      function.httpsTrigger = messages.HTTPSTrigger()
-    else:
-      function.eventTrigger = self._EventTrigger(**trigger_params)
-    return function
-
-  def _DeployFunction(self, name, location, args, deploy_method,
-                      trigger_params):
-    function = self._PrepareFunctionWithoutSources(
-        name, args.entry_point, args.timeout, args.trigger_http, trigger_params)
-    if args.source:
-      deploy_util.AddSourceToFunction(
-          function, args.source, args.include_ignored_files, args.name,
-          args.stage_bucket)
-    elif args.source_url:
-      messages = util.GetApiMessagesModule()
-      source_path = args.source_path
-      source_branch = args.source_branch or 'master'
-      function.sourceRepository = messages.SourceRepository(
-          tag=args.source_tag, branch=source_branch,
-          revision=args.source_revision, repositoryUrl=args.source_url,
-          sourcePath=source_path)
-    else:
-      function.sourceArchiveUrl = self._PrepareSourcesOnGcs(args)
-    memory_mb = utils.BytesToMb(args.memory)
-    if memory_mb:
-      function.availableMemoryMb = memory_mb
-    return deploy_method(location, function)
-
-  def _PrepareSourcesOnGcs(self, args):
-    with file_utils.TemporaryDirectory() as tmp_dir:
-      local_path = deploy_util.GetLocalPath(args)
-      zip_file = deploy_util.CreateSourcesZipFile(
-          tmp_dir, local_path, args.include_ignored_files)
-      return deploy_util.UploadFile(zip_file, args.name, args.stage_bucket)
-
-  @util.CatchHTTPErrorRaiseHTTPException
-  def _CreateFunction(self, location, function):
-    client = util.GetApiClientInstance()
-    messages = client.MESSAGES_MODULE
-    op = client.projects_locations_functions.Create(
-        messages.CloudfunctionsProjectsLocationsFunctionsCreateRequest(
-            location=location, cloudFunction=function))
-    operations.Wait(op, messages, client, _DEPLOY_WAIT_NOTICE)
-    return self._GetExistingFunction(function.name)
-
-  @util.CatchHTTPErrorRaiseHTTPException
-  def _UpdateFunction(self, unused_location, function):
-    client = util.GetApiClientInstance()
-    messages = client.MESSAGES_MODULE
-    op = client.projects_locations_functions.Update(function)
-    operations.Wait(op, messages, client, _DEPLOY_WAIT_NOTICE)
-    return self._GetExistingFunction(function.name)
 
   def Run(self, args):
-    """This is what gets called when the user runs this command.
+    return _Run(args)
 
-    Args:
-      args: an argparse namespace. All the arguments that were provided to this
-        command invocation.
 
-    Returns:
-      The specified function with its description and configured filter.
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class DeployAlpha(base.Command):
+  """Create or update a Google Cloud Function."""
 
-    Raises:
-      FunctionsError if command line parameters are not valid.
-    """
-    trigger_params = deploy_util.DeduceAndCheckArgs(args)
-    project = properties.VALUES.core.project.Get(required=True)
-    location_ref = resources.REGISTRY.Parse(
-        properties.VALUES.functions.region.Get(),
-        params={'projectsId': project},
-        collection='cloudfunctions.projects.locations')
-    location = location_ref.RelativeName()
-    function_ref = resources.REGISTRY.Parse(
-        args.name, params={
-            'projectsId': project,
-            'locationsId': properties.VALUES.functions.region.Get()},
-        collection='cloudfunctions.projects.locations.functions')
-    function_url = function_ref.RelativeName()
+  @staticmethod
+  def Args(parser):
+    """Register flags for this command."""
+    Deploy.Args(parser)
+    flags.AddRuntimeFlag(parser)
 
-    function = self._GetExistingFunction(function_url)
-    if function is None:
-      return self._DeployFunction(function_url, location, args,
-                                  self._CreateFunction, trigger_params)
-    else:
-      return self._DeployFunction(function_url, location, args,
-                                  self._UpdateFunction, trigger_params)
+  def Run(self, args):
+    return _Run(args, enable_runtime=True)

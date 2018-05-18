@@ -14,6 +14,8 @@
 
 """types list command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import collections
 
 from apitools.base.py import list_pager
@@ -214,6 +216,7 @@ class ListALPHA(base.ListCommand, dm_base.DmCommand):
             yield {'types': types,
                    'provider': project + '/' + type_provider}
         except api_exceptions.HttpException as error:
+          self.exit_code = 1
           yield {'types': [],
                  'provider': project + '/' + type_provider,
                  'error': error.message}

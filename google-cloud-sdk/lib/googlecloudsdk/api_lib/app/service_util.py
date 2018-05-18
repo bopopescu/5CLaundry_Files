@@ -14,11 +14,12 @@
 
 """Utilities for dealing with service resources."""
 
-from googlecloudsdk.api_lib.app import exceptions as app_exceptions
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.app import operations_util
-from googlecloudsdk.api_lib.util import exceptions as core_api_exceptions
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core.util import text
+import six
 
 
 class ServiceValidationError(exceptions.Error):
@@ -146,25 +147,35 @@ def ParseTrafficAllocations(args_allocations, split_method):
   # Splitting by IP allows 2 decimal places, splitting by cookie allows 3.
   max_decimal_places = 2 if split_method == 'ip' else 3
   sum_of_splits = sum([float(s) for s in args_allocations.values()])
-  if sum_of_splits < 10 ** -max_decimal_places:
-    raise ServicesSplitTrafficError(
-        'Cannot set traffic split to zero. If you would like a version to '
-        'receive no traffic, send 100% of traffic to other versions or delete '
-        'the service.')
+
+  err = ServicesSplitTrafficError(
+      'Cannot set traffic split to zero. If you would like a version to '
+      'receive no traffic, send 100% of traffic to other versions or delete '
+      'the service.')
+
+  # Prevent division by zero
+  if sum_of_splits == 0.0:
+    raise err
 
   allocations = {}
-  for version, split in args_allocations.iteritems():
+  for version, split in six.iteritems(args_allocations):
     allocation = float(split) / sum_of_splits
     allocation = round(allocation, max_decimal_places)
+    if allocation == 0.0:
+      raise err
     allocations[version] = allocation
 
   # The API requires that these sum to 1.0. This is hard to get exactly correct,
-  # (think .33, .33, .33) so we take our difference and subtract it from a
-  # random element.
-  total_splits = sum(allocations.values())
+  # (think .33, .33, .33) so we take our difference and subtract it from the
+  # first maximum element of our sorted allocations dictionary
+  total_splits = round(sum(allocations.values()), max_decimal_places)
   difference = total_splits - 1.0
 
-  allocations[sorted(allocations.keys())[0]] -= difference
+  max_split = max(allocations.values())
+  for version, split in sorted(allocations.items()):
+    if max_split == split:
+      allocations[version] -= difference
+      break
   return allocations
 
 
@@ -173,9 +184,9 @@ def DeleteServices(api_client, services):
   errors = {}
   for service in services:
     try:
-      api_client.DeleteService(service.id)
-    except (core_api_exceptions.HttpException, operations_util.OperationError,
-            operations_util.OperationTimeoutError, app_exceptions.Error) as err:
+      operations_util.CallAndCollectOpErrors(
+          api_client.DeleteService, service.id)
+    except operations_util.MiscOperationError as err:
       errors[service.id] = str(err)
 
   if errors:
@@ -186,6 +197,6 @@ def DeleteServices(api_client, services):
     raise ServicesDeleteError(
         'Issue deleting {0}: [{1}]\n\n'.format(
             text.Pluralize(len(printable_errors), 'service'),
-            ', '.join(printable_errors.keys())) +
-        '\n\n'.join(printable_errors.values()))
+            ', '.join(list(printable_errors.keys()))) +
+        '\n\n'.join(list(printable_errors.values())))
 

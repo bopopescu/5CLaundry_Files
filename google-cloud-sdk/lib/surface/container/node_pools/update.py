@@ -12,23 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Update node pool command."""
-import argparse
-
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 from googlecloudsdk.api_lib.container import api_adapter
 from googlecloudsdk.api_lib.container import util
-from googlecloudsdk.calliope import actions
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.container import flags
 from googlecloudsdk.command_lib.container import messages
 from googlecloudsdk.core import log
-from googlecloudsdk.core import properties
 
 
 DETAILED_HELP = {
     'DESCRIPTION': """\
-        *{command}* updates a node pool in a Google Container Engine cluster.
+        *{command}* updates a node pool in a Google Kubernetes Engine cluster.
         """,
     'EXAMPLES': """\
         To turn on node auto repair in "node-pool-1" in the cluster
@@ -46,28 +44,28 @@ def _Args(parser):
     parser: An argparse.ArgumentParser-like object. It is mocked out in order
         to capture some information, but behaves like an ArgumentParser.
   """
-  parser.add_argument('name', help='The name of the node pool to update.')
-  parser.add_argument(
-      '--cluster',
-      help='The cluster this node pool belongs to.',
-      action=actions.StoreProperty(properties.VALUES.container.cluster))
+  flags.AddNodePoolNameArg(parser, 'The name of the node pool.')
+  flags.AddNodePoolClusterFlag(parser, 'The name of the cluster.')
   # Timeout in seconds for operation
   parser.add_argument(
       '--timeout',
       type=int,
       default=1800,
-      help=argparse.SUPPRESS)
+      hidden=True,
+      help='THIS ARGUMENT NEEDS HELP TEXT.')
 
 
-@base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.GA)
 class Update(base.UpdateCommand):
   """Updates a node pool in a running cluster."""
 
   @staticmethod
   def Args(parser):
     _Args(parser)
-    flags.AddEnableAutoRepairFlag(parser, for_node_pool=True)
-    flags.AddEnableAutoUpgradeFlag(parser, for_node_pool=True)
+    node_management_group = parser.add_argument_group('Node management',
+                                                      required=True)
+    flags.AddEnableAutoRepairFlag(node_management_group, for_node_pool=True)
+    flags.AddEnableAutoUpgradeFlag(node_management_group, for_node_pool=True)
 
   def ParseUpdateNodePoolOptions(self, args):
     return api_adapter.UpdateNodePoolOptions(
@@ -92,10 +90,6 @@ class Update(base.UpdateCommand):
     location = location_get(args)
     pool_ref = adapter.ParseNodePool(args.name, location)
     options = self.ParseUpdateNodePoolOptions(args)
-    if options.enable_autorepair is None and options.enable_autoupgrade is None:
-      raise exceptions.MinimumArgumentException(
-          ['--[no-]enable-autoupgrade', '--[no-]enable-autorepair'],
-          'Please reformat your request.')
 
     if options.enable_autorepair is not None:
       log.status.Print(messages.AutoUpdateUpgradeRepairMessage(
@@ -117,5 +111,43 @@ class Update(base.UpdateCommand):
 
     log.UpdatedResource(pool_ref)
     return pool
+
+
+@base.ReleaseTracks(base.ReleaseTrack.BETA)
+class UpdateBeta(Update):
+  """Updates a node pool in a running cluster."""
+
+  @staticmethod
+  def Args(parser):
+    _Args(parser)
+    node_management_group = parser.add_argument_group('Node management',
+                                                      required=True)
+    flags.AddEnableAutoRepairFlag(node_management_group, for_node_pool=True)
+    flags.AddEnableAutoUpgradeFlag(node_management_group, for_node_pool=True)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class UpdateAlpha(Update):
+  """Updates a node pool in a running cluster."""
+
+  @staticmethod
+  def Args(parser):
+    _Args(parser)
+    group = parser.add_mutually_exclusive_group(required=True)
+    node_management_group = group.add_argument_group('Node management')
+    flags.AddEnableAutoRepairFlag(node_management_group, for_node_pool=True)
+    flags.AddEnableAutoUpgradeFlag(node_management_group, for_node_pool=True)
+    autoscaling_group = flags.AddClusterAutoscalingFlags(group, hidden=False)
+    flags.AddNodePoolAutoprovisioningFlag(autoscaling_group, hidden=True)
+
+  def ParseUpdateNodePoolOptions(self, args):
+    ops = api_adapter.UpdateNodePoolOptions(
+        enable_autorepair=args.enable_autorepair,
+        enable_autoupgrade=args.enable_autoupgrade,
+        enable_autoscaling=args.enable_autoscaling,
+        max_nodes=args.max_nodes,
+        min_nodes=args.min_nodes,
+        enable_autoprovisioning=args.enable_autoprovisioning)
+    return ops
 
 Update.detailed_help = DETAILED_HELP

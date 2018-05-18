@@ -13,11 +13,12 @@
 # limitations under the License.
 """Commands for reading and manipulating security policies."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
-@base.Hidden
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class SecurityPolicies(base.Group):
   """Read and manipulate Google Compute Engine security policies."""
   pass

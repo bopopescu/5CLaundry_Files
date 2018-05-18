@@ -45,6 +45,7 @@ class List(base.ListCommand):
         status
       )
     """)
+    parser.display_info.AddCacheUpdater(None)
 
   def Run(self, args):
     """Lists all backups associated with a given instance.
@@ -56,11 +57,6 @@ class List(base.ListCommand):
     Returns:
       A dict object that has the list of backup run resources if the command ran
       successfully.
-    Raises:
-      HttpException: A http error response was received while executing api
-          request.
-      ToolException: An error other than http error occured while executing the
-          command.
     """
 
     client = api_util.SqlClient(api_util.API_VERSION_DEFAULT)

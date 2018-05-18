@@ -14,6 +14,9 @@
 
 """A class for parsing a resource projection expression."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import copy
 import re
 
@@ -22,6 +25,8 @@ from googlecloudsdk.core.resource import resource_filter
 from googlecloudsdk.core.resource import resource_lex
 from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.resource import resource_transform
+
+import six
 
 
 class Parser(object):
@@ -133,7 +138,8 @@ class Parser(object):
           ' {transform}{options})'.format(
               flag=self.flag,
               order=('UNORDERED' if self.order is None else str(self.order)),
-              label=repr(self.label),
+              label=(self.label if self.label is None
+                     else "'" + self.label + "'"),
               align=self.align,
               active=self.transform.active if self.transform else None,
               transform=self.transform,
@@ -154,7 +160,7 @@ class Parser(object):
       self._snake_re = re.compile('((?<=[a-z0-9])[A-Z]+|(?!^)[A-Z](?=[a-z]))')
     label = ''
     for index in reversed(key):
-      if isinstance(index, basestring):
+      if isinstance(index, six.string_types):
         key_snake = self._snake_re.sub(r'_\1', index).upper()
         if label:
           label = key_snake + '_' + label
@@ -206,7 +212,7 @@ class Parser(object):
       if not self.__key_attributes_only or not attribute.order:
         # Only an attributes_only attribute with explicit :sort=N can be hidden.
         attribute.hidden = False
-    elif isinstance(name, (int, long)) and None in tree:
+    elif isinstance(name, six.integer_types) and None in tree:
       # New projection for explicit name using slice defaults.
       tree[name] = copy.deepcopy(tree[None])
       attribute = tree[name].attribute
@@ -298,7 +304,7 @@ class Parser(object):
       ExpressionSyntaxError: The expression has a syntax error.
     """
     while True:
-      name = self._lex.Token('=:,)', space=False)
+      name = self._lex.Token('=:,)', space=False)  # type: str
       here = self._lex.GetPosition()
       if self._lex.IsCharacter('=', eoi_ok=True):
         boolean_value = False
@@ -418,7 +424,7 @@ class Parser(object):
       ExpressionSyntaxError: The expression has a syntax error.
     """
     while True:
-      name = self._lex.Token('=,])', space=False)
+      name = self._lex.Token('=,])', space=False)  # type: str
       if name:
         if self._lex.IsCharacter('='):
           value = self._lex.Token(',])', space=False, convert=True)
@@ -475,7 +481,7 @@ class Parser(object):
           self.__key_order_offset = 0
         else:
           here = self._lex.GetPosition()
-          name = self._lex.Token(':([')
+          name = self._lex.Token(':([')  # type: str
           if not name.isalpha():
             raise resource_exceptions.ExpressionSyntaxError(
                 'Name expected [{0}].'.format(self._lex.Annotate(here)))

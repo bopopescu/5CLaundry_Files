@@ -5,7 +5,7 @@
   "name": "dataflow",
   "version": "v1b3",
   "revision": "0",
-  "title": "Google Dataflow API",
+  "title": "Dataflow API",
   "description": "Manages Google Cloud Dataflow projects on Google Cloud Platform.",
   "ownerDomain": "google.com",
   "ownerName": "Google",
@@ -1259,6 +1259,10 @@
           "description": "The time this event was emitted to indicate a new target or current\nnum_workers value.",
           "type": "string",
           "format": "google-datetime"
+        },
+        "workerPool": {
+          "description": "A short and friendly name for the worker pool this event refers to,\npopulated from the value of PoolStageRelation::user_pool_name.",
+          "type": "string"
         }
       }
     },
@@ -1355,6 +1359,10 @@
           "description": "A struct value describing properties of a distribution of numeric values.",
           "type": "any"
         },
+        "gauge": {
+          "description": "A struct value describing properties of a Gauge.\nMetrics of gauge type show the value of a metric across time, and is\naggregated based on the newest value.",
+          "type": "any"
+        },
         "internal": {
           "description": "Worker-computed aggregate value for internal use by the Dataflow\nservice.",
           "type": "any"
@@ -1446,6 +1454,21 @@
         },
         "machineType": {
           "description": "The machine type to use for the job. Defaults to the value from the\ntemplate if not specified.",
+          "type": "string"
+        },
+        "additionalExperiments": {
+          "description": "Additional experiment flags for the job.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "network": {
+          "description": "Network to which VMs will be assigned.  If empty or unspecified,\nthe service will use the network \"default\".",
+          "type": "string"
+        },
+        "subnetwork": {
+          "description": "Subnetwork to which VMs will be assigned, if desired.  Expected to be of\nthe form \"regions\/REGION\/subnetworks\/SUBNETWORK\".",
           "type": "string"
         }
       }
@@ -1664,6 +1687,11 @@
           "description": "If the work item represented a SourceOperationRequest, and the work\nis completed, contains the result of the operation.",
           "$ref": "SourceOperationResponse"
         },
+        "totalThrottlerWaitTimeSeconds": {
+          "description": "Total time the worker spent being throttled by external systems.",
+          "type": "number",
+          "format": "double"
+        },
         "sourceFork": {
           "description": "DEPRECATED in favor of dynamic_source_split.",
           "$ref": "SourceFork"
@@ -1736,6 +1764,10 @@
         "internal": {
           "description": "Value for internally-defined counters used by the Dataflow service.",
           "type": "any"
+        },
+        "integerGauge": {
+          "description": "Gauge data",
+          "$ref": "IntegerGauge"
         }
       }
     },
@@ -1759,7 +1791,8 @@
             "Aggregated value represents the logical 'or' of all contributed values.",
             "Aggregated value represents the logical 'and' of all contributed values.",
             "Aggregated value is a set of unique contributed values.",
-            "Aggregated value captures statistics about a distribution."
+            "Aggregated value captures statistics about a distribution.",
+            "Aggregated value tracks the latest value of a variable."
           ],
           "type": "string",
           "enum": [
@@ -1771,7 +1804,8 @@
             "OR",
             "AND",
             "SET",
-            "DISTRIBUTION"
+            "DISTRIBUTION",
+            "LATEST_VALUE"
           ]
         }
       }
@@ -1845,6 +1879,15 @@
             "KEY",
             "VALUE"
           ]
+        },
+        "inputIndex": {
+          "description": "Index of an input collection that's being read from\/written to as a side\ninput.\nThe index identifies a step's side inputs starting by 1 (e.g. the first\nside input has input_index 1, the third has input_index 3).\nSide inputs are identified by a pair of (original_step_name, input_index).\nThis field helps uniquely identify them.",
+          "type": "integer",
+          "format": "int32"
+        },
+        "originalRequestingStepName": {
+          "description": "The step name requesting an operation, such as GBK.\nI.e. the ParDo causing a read\/write from shuffle to occur, or a\nread from side inputs.",
+          "type": "string"
         }
       }
     },
@@ -1864,7 +1907,8 @@
             "Aggregated value represents the logical 'or' of all contributed values.",
             "Aggregated value represents the logical 'and' of all contributed values.",
             "Aggregated value is a set of unique contributed values.",
-            "Aggregated value captures statistics about a distribution."
+            "Aggregated value captures statistics about a distribution.",
+            "Aggregated value tracks the latest value of a variable."
           ],
           "type": "string",
           "enum": [
@@ -1876,7 +1920,8 @@
             "OR",
             "AND",
             "SET",
-            "DISTRIBUTION"
+            "DISTRIBUTION",
+            "LATEST_VALUE"
           ]
         },
         "description": {
@@ -2030,29 +2075,45 @@
           "type": "number",
           "format": "double"
         },
-        "logBuckets": {
-          "description": "(Optional) Logarithmic histogram of values.\nEach log may be in no more than one bucket. Order does not matter.",
-          "type": "array",
-          "items": {
-            "$ref": "LogBucket"
-          }
+        "histogram": {
+          "description": "(Optional) Histogram of value counts for the distribution.",
+          "$ref": "Histogram"
         }
       }
     },
-    "LogBucket": {
-      "id": "LogBucket",
-      "description": "Bucket of values for Distribution's logarithmic histogram.",
+    "Histogram": {
+      "id": "Histogram",
+      "description": "Histogram of value counts for a distribution.\n\nBuckets have an inclusive lower bound and exclusive upper bound and use\n\"1,2,5 bucketing\": The first bucket range is from [0,1) and all subsequent\nbucket boundaries are powers of ten multiplied by 1, 2, or 5. Thus, bucket\nboundaries are 0, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, ...\nNegative values are not supported.",
       "type": "object",
       "properties": {
-        "log": {
-          "description": "floor(log2(value)); defined to be zero for nonpositive values.\n  log(-1) = 0\n  log(0) = 0\n  log(1) = 0\n  log(2) = 1\n  log(3) = 1\n  log(4) = 2\n  log(5) = 2",
+        "bucketCounts": {
+          "description": "Counts of values in each bucket. For efficiency, prefix and trailing\nbuckets with count = 0 are elided. Buckets can store the full range of\nvalues of an unsigned long, with ULLONG_MAX falling into the 59th bucket\nwith range [1e19, 2e19).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "int64"
+          }
+        },
+        "firstBucketOffset": {
+          "description": "Starting index of first stored bucket. The non-inclusive upper-bound of\nthe ith bucket is given by:\n  pow(10,(i-first_bucket_offset)\/3) * (1,2,5)[(i-first_bucket_offset)%3]",
           "type": "integer",
           "format": "int32"
+        }
+      }
+    },
+    "IntegerGauge": {
+      "id": "IntegerGauge",
+      "description": "A metric value representing temporal values of a variable.",
+      "type": "object",
+      "properties": {
+        "value": {
+          "description": "The value of the variable represented by this gauge.",
+          "$ref": "SplitInt64"
         },
-        "count": {
-          "description": "Number of values in this bucket.",
+        "timestamp": {
+          "description": "The time at which this value was measured. Measured as msecs from epoch.",
           "type": "string",
-          "format": "int64"
+          "format": "google-datetime"
         }
       }
     },
@@ -3242,6 +3303,22 @@
       "description": "A work item that represents the different operations that can be\nperformed on a user-defined Source specification.",
       "type": "object",
       "properties": {
+        "systemName": {
+          "description": "System-defined name of the Read instruction for this source.\nUnique across the workflow.",
+          "type": "string"
+        },
+        "name": {
+          "description": "User-provided name of the Read instruction for this source.",
+          "type": "string"
+        },
+        "originalName": {
+          "description": "System-defined name for the Read instruction for this source\nin the original workflow graph.",
+          "type": "string"
+        },
+        "stageName": {
+          "description": "System-defined name of the stage containing the source operation.\nUnique across the workflow.",
+          "type": "string"
+        },
         "split": {
           "description": "Information about a request to split a source.",
           "$ref": "SourceSplitRequest"
@@ -3480,6 +3557,14 @@
         "workerMetrics": {
           "description": "Resource metrics reported by workers.",
           "$ref": "ResourceUtilizationReport"
+        },
+        "workerShutdownNotice": {
+          "description": "Shutdown notice by workers.",
+          "$ref": "WorkerShutdownNotice"
+        },
+        "workerLifecycleEvent": {
+          "description": "Record of worker lifecycle events.",
+          "$ref": "WorkerLifecycleEvent"
         }
       }
     },
@@ -3570,6 +3655,60 @@
         }
       }
     },
+    "WorkerShutdownNotice": {
+      "id": "WorkerShutdownNotice",
+      "description": "Shutdown notification from workers. This is to be sent by the shutdown\nscript of the worker VM so that the backend knows that the VM is being\nshut down.",
+      "type": "object",
+      "properties": {
+        "reason": {
+          "description": "The reason for the worker shutdown.\nCurrent possible values are:\n  \"UNKNOWN\": shutdown reason is unknown.\n  \"PREEMPTION\": shutdown reason is preemption.\nOther possible reasons may be added in the future.",
+          "type": "string"
+        }
+      }
+    },
+    "WorkerLifecycleEvent": {
+      "id": "WorkerLifecycleEvent",
+      "description": "A report of an event in a worker's lifecycle.\nThe proto contains one event, because the worker is expected to\nasynchronously send each message immediately after the event.\nDue to this asynchrony, messages may arrive out of order (or missing), and it\nis up to the consumer to interpret.\nThe timestamp of the event is in the enclosing WorkerMessage proto.",
+      "type": "object",
+      "properties": {
+        "event": {
+          "description": "The event being reported.",
+          "enumDescriptions": [
+            "Invalid event.",
+            "The time the VM started.",
+            "Our container code starts running. Multiple containers could be\ndistinguished with WorkerMessage.labels if desired.",
+            "The worker has a functional external network connection.",
+            "Started downloading staging files.",
+            "Finished downloading all staging files.",
+            "For applicable SDKs, started installation of SDK and worker packages.",
+            "Finished installing SDK."
+          ],
+          "type": "string",
+          "enum": [
+            "UNKNOWN_EVENT",
+            "OS_START",
+            "CONTAINER_START",
+            "NETWORK_UP",
+            "STAGING_FILES_DOWNLOAD_START",
+            "STAGING_FILES_DOWNLOAD_FINISH",
+            "SDK_INSTALL_START",
+            "SDK_INSTALL_FINISH"
+          ]
+        },
+        "metadata": {
+          "description": "Other stats that can accompany an event. E.g.\n{ \"downloaded_bytes\" : \"123456\" }",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "containerStartTime": {
+          "description": "The start time of this container. All events will report this so that\nevents can be grouped together across container\/VM restarts.",
+          "type": "string",
+          "format": "google-datetime"
+        }
+      }
+    },
     "SendWorkerMessagesResponse": {
       "id": "SendWorkerMessagesResponse",
       "description": "The response to the worker messages.",
@@ -3596,6 +3735,10 @@
         "workerMetricsResponse": {
           "description": "Service's response to reporting worker metrics (currently empty).",
           "$ref": "ResourceUtilizationReportResponse"
+        },
+        "workerShutdownNoticeResponse": {
+          "description": "Service's response to shutdown notice (currently empty).",
+          "$ref": "WorkerShutdownNoticeResponse"
         }
       }
     },
@@ -3617,6 +3760,13 @@
       "type": "object",
       "properties": {
       }
+    },
+    "WorkerShutdownNoticeResponse": {
+      "id": "WorkerShutdownNoticeResponse",
+      "description": "Service-side response to WorkerMessage issuing shutdown notice.",
+      "type": "object",
+      "properties": {
+      }
     }
   },
   "resources": {
@@ -3627,7 +3777,6 @@
           "path": "v1b3/projects/{projectId}/WorkerMessages",
           "flatPath": "v1b3/projects/{projectId}/WorkerMessages",
           "httpMethod": "POST",
-          "description": "Send a worker_message to the service.",
           "parameters": {
             "projectId": {
               "description": "The project to send the WorkerMessages to.",
@@ -3650,7 +3799,8 @@
             "https://www.googleapis.com/auth/compute",
             "https://www.googleapis.com/auth/compute.readonly",
             "https://www.googleapis.com/auth/userinfo.email"
-          ]
+          ],
+          "description": "Send a worker_message to the service."
         }
       }
       ,
@@ -3662,7 +3812,6 @@
               "path": "v1b3/projects/{projectId}/jobs",
               "flatPath": "v1b3/projects/{projectId}/jobs",
               "httpMethod": "POST",
-              "description": "Creates a Cloud Dataflow job.",
               "parameters": {
                 "projectId": {
                   "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -3706,14 +3855,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Creates a Cloud Dataflow job."
             },
             "get": {
               "id": "dataflow.projects.jobs.get",
               "path": "v1b3/projects/{projectId}/jobs/{jobId}",
               "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}",
               "httpMethod": "GET",
-              "description": "Gets the state of the specified Cloud Dataflow job.",
               "parameters": {
                 "projectId": {
                   "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -3756,14 +3905,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Gets the state of the specified Cloud Dataflow job."
             },
             "update": {
               "id": "dataflow.projects.jobs.update",
               "path": "v1b3/projects/{projectId}/jobs/{jobId}",
               "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}",
               "httpMethod": "PUT",
-              "description": "Updates the state of an existing Cloud Dataflow job.",
               "parameters": {
                 "projectId": {
                   "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -3798,14 +3947,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Updates the state of an existing Cloud Dataflow job."
             },
             "list": {
               "id": "dataflow.projects.jobs.list",
               "path": "v1b3/projects/{projectId}/jobs",
               "flatPath": "v1b3/projects/{projectId}/jobs",
               "httpMethod": "GET",
-              "description": "List the jobs of a project in a given region.",
               "parameters": {
                 "projectId": {
                   "description": "The project which owns the jobs.",
@@ -3863,14 +4012,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "List the jobs of a project in a given region."
             },
             "aggregated": {
               "id": "dataflow.projects.jobs.aggregated",
               "path": "v1b3/projects/{projectId}/jobs:aggregated",
               "flatPath": "v1b3/projects/{projectId}/jobs:aggregated",
               "httpMethod": "GET",
-              "description": "List the jobs of a project across all regions.",
               "parameters": {
                 "projectId": {
                   "description": "The project which owns the jobs.",
@@ -3928,14 +4077,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "List the jobs of a project across all regions."
             },
             "getMetrics": {
               "id": "dataflow.projects.jobs.getMetrics",
               "path": "v1b3/projects/{projectId}/jobs/{jobId}/metrics",
               "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/metrics",
               "httpMethod": "GET",
-              "description": "Request the job status.",
               "parameters": {
                 "projectId": {
                   "description": "A project id.",
@@ -3973,7 +4122,8 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Request the job status."
             }
           }
           ,
@@ -3985,7 +4135,6 @@
                   "path": "v1b3/projects/{projectId}/jobs/{jobId}/debug/getConfig",
                   "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/debug/getConfig",
                   "httpMethod": "POST",
-                  "description": "Get encoded debug configuration for component. Not cacheable.",
                   "parameters": {
                     "projectId": {
                       "description": "The project id.",
@@ -4015,14 +4164,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Get encoded debug configuration for component. Not cacheable."
                 },
                 "sendCapture": {
                   "id": "dataflow.projects.jobs.debug.sendCapture",
                   "path": "v1b3/projects/{projectId}/jobs/{jobId}/debug/sendCapture",
                   "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/debug/sendCapture",
                   "httpMethod": "POST",
-                  "description": "Send encoded debug capture data for component.",
                   "parameters": {
                     "projectId": {
                       "description": "The project id.",
@@ -4052,7 +4201,8 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Send encoded debug capture data for component."
                 }
               }
             },
@@ -4063,7 +4213,6 @@
                   "path": "v1b3/projects/{projectId}/jobs/{jobId}/messages",
                   "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/messages",
                   "httpMethod": "GET",
-                  "description": "Request the job status.",
                   "parameters": {
                     "projectId": {
                       "description": "A project id.",
@@ -4131,7 +4280,8 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Request the job status."
                 }
               }
             },
@@ -4142,7 +4292,6 @@
                   "path": "v1b3/projects/{projectId}/jobs/{jobId}/workItems:reportStatus",
                   "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/workItems:reportStatus",
                   "httpMethod": "POST",
-                  "description": "Reports the status of dataflow WorkItems leased by a worker.",
                   "parameters": {
                     "projectId": {
                       "description": "The project which owns the WorkItem's job.",
@@ -4172,14 +4321,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Reports the status of dataflow WorkItems leased by a worker."
                 },
                 "lease": {
                   "id": "dataflow.projects.jobs.workItems.lease",
                   "path": "v1b3/projects/{projectId}/jobs/{jobId}/workItems:lease",
                   "flatPath": "v1b3/projects/{projectId}/jobs/{jobId}/workItems:lease",
                   "httpMethod": "POST",
-                  "description": "Leases a dataflow WorkItem to run.",
                   "parameters": {
                     "projectId": {
                       "description": "Identifies the project this worker belongs to.",
@@ -4209,7 +4358,8 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Leases a dataflow WorkItem to run."
                 }
               }
             }
@@ -4222,7 +4372,6 @@
               "path": "v1b3/projects/{projectId}/templates",
               "flatPath": "v1b3/projects/{projectId}/templates",
               "httpMethod": "POST",
-              "description": "Creates a Cloud Dataflow job from a template.",
               "parameters": {
                 "projectId": {
                   "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -4245,14 +4394,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Creates a Cloud Dataflow job from a template."
             },
             "launch": {
               "id": "dataflow.projects.templates.launch",
               "path": "v1b3/projects/{projectId}/templates:launch",
               "flatPath": "v1b3/projects/{projectId}/templates:launch",
               "httpMethod": "POST",
-              "description": "Launch a template.",
               "parameters": {
                 "projectId": {
                   "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -4290,14 +4439,14 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Launch a template."
             },
             "get": {
               "id": "dataflow.projects.templates.get",
               "path": "v1b3/projects/{projectId}/templates:get",
               "flatPath": "v1b3/projects/{projectId}/templates:get",
               "httpMethod": "GET",
-              "description": "Get the template associated with a template.",
               "parameters": {
                 "projectId": {
                   "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -4335,7 +4484,8 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Get the template associated with a template."
             }
           }
         },
@@ -4346,7 +4496,6 @@
               "path": "v1b3/projects/{projectId}/locations/{location}/WorkerMessages",
               "flatPath": "v1b3/projects/{projectId}/locations/{location}/WorkerMessages",
               "httpMethod": "POST",
-              "description": "Send a worker_message to the service.",
               "parameters": {
                 "projectId": {
                   "description": "The project to send the WorkerMessages to.",
@@ -4376,7 +4525,8 @@
                 "https://www.googleapis.com/auth/compute",
                 "https://www.googleapis.com/auth/compute.readonly",
                 "https://www.googleapis.com/auth/userinfo.email"
-              ]
+              ],
+              "description": "Send a worker_message to the service."
             }
           }
           ,
@@ -4388,7 +4538,6 @@
                   "path": "v1b3/projects/{projectId}/locations/{location}/jobs",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs",
                   "httpMethod": "POST",
-                  "description": "Creates a Cloud Dataflow job.",
                   "parameters": {
                     "projectId": {
                       "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -4434,14 +4583,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Creates a Cloud Dataflow job."
                 },
                 "get": {
                   "id": "dataflow.projects.locations.jobs.get",
                   "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}",
                   "httpMethod": "GET",
-                  "description": "Gets the state of the specified Cloud Dataflow job.",
                   "parameters": {
                     "projectId": {
                       "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -4486,14 +4635,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Gets the state of the specified Cloud Dataflow job."
                 },
                 "update": {
                   "id": "dataflow.projects.locations.jobs.update",
                   "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}",
                   "httpMethod": "PUT",
-                  "description": "Updates the state of an existing Cloud Dataflow job.",
                   "parameters": {
                     "projectId": {
                       "description": "The ID of the Cloud Platform project that the job belongs to.",
@@ -4530,14 +4679,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Updates the state of an existing Cloud Dataflow job."
                 },
                 "list": {
                   "id": "dataflow.projects.locations.jobs.list",
                   "path": "v1b3/projects/{projectId}/locations/{location}/jobs",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs",
                   "httpMethod": "GET",
-                  "description": "List the jobs of a project in a given region.",
                   "parameters": {
                     "projectId": {
                       "description": "The project which owns the jobs.",
@@ -4597,14 +4746,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "List the jobs of a project in a given region."
                 },
                 "getMetrics": {
                   "id": "dataflow.projects.locations.jobs.getMetrics",
                   "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/metrics",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/metrics",
                   "httpMethod": "GET",
-                  "description": "Request the job status.",
                   "parameters": {
                     "projectId": {
                       "description": "A project id.",
@@ -4644,7 +4793,8 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Request the job status."
                 }
               }
               ,
@@ -4656,7 +4806,6 @@
                       "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/getConfig",
                       "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/getConfig",
                       "httpMethod": "POST",
-                      "description": "Get encoded debug configuration for component. Not cacheable.",
                       "parameters": {
                         "projectId": {
                           "description": "The project id.",
@@ -4693,14 +4842,14 @@
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/compute.readonly",
                         "https://www.googleapis.com/auth/userinfo.email"
-                      ]
+                      ],
+                      "description": "Get encoded debug configuration for component. Not cacheable."
                     },
                     "sendCapture": {
                       "id": "dataflow.projects.locations.jobs.debug.sendCapture",
                       "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/sendCapture",
                       "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/debug/sendCapture",
                       "httpMethod": "POST",
-                      "description": "Send encoded debug capture data for component.",
                       "parameters": {
                         "projectId": {
                           "description": "The project id.",
@@ -4737,7 +4886,8 @@
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/compute.readonly",
                         "https://www.googleapis.com/auth/userinfo.email"
-                      ]
+                      ],
+                      "description": "Send encoded debug capture data for component."
                     }
                   }
                 },
@@ -4748,7 +4898,6 @@
                       "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/messages",
                       "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/messages",
                       "httpMethod": "GET",
-                      "description": "Request the job status.",
                       "parameters": {
                         "projectId": {
                           "description": "A project id.",
@@ -4818,7 +4967,8 @@
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/compute.readonly",
                         "https://www.googleapis.com/auth/userinfo.email"
-                      ]
+                      ],
+                      "description": "Request the job status."
                     }
                   }
                 },
@@ -4829,7 +4979,6 @@
                       "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:reportStatus",
                       "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:reportStatus",
                       "httpMethod": "POST",
-                      "description": "Reports the status of dataflow WorkItems leased by a worker.",
                       "parameters": {
                         "projectId": {
                           "description": "The project which owns the WorkItem's job.",
@@ -4866,14 +5015,14 @@
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/compute.readonly",
                         "https://www.googleapis.com/auth/userinfo.email"
-                      ]
+                      ],
+                      "description": "Reports the status of dataflow WorkItems leased by a worker."
                     },
                     "lease": {
                       "id": "dataflow.projects.locations.jobs.workItems.lease",
                       "path": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:lease",
                       "flatPath": "v1b3/projects/{projectId}/locations/{location}/jobs/{jobId}/workItems:lease",
                       "httpMethod": "POST",
-                      "description": "Leases a dataflow WorkItem to run.",
                       "parameters": {
                         "projectId": {
                           "description": "Identifies the project this worker belongs to.",
@@ -4910,7 +5059,8 @@
                         "https://www.googleapis.com/auth/compute",
                         "https://www.googleapis.com/auth/compute.readonly",
                         "https://www.googleapis.com/auth/userinfo.email"
-                      ]
+                      ],
+                      "description": "Leases a dataflow WorkItem to run."
                     }
                   }
                 }
@@ -4923,7 +5073,6 @@
                   "path": "v1b3/projects/{projectId}/locations/{location}/templates",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/templates",
                   "httpMethod": "POST",
-                  "description": "Creates a Cloud Dataflow job from a template.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -4953,14 +5102,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Creates a Cloud Dataflow job from a template."
                 },
                 "launch": {
                   "id": "dataflow.projects.locations.templates.launch",
                   "path": "v1b3/projects/{projectId}/locations/{location}/templates:launch",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/templates:launch",
                   "httpMethod": "POST",
-                  "description": "Launch a template.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -5000,14 +5149,14 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Launch a template."
                 },
                 "get": {
                   "id": "dataflow.projects.locations.templates.get",
                   "path": "v1b3/projects/{projectId}/locations/{location}/templates:get",
                   "flatPath": "v1b3/projects/{projectId}/locations/{location}/templates:get",
                   "httpMethod": "GET",
-                  "description": "Get the template associated with a template.",
                   "parameters": {
                     "projectId": {
                       "description": "Required. The ID of the Cloud Platform project that the job belongs to.",
@@ -5047,7 +5196,8 @@
                     "https://www.googleapis.com/auth/compute",
                     "https://www.googleapis.com/auth/compute.readonly",
                     "https://www.googleapis.com/auth/userinfo.email"
-                  ]
+                  ],
+                  "description": "Get the template associated with a template."
                 }
               }
             }

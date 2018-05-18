@@ -15,13 +15,18 @@
 """Contains utilities for comparing RELEASE_NOTES between Cloud SDK versions.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import re
-import StringIO
 
 from googlecloudsdk.core import config
 from googlecloudsdk.core import log
 from googlecloudsdk.core.document_renderers import render_document
 from googlecloudsdk.core.updater import installers
+from googlecloudsdk.core.util import encoding
+
+from six.moves import StringIO
 
 
 class ReleaseNotes(object):
@@ -79,6 +84,7 @@ class ReleaseNotes(object):
       if code and code != 200:
         return None
       text = response.read()
+      text = encoding.Decode(text)
       return cls(text)
     # pylint: disable=broad-except, We don't want any failure to download or
     # parse the release notes to block an update.  Returning None here will
@@ -217,7 +223,7 @@ and bugs fixed.  The latest full release notes can be viewed at:
   {0}
 """.format(config.INSTALLATION_CONFIG.release_notes_url))
 
-  full_text = StringIO.StringIO()
+  full_text = StringIO()
   for _, text in release_notes_diff:
     full_text.write(text)
     full_text.write('\n')

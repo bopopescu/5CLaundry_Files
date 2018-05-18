@@ -11,18 +11,17 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Command group for ml speech operations."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.ml.speech import speech_command_util
 
 
 class Operations(base.Group):
   """Interact with Google Cloud Speech operations.
 
   Get information about Google Cloud Speech long-running operations.
-
-  {auth_hints}
   """
-
-  detailed_help = {'auth_hints': speech_command_util.SPEECH_AUTH_HELP}

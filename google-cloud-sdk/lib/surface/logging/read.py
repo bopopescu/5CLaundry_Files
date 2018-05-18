@@ -32,14 +32,20 @@ class Read(base.Command):
         'log_filter', help=('A filter expression that specifies the '
                             'log entries to return.'),
         nargs='?')
-    parser.add_argument(
-        '--order', required=False,
-        choices=('DESC', 'ASC'), default='DESC',
-        help='Ordering of returned log entries based on timestamp field.')
+    order_arg = base.ChoiceArgument(
+        '--order',
+        choices=('desc', 'asc'),
+        required=False,
+        default='desc',
+        help_str='Ordering of returned log entries based on timestamp field.'
+    )
+    order_arg.AddToParser(parser)
     parser.add_argument(
         '--freshness', required=False, type=arg_parsers.Duration(),
         help=('Return entries that are not older than this value. '
-              'Works only with DESC ordering and filters without a timestamp.'),
+              'Works only with DESC ordering and filters without a timestamp. '
+              'See $ gcloud topic datetimes for information on '
+              'duration formats.'),
         default='1d')
     util.AddNonProjectArgs(parser, 'Read log entries')
 
@@ -54,7 +60,7 @@ class Read(base.Command):
       The list of log entries.
     """
     # Take into account freshness only if all requirements are met.
-    if (args.freshness and args.order == 'DESC' and
+    if (args.freshness and args.order == 'desc' and
         (not args.log_filter or 'timestamp' not in args.log_filter)):
       # Argparser returns freshness in seconds.
       freshness = datetime.timedelta(seconds=args.freshness)

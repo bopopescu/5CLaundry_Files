@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for switching network mode."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as exceptions
@@ -21,8 +23,21 @@ from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 
 
-@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA,
-                    base.ReleaseTrack.ALPHA)
+_DEPRECATION_WARNING = (
+    '`switch-mode` is deprecated. '
+    'Please use `--switch-to-custom-subnet-mode` with `gcloud compute networks '
+    'update` instead.')
+
+
+_DEPRECATION_ERROR = (
+    '`switch-mode` has been removed. '
+    'Please use `--switch-to-custom-subnet-mode` with `gcloud compute networks '
+    'update` instead.')
+
+
+# TODO(b/64980447): Clean up this command flag after 3 months of deprecation.
+@base.Deprecate(
+    is_removed=True, warning=_DEPRECATION_WARNING, error=_DEPRECATION_ERROR)
 class SwitchMode(base.SilentCommand):
   """Switch network mode."""
 

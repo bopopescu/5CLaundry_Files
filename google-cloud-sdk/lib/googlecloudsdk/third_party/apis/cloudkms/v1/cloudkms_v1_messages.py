@@ -14,13 +14,13 @@ package = 'cloudkms'
 
 
 class AuditConfig(_messages.Message):
-  """Specifies the audit configuration for a service. The configuration
+  r"""Specifies the audit configuration for a service. The configuration
   determines which permission types are logged, and what identities, if any,
   are exempted from logging. An AuditConfig must have one or more
   AuditLogConfigs.  If there are AuditConfigs for both `allServices` and a
   specific service, the union of the two AuditConfigs is used for that
   service: the log_types specified in each AuditConfig are enabled, and the
-  exempted_members in each AuditConfig are exempted.  Example Policy with
+  exempted_members in each AuditLogConfig are exempted.  Example Policy with
   multiple AuditConfigs:      {       "audit_configs": [         {
   "service": "allServices"           "audit_log_configs": [             {
   "log_type": "DATA_READ",               "exempted_members": [
@@ -37,20 +37,17 @@ class AuditConfig(_messages.Message):
 
   Fields:
     auditLogConfigs: The configuration for logging of each type of permission.
-      Next ID: 4
-    exemptedMembers: A string attribute.
     service: Specifies a service that will be enabled for audit logging. For
       example, `storage.googleapis.com`, `cloudsql.googleapis.com`.
       `allServices` is a special value that covers all services.
   """
 
   auditLogConfigs = _messages.MessageField('AuditLogConfig', 1, repeated=True)
-  exemptedMembers = _messages.StringField(2, repeated=True)
-  service = _messages.StringField(3)
+  service = _messages.StringField(2)
 
 
 class AuditLogConfig(_messages.Message):
-  """Provides the configuration for logging a type of permissions. Example:
+  r"""Provides the configuration for logging a type of permissions. Example:
   {       "audit_log_configs": [         {           "log_type": "DATA_READ",
   "exempted_members": [             "user:foo@gmail.com"           ]
   },         {           "log_type": "DATA_WRITE",         }       ]     }
@@ -67,7 +64,7 @@ class AuditLogConfig(_messages.Message):
   """
 
   class LogTypeValueValuesEnum(_messages.Enum):
-    """The log type that this config enables.
+    r"""The log type that this config enables.
 
     Values:
       LOG_TYPE_UNSPECIFIED: Default case. Should never be this.
@@ -85,13 +82,9 @@ class AuditLogConfig(_messages.Message):
 
 
 class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+  r"""Associates `members` with a `role`.
 
   Fields:
-    condition: The condition that is associated with this binding. NOTE: an
-      unsatisfied condition will not allow user access via current binding.
-      Different bindings, including their conditions, are examined
-      independently. This field is GOOGLE_INTERNAL.
     members: Specifies the identities requesting access for a Cloud Platform
       resource. `members` can have the following values:  * `allUsers`: A
       special identifier that represents anyone who is    on the internet;
@@ -99,8 +92,8 @@ class Binding(_messages.Message):
       identifier that represents anyone    who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
       represents a specific Google    account. For example, `alice@gmail.com`
-      or `joe@example.com`.   * `serviceAccount:{emailid}`: An email address
-      that represents a service    account. For example, `my-other-
+      .   * `serviceAccount:{emailid}`: An email address that represents a
+      service    account. For example, `my-other-
       app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
       that represents a Google group.    For example, `admins@example.com`.
       * `domain:{domain}`: A Google Apps domain name that represents all the
@@ -109,39 +102,12 @@ class Binding(_messages.Message):
       `roles/editor`, or `roles/owner`. Required
   """
 
-  condition = _messages.MessageField('Expr', 1)
-  members = _messages.StringField(2, repeated=True)
-  role = _messages.StringField(3)
-
-
-class CloudAuditOptions(_messages.Message):
-  """Write a Cloud Audit log
-
-  Enums:
-    LogNameValueValuesEnum: The log_name to populate in the Cloud Audit
-      Record.
-
-  Fields:
-    logName: The log_name to populate in the Cloud Audit Record.
-  """
-
-  class LogNameValueValuesEnum(_messages.Enum):
-    """The log_name to populate in the Cloud Audit Record.
-
-    Values:
-      UNSPECIFIED_LOG_NAME: Default. Should not be used.
-      ADMIN_ACTIVITY: Corresponds to "cloudaudit.googleapis.com/activity"
-      DATA_ACCESS: Corresponds to "cloudaudit.googleapis.com/data_access"
-    """
-    UNSPECIFIED_LOG_NAME = 0
-    ADMIN_ACTIVITY = 1
-    DATA_ACCESS = 2
-
-  logName = _messages.EnumField('LogNameValueValuesEnum', 1)
+  members = _messages.StringField(1, repeated=True)
+  role = _messages.StringField(2)
 
 
 class CloudkmsProjectsLocationsGetRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsGetRequest object.
+  r"""A CloudkmsProjectsLocationsGetRequest object.
 
   Fields:
     name: Resource name for the location.
@@ -151,7 +117,7 @@ class CloudkmsProjectsLocationsGetRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsCreateRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCreateRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCreateRequest object.
 
   Fields:
     keyRing: A KeyRing resource to be passed as the request body.
@@ -167,7 +133,7 @@ class CloudkmsProjectsLocationsKeyRingsCreateRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCreateRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysCreateRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysCreateRequest object.
 
   Fields:
     cryptoKey: A CryptoKey resource to be passed as the request body.
@@ -182,7 +148,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCreateRequest(_messages.Message
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateRequest(_messages.Message):
-  """A
+  r"""A
   CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateRequest
   object.
 
@@ -198,7 +164,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsCreateRequest(
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyRequest(_messages.Message):
-  """A
+  r"""A
   CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyRequest
   object.
 
@@ -213,7 +179,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsDestroyRequest
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetRequest
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetRequest
   object.
 
   Fields:
@@ -224,7 +190,8 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsGetRequest(_me
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListRequest
+  r"""A
+  CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListRequest
   object.
 
   Fields:
@@ -245,7 +212,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsListRequest(_m
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchRequest(_messages.Message):
-  """A
+  r"""A
   CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchRequest
   object.
 
@@ -264,7 +231,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsPatchRequest(_
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreRequest(_messages.Message):
-  """A
+  r"""A
   CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreRequest
   object.
 
@@ -279,7 +246,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysCryptoKeyVersionsRestoreRequest
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysDecryptRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysDecryptRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysDecryptRequest object.
 
   Fields:
     decryptRequest: A DecryptRequest resource to be passed as the request
@@ -293,7 +260,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysDecryptRequest(_messages.Messag
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysEncryptRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysEncryptRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysEncryptRequest object.
 
   Fields:
     encryptRequest: A EncryptRequest resource to be passed as the request
@@ -308,7 +275,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysEncryptRequest(_messages.Messag
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysGetIamPolicyRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysGetIamPolicyRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysGetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being requested.
@@ -320,7 +287,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysGetIamPolicyRequest(_messages.M
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysGetRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysGetRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysGetRequest object.
 
   Fields:
     name: The name of the CryptoKey to get.
@@ -330,7 +297,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysGetRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysListRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysListRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysListRequest object.
 
   Fields:
     pageSize: Optional limit on the number of CryptoKeys to include in the
@@ -349,7 +316,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysListRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysPatchRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysPatchRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysPatchRequest object.
 
   Fields:
     cryptoKey: A CryptoKey resource to be passed as the request body.
@@ -364,7 +331,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysPatchRequest(_messages.Message)
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysSetIamPolicyRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysSetIamPolicyRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being specified.
@@ -379,7 +346,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysSetIamPolicyRequest(_messages.M
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsRequest
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsRequest
   object.
 
   Fields:
@@ -395,7 +362,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysTestIamPermissionsRequest(_mess
 
 
 class CloudkmsProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionRequest
+  r"""A CloudkmsProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionRequest
   object.
 
   Fields:
@@ -410,7 +377,7 @@ class CloudkmsProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionRequest(_me
 
 
 class CloudkmsProjectsLocationsKeyRingsGetIamPolicyRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsGetIamPolicyRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsGetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being requested.
@@ -422,7 +389,7 @@ class CloudkmsProjectsLocationsKeyRingsGetIamPolicyRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsGetRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsGetRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsGetRequest object.
 
   Fields:
     name: The name of the KeyRing to get.
@@ -432,7 +399,7 @@ class CloudkmsProjectsLocationsKeyRingsGetRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsListRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsListRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsListRequest object.
 
   Fields:
     pageSize: Optional limit on the number of KeyRings to include in the
@@ -451,7 +418,7 @@ class CloudkmsProjectsLocationsKeyRingsListRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsSetIamPolicyRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsSetIamPolicyRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being specified.
@@ -466,7 +433,7 @@ class CloudkmsProjectsLocationsKeyRingsSetIamPolicyRequest(_messages.Message):
 
 
 class CloudkmsProjectsLocationsKeyRingsTestIamPermissionsRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsKeyRingsTestIamPermissionsRequest object.
+  r"""A CloudkmsProjectsLocationsKeyRingsTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy detail is being
@@ -481,7 +448,7 @@ class CloudkmsProjectsLocationsKeyRingsTestIamPermissionsRequest(_messages.Messa
 
 
 class CloudkmsProjectsLocationsListRequest(_messages.Message):
-  """A CloudkmsProjectsLocationsListRequest object.
+  r"""A CloudkmsProjectsLocationsListRequest object.
 
   Fields:
     filter: The standard list filter.
@@ -496,113 +463,8 @@ class CloudkmsProjectsLocationsListRequest(_messages.Message):
   pageToken = _messages.StringField(4)
 
 
-class Condition(_messages.Message):
-  """A condition to be met.
-
-  Enums:
-    IamValueValuesEnum: Trusted attributes supplied by the IAM system.
-    OpValueValuesEnum: An operator to apply the subject with.
-    SysValueValuesEnum: Trusted attributes supplied by any service that owns
-      resources and uses the IAM system for access control.
-
-  Fields:
-    iam: Trusted attributes supplied by the IAM system.
-    op: An operator to apply the subject with.
-    svc: Trusted attributes discharged by the service.
-    sys: Trusted attributes supplied by any service that owns resources and
-      uses the IAM system for access control.
-    value: DEPRECATED. Use 'values' instead.
-    values: The objects of the condition. This is mutually exclusive with
-      'value'.
-  """
-
-  class IamValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by the IAM system.
-
-    Values:
-      NO_ATTR: Default non-attribute.
-      AUTHORITY: Either principal or (if present) authority selector.
-      ATTRIBUTION: The principal (even if an authority selector is present),
-        which must only be used for attribution, not authorization.
-      APPROVER: An approver (distinct from the requester) that has authorized
-        this request. When used with IN, the condition indicates that one of
-        the approvers associated with the request matches the specified
-        principal, or is a member of the specified group. Approvers can only
-        grant additional access, and are thus only used in a strictly positive
-        context (e.g. ALLOW/IN or DENY/NOT_IN).
-      JUSTIFICATION_TYPE: What types of justifications have been supplied with
-        this request. String values should match enum names from
-        tech.iam.JustificationType, e.g. "MANUAL_STRING". It is not permitted
-        to grant access based on the *absence* of a justification, so
-        justification conditions can only be used in a "positive" context
-        (e.g., ALLOW/IN or DENY/NOT_IN).  Multiple justifications, e.g., a
-        Buganizer ID and a manually-entered reason, are normal and supported.
-    """
-    NO_ATTR = 0
-    AUTHORITY = 1
-    ATTRIBUTION = 2
-    APPROVER = 3
-    JUSTIFICATION_TYPE = 4
-
-  class OpValueValuesEnum(_messages.Enum):
-    """An operator to apply the subject with.
-
-    Values:
-      NO_OP: Default no-op.
-      EQUALS: DEPRECATED. Use IN instead.
-      NOT_EQUALS: DEPRECATED. Use NOT_IN instead.
-      IN: The condition is true if the subject (or any element of it if it is
-        a set) matches any of the supplied values.
-      NOT_IN: The condition is true if the subject (or every element of it if
-        it is a set) matches none of the supplied values.
-      DISCHARGED: Subject is discharged
-    """
-    NO_OP = 0
-    EQUALS = 1
-    NOT_EQUALS = 2
-    IN = 3
-    NOT_IN = 4
-    DISCHARGED = 5
-
-  class SysValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by any service that owns resources and uses
-    the IAM system for access control.
-
-    Values:
-      NO_ATTR: Default non-attribute type
-      REGION: Region of the resource
-      SERVICE: Service name
-      NAME: Resource name
-      IP: IP address of the caller
-    """
-    NO_ATTR = 0
-    REGION = 1
-    SERVICE = 2
-    NAME = 3
-    IP = 4
-
-  iam = _messages.EnumField('IamValueValuesEnum', 1)
-  op = _messages.EnumField('OpValueValuesEnum', 2)
-  svc = _messages.StringField(3)
-  sys = _messages.EnumField('SysValueValuesEnum', 4)
-  value = _messages.StringField(5)
-  values = _messages.StringField(6, repeated=True)
-
-
-class CounterOptions(_messages.Message):
-  """Options for counters
-
-  Fields:
-    field: The field value to attribute.
-    metric: The metric to update.
-  """
-
-  field = _messages.StringField(1)
-  metric = _messages.StringField(2)
-
-
 class CryptoKey(_messages.Message):
-  """A CryptoKey represents a logical key that can be used for cryptographic
+  r"""A CryptoKey represents a logical key that can be used for cryptographic
   operations.  A CryptoKey is made up of one or more versions, which represent
   the actual key material used in cryptographic operations.
 
@@ -610,8 +472,14 @@ class CryptoKey(_messages.Message):
     PurposeValueValuesEnum: The immutable purpose of this CryptoKey.
       Currently, the only acceptable purpose is ENCRYPT_DECRYPT.
 
+  Messages:
+    LabelsValue: Labels with user-defined metadata. For more information, see
+      [Labeling Keys](/kms/docs/labeling-keys).
+
   Fields:
     createTime: Output only. The time at which this CryptoKey was created.
+    labels: Labels with user-defined metadata. For more information, see
+      [Labeling Keys](/kms/docs/labeling-keys).
     name: Output only. The resource name for this CryptoKey in the format
       `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
     nextRotationTime: At next_rotation_time, the Key Management Service will
@@ -631,8 +499,8 @@ class CryptoKey(_messages.Message):
   """
 
   class PurposeValueValuesEnum(_messages.Enum):
-    """The immutable purpose of this CryptoKey. Currently, the only acceptable
-    purpose is ENCRYPT_DECRYPT.
+    r"""The immutable purpose of this CryptoKey. Currently, the only
+    acceptable purpose is ENCRYPT_DECRYPT.
 
     Values:
       CRYPTO_KEY_PURPOSE_UNSPECIFIED: Not specified.
@@ -642,19 +510,48 @@ class CryptoKey(_messages.Message):
     CRYPTO_KEY_PURPOSE_UNSPECIFIED = 0
     ENCRYPT_DECRYPT = 1
 
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""Labels with user-defined metadata. For more information, see [Labeling
+    Keys](/kms/docs/labeling-keys).
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
   createTime = _messages.StringField(1)
-  name = _messages.StringField(2)
-  nextRotationTime = _messages.StringField(3)
-  primary = _messages.MessageField('CryptoKeyVersion', 4)
-  purpose = _messages.EnumField('PurposeValueValuesEnum', 5)
-  rotationPeriod = _messages.StringField(6)
+  labels = _messages.MessageField('LabelsValue', 2)
+  name = _messages.StringField(3)
+  nextRotationTime = _messages.StringField(4)
+  primary = _messages.MessageField('CryptoKeyVersion', 5)
+  purpose = _messages.EnumField('PurposeValueValuesEnum', 6)
+  rotationPeriod = _messages.StringField(7)
 
 
 class CryptoKeyVersion(_messages.Message):
-  """A CryptoKeyVersion represents an individual cryptographic key, and the
+  r"""A CryptoKeyVersion represents an individual cryptographic key, and the
   associated key material.  It can be used for cryptographic operations either
   directly, or via its parent CryptoKey, in which case the server will choose
-  the appropriate version for the operation.
+  the appropriate version for the operation.  For security reasons, the raw
+  cryptographic key material represented by a CryptoKeyVersion can never be
+  viewed or exported. It can only be used to encrypt or decrypt data when an
+  authorized user or application invokes Cloud KMS.
 
   Enums:
     StateValueValuesEnum: The current state of the CryptoKeyVersion.
@@ -673,7 +570,7 @@ class CryptoKeyVersion(_messages.Message):
   """
 
   class StateValueValuesEnum(_messages.Enum):
-    """The current state of the CryptoKeyVersion.
+    r"""The current state of the CryptoKeyVersion.
 
     Values:
       CRYPTO_KEY_VERSION_STATE_UNSPECIFIED: Not specified.
@@ -699,12 +596,8 @@ class CryptoKeyVersion(_messages.Message):
   state = _messages.EnumField('StateValueValuesEnum', 5)
 
 
-class DataAccessOptions(_messages.Message):
-  """Write a Data Access (Gin) log"""
-
-
 class DecryptRequest(_messages.Message):
-  """Request message for KeyManagementService.Decrypt.
+  r"""Request message for KeyManagementService.Decrypt.
 
   Fields:
     additionalAuthenticatedData: Optional data that must match the data
@@ -718,7 +611,7 @@ class DecryptRequest(_messages.Message):
 
 
 class DecryptResponse(_messages.Message):
-  """Response message for KeyManagementService.Decrypt.
+  r"""Response message for KeyManagementService.Decrypt.
 
   Fields:
     plaintext: The decrypted data originally supplied in
@@ -729,11 +622,11 @@ class DecryptResponse(_messages.Message):
 
 
 class DestroyCryptoKeyVersionRequest(_messages.Message):
-  """Request message for KeyManagementService.DestroyCryptoKeyVersion."""
+  r"""Request message for KeyManagementService.DestroyCryptoKeyVersion."""
 
 
 class EncryptRequest(_messages.Message):
-  """Request message for KeyManagementService.Encrypt.
+  r"""Request message for KeyManagementService.Encrypt.
 
   Fields:
     additionalAuthenticatedData: Optional data that, if specified, must also
@@ -748,7 +641,7 @@ class EncryptRequest(_messages.Message):
 
 
 class EncryptResponse(_messages.Message):
-  """Response message for KeyManagementService.Encrypt.
+  r"""Response message for KeyManagementService.Encrypt.
 
   Fields:
     ciphertext: The encrypted data.
@@ -759,32 +652,8 @@ class EncryptResponse(_messages.Message):
   name = _messages.StringField(2)
 
 
-class Expr(_messages.Message):
-  """Represents an expression text. Example:      title: "User account
-  presence"     description: "Determines whether the request has a user
-  account"     expression: "size(request.user) > 0"
-
-  Fields:
-    description: An optional description of the expression. This is a longer
-      text which describes the expression, e.g. when hovered over it in a UI.
-    expression: Textual representation of an expression in Common Expression
-      Language syntax.  The application context of the containing message
-      determines which well-known feature set of CEL is supported.
-    location: An optional string indicating the location of the expression for
-      error reporting, e.g. a file name and a position in the file.
-    title: An optional title for the expression, i.e. a short string
-      describing its purpose. This can be used e.g. in UIs which allow to
-      enter the expression.
-  """
-
-  description = _messages.StringField(1)
-  expression = _messages.StringField(2)
-  location = _messages.StringField(3)
-  title = _messages.StringField(4)
-
-
 class KeyRing(_messages.Message):
-  """A KeyRing is a toplevel logical grouping of CryptoKeys.
+  r"""A KeyRing is a toplevel logical grouping of CryptoKeys.
 
   Fields:
     createTime: Output only. The time at which this KeyRing was created.
@@ -797,7 +666,7 @@ class KeyRing(_messages.Message):
 
 
 class ListCryptoKeyVersionsResponse(_messages.Message):
-  """Response message for KeyManagementService.ListCryptoKeyVersions.
+  r"""Response message for KeyManagementService.ListCryptoKeyVersions.
 
   Fields:
     cryptoKeyVersions: The list of CryptoKeyVersions.
@@ -813,7 +682,7 @@ class ListCryptoKeyVersionsResponse(_messages.Message):
 
 
 class ListCryptoKeysResponse(_messages.Message):
-  """Response message for KeyManagementService.ListCryptoKeys.
+  r"""Response message for KeyManagementService.ListCryptoKeys.
 
   Fields:
     cryptoKeys: The list of CryptoKeys.
@@ -829,7 +698,7 @@ class ListCryptoKeysResponse(_messages.Message):
 
 
 class ListKeyRingsResponse(_messages.Message):
-  """Response message for KeyManagementService.ListKeyRings.
+  r"""Response message for KeyManagementService.ListKeyRings.
 
   Fields:
     keyRings: The list of KeyRings.
@@ -844,7 +713,7 @@ class ListKeyRingsResponse(_messages.Message):
 
 
 class ListLocationsResponse(_messages.Message):
-  """The response message for Locations.ListLocations.
+  r"""The response message for Locations.ListLocations.
 
   Fields:
     locations: A list of locations that matches the specified filter in the
@@ -857,7 +726,7 @@ class ListLocationsResponse(_messages.Message):
 
 
 class Location(_messages.Message):
-  """A resource that represents Google Cloud Platform location.
+  r"""A resource that represents Google Cloud Platform location.
 
   Messages:
     LabelsValue: Cross-service attributes for the location. For example
@@ -866,6 +735,8 @@ class Location(_messages.Message):
       capacity at the given location.
 
   Fields:
+    displayName: The friendly name for this location, typically a nearby city
+      name. For example, "Tokyo".
     labels: Cross-service attributes for the location. For example
       {"cloud.googleapis.com/region": "us-east1"}
     locationId: The canonical id for this location. For example: `"us-east1"`.
@@ -878,7 +749,7 @@ class Location(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Cross-service attributes for the location. For example
+    r"""Cross-service attributes for the location. For example
     {"cloud.googleapis.com/region": "us-east1"}
 
     Messages:
@@ -889,7 +760,7 @@ class Location(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -903,7 +774,7 @@ class Location(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata. For example the available capacity at the
+    r"""Service-specific metadata. For example the available capacity at the
     given location.
 
     Messages:
@@ -915,7 +786,7 @@ class Location(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -927,53 +798,32 @@ class Location(_messages.Message):
 
     additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
 
-  labels = _messages.MessageField('LabelsValue', 1)
-  locationId = _messages.StringField(2)
-  metadata = _messages.MessageField('MetadataValue', 3)
-  name = _messages.StringField(4)
-
-
-class LogConfig(_messages.Message):
-  """Specifies what kind of log the caller must write Increment a streamz
-  counter with the specified metric and field names.  Metric names should
-  start with a '/', generally be lowercase-only, and end in "_count". Field
-  names should not contain an initial slash. The actual exported metric names
-  will have "/iam/policy" prepended.  Field names correspond to IAM request
-  parameters and field values are their respective values.  At present the
-  only supported field names are    - "iam_principal", corresponding to
-  IAMContext.principal;    - "" (empty string), resulting in one aggretated
-  counter with no field.  Examples:   counter { metric: "/debug_access_count"
-  field: "iam_principal" }   ==> increment counter
-  /iam/policy/backend_debug_access_count
-  {iam_principal=[value of IAMContext.principal]}  At this time we do not
-  support: * multiple field names (though this may be supported in the future)
-  * decrementing the counter * incrementing it by anything other than 1
-
-  Fields:
-    cloudAudit: Cloud audit options.
-    counter: Counter options.
-    dataAccess: Data access options.
-  """
-
-  cloudAudit = _messages.MessageField('CloudAuditOptions', 1)
-  counter = _messages.MessageField('CounterOptions', 2)
-  dataAccess = _messages.MessageField('DataAccessOptions', 3)
+  displayName = _messages.StringField(1)
+  labels = _messages.MessageField('LabelsValue', 2)
+  locationId = _messages.StringField(3)
+  metadata = _messages.MessageField('MetadataValue', 4)
+  name = _messages.StringField(5)
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.   A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**      {       "bindings": [         {
+  defined by IAM.  **JSON Example**      {       "bindings": [         {
   "role": "roles/owner",           "members": [
   "user:mike@example.com",             "group:admins@example.com",
   "domain:google.com",             "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com",           ]         },         {
+  app@appspot.gserviceaccount.com"           ]         },         {
   "role": "roles/viewer",           "members": ["user:sean@example.com"]
-  }       ]     }  For a description of IAM and its features, see the [IAM
-  developer's guide](https://cloud.google.com/iam).
+  }       ]     }  **YAML Example**      bindings:     - members:       -
+  user:mike@example.com       - group:admins@example.com       -
+  domain:google.com       - serviceAccount:my-other-
+  app@appspot.gserviceaccount.com       role: roles/owner     - members:
+  - user:sean@example.com       role: roles/viewer   For a description of IAM
+  and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     auditConfigs: Specifies cloud audit logging configuration for this policy.
@@ -988,84 +838,21 @@ class Policy(_messages.Message):
       to ensure that their change will be applied to the same version of the
       policy.  If no `etag` is provided in the call to `setIamPolicy`, then
       the existing policy is overwritten blindly.
-    iamOwned: A boolean attribute.
-    rules: If more than one rule is specified, the rules are applied in the
-      following manner: - All matching LOG rules are always applied. - If any
-      DENY/DENY_WITH_LOG rule matches, permission is denied.   Logging will be
-      applied if one or more matching rule requires logging. - Otherwise, if
-      any ALLOW/ALLOW_WITH_LOG rule matches, permission is   granted.
-      Logging will be applied if one or more matching rule requires logging. -
-      Otherwise, if no rule applies, permission is denied.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   auditConfigs = _messages.MessageField('AuditConfig', 1, repeated=True)
   bindings = _messages.MessageField('Binding', 2, repeated=True)
   etag = _messages.BytesField(3)
-  iamOwned = _messages.BooleanField(4)
-  rules = _messages.MessageField('Rule', 5, repeated=True)
-  version = _messages.IntegerField(6, variant=_messages.Variant.INT32)
+  version = _messages.IntegerField(4, variant=_messages.Variant.INT32)
 
 
 class RestoreCryptoKeyVersionRequest(_messages.Message):
-  """Request message for KeyManagementService.RestoreCryptoKeyVersion."""
-
-
-class Rule(_messages.Message):
-  """A rule to be applied in a Policy.
-
-  Enums:
-    ActionValueValuesEnum: Required
-
-  Fields:
-    action: Required
-    conditions: Additional restrictions that must be met
-    description: Human-readable description of the rule.
-    in_: If one or more 'in' clauses are specified, the rule matches if the
-      PRINCIPAL/AUTHORITY_SELECTOR is in at least one of these entries.
-    logConfig: The config returned to callers of tech.iam.IAM.CheckPolicy for
-      any entries that match the LOG action.
-    notIn: If one or more 'not_in' clauses are specified, the rule matches if
-      the PRINCIPAL/AUTHORITY_SELECTOR is in none of the entries. The format
-      for in and not_in entries is the same as for members in a Binding (see
-      google/iam/v1/policy.proto).
-    permissions: A permission is a string of form '<service>.<resource
-      type>.<verb>' (e.g., 'storage.buckets.list'). A value of '*' matches all
-      permissions, and a verb part of '*' (e.g., 'storage.buckets.*') matches
-      all verbs.
-  """
-
-  class ActionValueValuesEnum(_messages.Enum):
-    """Required
-
-    Values:
-      NO_ACTION: Default no action.
-      ALLOW: Matching 'Entries' grant access.
-      ALLOW_WITH_LOG: Matching 'Entries' grant access and the caller promises
-        to log the request per the returned log_configs.
-      DENY: Matching 'Entries' deny access.
-      DENY_WITH_LOG: Matching 'Entries' deny access and the caller promises to
-        log the request per the returned log_configs.
-      LOG: Matching 'Entries' tell IAM.Check callers to generate logs.
-    """
-    NO_ACTION = 0
-    ALLOW = 1
-    ALLOW_WITH_LOG = 2
-    DENY = 3
-    DENY_WITH_LOG = 4
-    LOG = 5
-
-  action = _messages.EnumField('ActionValueValuesEnum', 1)
-  conditions = _messages.MessageField('Condition', 2, repeated=True)
-  description = _messages.StringField(3)
-  in_ = _messages.StringField(4, repeated=True)
-  logConfig = _messages.MessageField('LogConfig', 5, repeated=True)
-  notIn = _messages.StringField(6, repeated=True)
-  permissions = _messages.StringField(7, repeated=True)
+  r"""Request message for KeyManagementService.RestoreCryptoKeyVersion."""
 
 
 class SetIamPolicyRequest(_messages.Message):
-  """Request message for `SetIamPolicy` method.
+  r"""Request message for `SetIamPolicy` method.
 
   Fields:
     policy: REQUIRED: The complete policy to be applied to the `resource`. The
@@ -1083,7 +870,7 @@ class SetIamPolicyRequest(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -1112,7 +899,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -1124,7 +911,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -1150,7 +937,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class TestIamPermissionsRequest(_messages.Message):
-  """Request message for `TestIamPermissions` method.
+  r"""Request message for `TestIamPermissions` method.
 
   Fields:
     permissions: The set of permissions to check for the `resource`.
@@ -1163,7 +950,7 @@ class TestIamPermissionsRequest(_messages.Message):
 
 
 class TestIamPermissionsResponse(_messages.Message):
-  """Response message for `TestIamPermissions` method.
+  r"""Response message for `TestIamPermissions` method.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -1174,7 +961,7 @@ class TestIamPermissionsResponse(_messages.Message):
 
 
 class UpdateCryptoKeyPrimaryVersionRequest(_messages.Message):
-  """Request message for KeyManagementService.UpdateCryptoKeyPrimaryVersion.
+  r"""Request message for KeyManagementService.UpdateCryptoKeyPrimaryVersion.
 
   Fields:
     cryptoKeyVersionId: The id of the child CryptoKeyVersion to use as
@@ -1185,14 +972,8 @@ class UpdateCryptoKeyPrimaryVersionRequest(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    Rule, 'in_', 'in',
-    package=u'cloudkms')
-encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'cloudkms')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'cloudkms')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'cloudkms')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

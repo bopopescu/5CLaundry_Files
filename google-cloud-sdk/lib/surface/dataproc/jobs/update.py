@@ -15,10 +15,10 @@
 """Update job command."""
 
 from googlecloudsdk.api_lib.dataproc import dataproc as dp
-from googlecloudsdk.api_lib.dataproc import exceptions
 from googlecloudsdk.api_lib.dataproc import util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.dataproc import flags
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
 
 
@@ -44,50 +44,32 @@ class Update(base.UpdateCommand):
 
   @staticmethod
   def Args(parser):
-    parser.add_argument(
-        'id',
-        metavar='JOB_ID',
-        help='The ID of the job to describe.')
+    flags.AddJobFlag(parser, 'update')
+    changes = parser.add_argument_group(required=True)
     # Allow the user to specify new labels as well as update/remove existing
-    labels_util.AddUpdateLabelsFlags(parser)
+    labels_util.AddUpdateLabelsFlags(changes)
 
   def Run(self, args):
     dataproc = dp.Dataproc(self.ReleaseTrack())
 
-    job_ref = util.ParseJob(args.id, dataproc)
+    job_ref = util.ParseJob(args.job, dataproc)
 
     changed_fields = []
 
-    has_changes = False
+    orig_job = dataproc.client.projects_regions_jobs.Get(
+        dataproc.messages.DataprocProjectsRegionsJobsGetRequest(
+            projectId=job_ref.projectId,
+            region=job_ref.region,
+            jobId=job_ref.jobId))
 
     # Update labels if the user requested it
-    labels = None
-    if args.update_labels or args.remove_labels:
-      has_changes = True
+    labels_update_result = labels_util.Diff.FromUpdateArgs(args).Apply(
+        dataproc.messages.Job.LabelsValue, orig_job.labels)
+    if labels_update_result.needs_update:
       changed_fields.append('labels')
 
-      # We need to fetch the job first so we know what the labels look like. The
-      # labels_util.UpdateLabels will fill out the proto for us with all the
-      # updates and removals, but first we need to provide the current state
-      # of the labels
-      orig_job = dataproc.client.projects_regions_jobs.Get(
-          dataproc.messages.DataprocProjectsRegionsJobsGetRequest(
-              projectId=job_ref.projectId,
-              region=job_ref.region,
-              jobId=job_ref.jobId))
-
-      labels = labels_util.UpdateLabels(
-          orig_job.labels,
-          dataproc.messages.Job.LabelsValue,
-          args.update_labels,
-          args.remove_labels)
-
-    if not has_changes:
-      raise exceptions.ArgumentError(
-          'Must specify at least one job parameter to update.')
-
     updated_job = orig_job
-    updated_job.labels = labels
+    updated_job.labels = labels_update_result.GetOrNone()
     request = dataproc.messages.DataprocProjectsRegionsJobsPatchRequest(
         projectId=job_ref.projectId,
         region=job_ref.region,

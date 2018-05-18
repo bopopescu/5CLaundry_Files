@@ -11,11 +11,33 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Common flags for some of the SQL commands."""
+"""Common flags for some of the SQL commands.
 
-from googlecloudsdk.calliope import actions
+Flags are specified with functions that take in a single argument, the parser,
+and add the newly constructed flag to that parser.
+
+Example:
+
+def AddFlagName(parser):
+  parser.add_argument(
+    '--flag-name',
+    ... // Other flag details.
+  )
+"""
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from googlecloudsdk.calliope import arg_parsers
+from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.util import completers
+
+
+_IP_ADDRESS_PART = r'(25[0-5]|2[0-4][0-9]|1?[0-9]{1,2})'  # Match decimal 0-255
+_CIDR_PREFIX_PART = r'([0-9]|[1-2][0-9]|3[0-2])'  # Match decimal 0-32
+# Matches either IPv4 range in CIDR notation or a naked IPv4 address.
+_CIDR_REGEX = r'{addr_part}(\.{addr_part}){{3}}(\/{prefix_part})?$'.format(
+    addr_part=_IP_ADDRESS_PART, prefix_part=_CIDR_PREFIX_PART)
 
 
 class DatabaseCompleter(completers.ListCommandCompleter):
@@ -48,8 +70,6 @@ class UserCompleter(completers.ListCommandCompleter):
         flags=['instance'],
         **kwargs)
 
-# TODO(b/63773705): Convert all flags into functions.
-
 
 def AddInstance(parser):
   parser.add_argument(
@@ -60,42 +80,22 @@ def AddInstance(parser):
       help='Cloud SQL instance ID.')
 
 
+def AddInstanceArgument(parser):
+  """Add the 'instance' argument to the parser."""
+  parser.add_argument(
+      'instance',
+      completer=InstanceCompleter,
+      help='Cloud SQL instance ID.')
+
+
 # Currently, 10230 is the max storage size one can set, and 10 is the minimum.
 def AddInstanceResizeLimit(parser):
   parser.add_argument(
       '--storage-auto-increase-limit',
       type=arg_parsers.BoundedInt(10, 10230, unlimited=True),
-      help='Allows you to set a maximum storage capacity. Automatic increases '
-      'to your capacity will stop once this limit has been reached. Default '
-      'capacity is *unlimited*.')
-
-
-def AddDeprecatedInstanceRequired(parser):
-  parser.add_argument(
-      '--instance',
-      '-i',
-      action=actions.DeprecationAction(
-          '--instance',
-          removed=False,
-          warn=('Starting on 2017-06-30, --instance will no longer be a valid '
-                'flag: Run the same command but omit this flag.'),),
-      required=True,
-      completer=InstanceCompleter,
-      help='Cloud SQL instance ID.')
-
-
-def AddDeprecatedInstance(parser):
-  parser.add_argument(
-      '--instance',
-      '-i',
-      action=actions.DeprecationAction(
-          '--instance',
-          removed=False,
-          warn=('Starting on 2017-06-30, --instance will no longer be a valid '
-                'flag: Run the same command but omit this flag.'),),
-      required=False,
-      completer=InstanceCompleter,
-      help='Cloud SQL instance ID.')
+      help='Allows you to set a maximum storage capacity, in GB. Automatic '
+      'increases to your capacity will stop once this limit has been reached. '
+      'Default capacity is *unlimited*.')
 
 
 def AddUsername(parser):
@@ -107,6 +107,22 @@ def AddUsername(parser):
 
 def AddHost(parser):
   parser.add_argument('host', help='Cloud SQL user\'s host.')
+
+
+def AddAvailabilityType(parser):
+  """Add the '--availability-type' flag to the parser."""
+  availabilty_type_flag = base.ChoiceArgument(
+      '--availability-type',
+      required=False,
+      choices={
+          'regional': 'Provides high availability and is recommended for '
+                      'production instances; instance automatically fails over '
+                      'to another zone within your selected region.',
+          'zonal': 'Provides no failover capability. This is the default.'
+      },
+      help_str=('Specifies level of availability. Only applies to PostgreSQL '
+                'instances.'))
+  availabilty_type_flag.AddToParser(parser)
 
 
 def AddPassword(parser):
@@ -135,17 +151,16 @@ def AddActivationPolicy(parser):
       default=None,
       help=('The activation policy for this instance. This specifies when '
             'the instance should be activated and is applicable only when '
-            'the instance state is RUNNABLE. More information on activation '
-            'policies can be found here: '
+            'the instance state is RUNNABLE. The default is ON_DEMAND. '
+            'More information on activation policies can be found here: '
             'https://cloud.google.com/sql/faq#activation_policy'))
 
 
-def AddAssignIp(parser):
+def AddAssignIp(parser, show_negated_in_help=False):
+  kwargs = _GetKwargsForBoolFlag(show_negated_in_help)
   parser.add_argument(
       '--assign-ip',
-      action='store_true',
-      default=None,  # Tri-valued: None => don't change the setting.
-      help='The instance must be assigned an IP address.')
+      help='The instance must be assigned an IP address.', **kwargs)
 
 
 def AddAuthorizedGAEApps(parser):
@@ -160,9 +175,12 @@ def AddAuthorizedGAEApps(parser):
 
 
 def AddAuthorizedNetworks(parser):
+  cidr_validator = arg_parsers.RegexpValidator(
+      _CIDR_REGEX, ('Must be specified in CIDR notation, also known as '
+                    '\'slash\' notation (e.g. 192.168.100.0/24).'))
   parser.add_argument(
       '--authorized-networks',
-      type=arg_parsers.ArgList(min_length=1),
+      type=arg_parsers.ArgList(min_length=1, element_type=cidr_validator),
       metavar='NETWORK',
       required=False,
       default=[],
@@ -205,15 +223,27 @@ def AddCPU(parser):
             'omitted.'))
 
 
-def AddEnableBinLog(parser):
+def _GetKwargsForBoolFlag(show_negated_in_help):
+  if show_negated_in_help:
+    return {
+        'action': arg_parsers.StoreTrueFalseAction,
+    }
+  else:
+    return {
+        'action': 'store_true',
+        'default': None
+    }
+
+
+def AddEnableBinLog(parser, show_negated_in_help=False):
+  kwargs = _GetKwargsForBoolFlag(show_negated_in_help)
   parser.add_argument(
       '--enable-bin-log',
       required=False,
-      action='store_true',
-      default=None,  # Tri-valued: None => don't change the setting.
       help=(
           'Specified if binary log should be enabled. If backup '
-          'configuration is disabled, binary log must be disabled as well.'))
+          'configuration is disabled, binary log must be disabled as well.'),
+      **kwargs)
 
 
 def AddFollowGAEApp(parser):
@@ -237,8 +267,10 @@ def AddMaintenanceReleaseChannel(parser):
                      'their compatibility with your application prior '
                      'to the production release.'
       },
-      type=str.lower,
-      help="Which channel's updates to apply during the maintenance window.")
+      type=lambda val: val.lower(),
+      help="Which channel's updates to apply during the maintenance window. "
+           "If not specified, Cloud SQL chooses the timing of updates to your "
+           "instance.")
 
 
 def AddMaintenanceWindowDay(parser):
@@ -274,7 +306,8 @@ def AddReplication(parser):
       required=False,
       choices=['SYNCHRONOUS', 'ASYNCHRONOUS'],
       default=None,
-      help='The type of replication this instance uses.')
+      help='The type of replication this instance uses. The default is '
+           'SYNCHRONOUS.')
 
 
 def AddStorageAutoIncrease(parser):
@@ -288,7 +321,7 @@ def AddStorageAutoIncrease(parser):
             'can result in permanently increased storage costs for your '
             'instance. However, if an instance runs out of available space, '
             'it can result in the instance going offline, dropping existing '
-            'connections.'))
+            'connections. This setting is enabled by default.'))
 
 
 def AddStorageSize(parser):
@@ -299,7 +332,8 @@ def AddStorageSize(parser):
           upper_bound='10230GB',
           suggested_binary_size_scales=['GB']),
       help=('Amount of storage allocated to the instance. Must be an integer '
-            'number of GB between 10GB and 10230GB inclusive.'))
+            'number of GB between 10GB and 10230GB inclusive. The default is '
+            '10GB.'))
 
 
 # Database specific flags
@@ -335,10 +369,45 @@ def AddOperationArgument(parser):
       help='An identifier that uniquely identifies the operation.')
 
 
+# Instance export / import flags.
+
+
+def AddUriArgument(parser, help_text):
+  """Add the 'uri' argument to the parser, with help text help_text."""
+  parser.add_argument(
+      'uri',
+      help=help_text)
+
+
+def AddDatabase(parser, help_text, required=False):
+  """Add the '--database' flag to the parser, with help text help_text."""
+  parser.add_argument(
+      '--database',
+      '-d',
+      required=required,
+      help=help_text)
+
+
+def AddDatabaseList(parser, help_text):
+  """Add the '--database' list flag to the parser, with help text help_text."""
+  parser.add_argument(
+      '--database',
+      '-d',
+      type=arg_parsers.ArgList(min_length=1),
+      metavar='DATABASE',
+      required=False,
+      help=help_text)
+
+
+def AddUser(parser, help_text):
+  """Add the '--user' flag to the parser, with help text help_text."""
+  parser.add_argument('--user', help=help_text)
+
+
 INSTANCES_FORMAT = """
   table(
     instance:label=NAME,
-    region,
+    firstof(gceZone,region):label=LOCATION,
     settings.tier,
     ipAddresses[0].ipAddress.yesno(no="-"):label=ADDRESS,
     state:label=STATUS
@@ -354,7 +423,7 @@ INSTANCES_FORMAT_BETA = """
   table(
     name,
     databaseVersion,
-    region,
+    firstof(gceZone,region):label=LOCATION,
     settings.tier,
     ipAddresses[0].ipAddress.yesno(no="-"):label=ADDRESS,
     state:label=STATUS

@@ -12,35 +12,8 @@ from apitools.base.py import extra_types
 package = 'speech'
 
 
-class CancelOperationRequest(_messages.Message):
-  """The request message for Operations.CancelOperation."""
-
-
-class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
-  empty messages in your APIs. A typical example is to use it as the request
-  or the response type of an API method. For instance:      service Foo {
-  rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
-  JSON representation for `Empty` is empty JSON object `{}`.
-  """
-
-
-
-class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
-
-  Fields:
-    nextPageToken: The standard List next-page token.
-    operations: A list of operations that matches the specified filter in the
-      request.
-  """
-
-  nextPageToken = _messages.StringField(1)
-  operations = _messages.MessageField('Operation', 2, repeated=True)
-
-
 class LongRunningRecognizeRequest(_messages.Message):
-  """The top-level message sent by the client for the `LongRunningRecognize`
+  r"""The top-level message sent by the client for the `LongRunningRecognize`
   method.
 
   Fields:
@@ -54,8 +27,8 @@ class LongRunningRecognizeRequest(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
     MetadataValue: Service-specific metadata associated with the operation.
@@ -73,7 +46,7 @@ class Operation(_messages.Message):
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
@@ -96,7 +69,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata associated with the operation.  It typically
+    r"""Service-specific metadata associated with the operation.  It typically
     contains progress information and common metadata such as create time.
     Some services might not provide such metadata.  Any method that returns a
     long-running operation should document the metadata type, if any.
@@ -110,7 +83,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -124,7 +97,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """The normal response of the operation in case of success.  If the
+    r"""The normal response of the operation in case of success.  If the
     original method returns no data on success, such as `Delete`, the response
     is `google.protobuf.Empty`.  If the original method is standard
     `Get`/`Create`/`Update`, the response should be the resource.  For other
@@ -141,7 +114,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -161,9 +134,9 @@ class Operation(_messages.Message):
 
 
 class RecognitionAudio(_messages.Message):
-  """Contains audio data in the encoding specified in the `RecognitionConfig`.
-  Either `content` or `uri` must be supplied. Supplying both or neither
-  returns google.rpc.Code.INVALID_ARGUMENT. See [audio
+  r"""Contains audio data in the encoding specified in the
+  `RecognitionConfig`. Either `content` or `uri` must be supplied. Supplying
+  both or neither returns google.rpc.Code.INVALID_ARGUMENT. See [audio
   limits](https://cloud.google.com/speech/limits#content).
 
   Fields:
@@ -183,20 +156,23 @@ class RecognitionAudio(_messages.Message):
 
 
 class RecognitionConfig(_messages.Message):
-  """Provides information to the recognizer that specifies how to process the
+  r"""Provides information to the recognizer that specifies how to process the
   request.
 
   Enums:
-    EncodingValueValuesEnum: *Required* Encoding of audio data sent in all
-      `RecognitionAudio` messages.
+    EncodingValueValuesEnum: Encoding of audio data sent in all
+      `RecognitionAudio` messages. This field is optional for `FLAC` and `WAV`
+      audio files and required for all other audio formats. For details, see
+      AudioEncoding.
 
   Fields:
-    enableWordTimeOffsets: *Optional* If `true`, a list of `words` are
-      returned in the top result, containing the start and end timestamps for
-      those words. The default value, 'false' does not return any word-level
-      timing information.
-    encoding: *Required* Encoding of audio data sent in all `RecognitionAudio`
-      messages.
+    enableWordTimeOffsets: *Optional* If `true`, the top result includes a
+      list of words and the start and end time offsets (timestamps) for those
+      words. If `false`, no word-level time offset information is returned.
+      The default is `false`.
+    encoding: Encoding of audio data sent in all `RecognitionAudio` messages.
+      This field is optional for `FLAC` and `WAV` audio files and required for
+      all other audio formats. For details, see AudioEncoding.
     languageCode: *Required* The language of the supplied audio as a
       [BCP-47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt) language tag.
       Example: "en-US". See [Language
@@ -212,29 +188,30 @@ class RecognitionConfig(_messages.Message):
       filter out profanities, replacing all but the initial character in each
       filtered word with asterisks, e.g. "f***". If set to `false` or omitted,
       profanities won't be filtered out.
-    sampleRateHertz: *Required* Sample rate in Hertz of the audio data sent in
-      all `RecognitionAudio` messages. Valid values are: 8000-48000. 16000 is
+    sampleRateHertz: Sample rate in Hertz of the audio data sent in all
+      `RecognitionAudio` messages. Valid values are: 8000-48000. 16000 is
       optimal. For best results, set the sampling rate of the audio source to
       16000 Hz. If that's not possible, use the native sample rate of the
-      audio source (instead of re-sampling).
+      audio source (instead of re-sampling). This field is optional for `FLAC`
+      and `WAV` audio files and required for all other audio formats. For
+      details, see AudioEncoding.
     speechContexts: *Optional* A means to provide context to assist the speech
       recognition.
   """
 
   class EncodingValueValuesEnum(_messages.Enum):
-    """*Required* Encoding of audio data sent in all `RecognitionAudio`
-    messages.
+    r"""Encoding of audio data sent in all `RecognitionAudio` messages. This
+    field is optional for `FLAC` and `WAV` audio files and required for all
+    other audio formats. For details, see AudioEncoding.
 
     Values:
-      ENCODING_UNSPECIFIED: Not specified. Will return result
-        google.rpc.Code.INVALID_ARGUMENT.
+      ENCODING_UNSPECIFIED: Not specified.
       LINEAR16: Uncompressed 16-bit signed little-endian samples (Linear PCM).
-      FLAC: [`FLAC`](https://xiph.org/flac/documentation.html) (Free Lossless
-        Audio Codec) is the recommended encoding because it is lossless--
-        therefore recognition is not compromised--and requires only about half
-        the bandwidth of `LINEAR16`. `FLAC` stream encoding supports 16-bit
-        and 24-bit samples, however, not all fields in `STREAMINFO` are
-        supported.
+      FLAC: `FLAC` (Free Lossless Audio Codec) is the recommended encoding
+        because it is lossless--therefore recognition is not compromised--and
+        requires only about half the bandwidth of `LINEAR16`. `FLAC` stream
+        encoding supports 16-bit and 24-bit samples, however, not all fields
+        in `STREAMINFO` are supported.
       MULAW: 8-bit samples that compand 14-bit audio samples using G.711 PCMU
         /mu-law.
       AMR: Adaptive Multi-Rate Narrowband codec. `sample_rate_hertz` must be
@@ -243,7 +220,7 @@ class RecognitionConfig(_messages.Message):
         16000.
       OGG_OPUS: Opus encoded audio frames in Ogg container
         ([OggOpus](https://wiki.xiph.org/OggOpus)). `sample_rate_hertz` must
-        be 16000.
+        be one of 8000, 12000, 16000, 24000, or 48000.
       SPEEX_WITH_HEADER_BYTE: Although the use of lossy encodings is not
         recommended, if a very low bitrate encoding is required, `OGG_OPUS` is
         highly preferred over Speex encoding. The [Speex](https://speex.org/)
@@ -277,7 +254,7 @@ class RecognitionConfig(_messages.Message):
 
 
 class RecognizeRequest(_messages.Message):
-  """The top-level message sent by the client for the `Recognize` method.
+  r"""The top-level message sent by the client for the `Recognize` method.
 
   Fields:
     audio: *Required* The audio data to be recognized.
@@ -290,12 +267,12 @@ class RecognizeRequest(_messages.Message):
 
 
 class RecognizeResponse(_messages.Message):
-  """The only message returned to the client by the `Recognize` method. It
+  r"""The only message returned to the client by the `Recognize` method. It
   contains the result as zero or more sequential `SpeechRecognitionResult`
   messages.
 
   Fields:
-    results: *Output-only* Sequential list of transcription results
+    results: Output only. Sequential list of transcription results
       corresponding to sequential portions of audio.
   """
 
@@ -303,7 +280,7 @@ class RecognizeResponse(_messages.Message):
 
 
 class SpeechContext(_messages.Message):
-  """Provides "hints" to the speech recognizer to favor specific words and
+  r"""Provides "hints" to the speech recognizer to favor specific words and
   phrases in the results.
 
   Fields:
@@ -319,31 +296,8 @@ class SpeechContext(_messages.Message):
   phrases = _messages.StringField(1, repeated=True)
 
 
-class SpeechOperationsCancelRequest(_messages.Message):
-  """A SpeechOperationsCancelRequest object.
-
-  Fields:
-    cancelOperationRequest: A CancelOperationRequest resource to be passed as
-      the request body.
-    name: The name of the operation resource to be cancelled.
-  """
-
-  cancelOperationRequest = _messages.MessageField('CancelOperationRequest', 1)
-  name = _messages.StringField(2, required=True)
-
-
-class SpeechOperationsDeleteRequest(_messages.Message):
-  """A SpeechOperationsDeleteRequest object.
-
-  Fields:
-    name: The name of the operation resource to be deleted.
-  """
-
-  name = _messages.StringField(1, required=True)
-
-
 class SpeechOperationsGetRequest(_messages.Message):
-  """A SpeechOperationsGetRequest object.
+  r"""A SpeechOperationsGetRequest object.
 
   Fields:
     name: The name of the operation resource.
@@ -352,37 +306,22 @@ class SpeechOperationsGetRequest(_messages.Message):
   name = _messages.StringField(1, required=True)
 
 
-class SpeechOperationsListRequest(_messages.Message):
-  """A SpeechOperationsListRequest object.
-
-  Fields:
-    filter: The standard list filter.
-    name: The name of the operation's parent resource.
-    pageSize: The standard list page size.
-    pageToken: The standard list page token.
-  """
-
-  filter = _messages.StringField(1)
-  name = _messages.StringField(2)
-  pageSize = _messages.IntegerField(3, variant=_messages.Variant.INT32)
-  pageToken = _messages.StringField(4)
-
-
 class SpeechRecognitionAlternative(_messages.Message):
-  """Alternative hypotheses (a.k.a. n-best list).
+  r"""Alternative hypotheses (a.k.a. n-best list).
 
   Fields:
-    confidence: *Output-only* The confidence estimate between 0.0 and 1.0. A
+    confidence: Output only. The confidence estimate between 0.0 and 1.0. A
       higher number indicates an estimated greater likelihood that the
-      recognized words are correct. This field is typically provided only for
-      the top hypothesis, and only for `is_final=true` results. Clients should
-      not rely on the `confidence` field as it is not guaranteed to be
-      accurate or consistent. The default of 0.0 is a sentinel value
-      indicating `confidence` was not set.
-    transcript: *Output-only* Transcript text representing the words that the
+      recognized words are correct. This field is set only for the top
+      alternative of a non-streaming result or, of a streaming result where
+      `is_final=true`. This field is not guaranteed to be accurate and users
+      should not rely on it to be always provided. The default of 0.0 is a
+      sentinel value indicating `confidence` was not set.
+    transcript: Output only. Transcript text representing the words that the
       user spoke.
-    words: *Output-only* List of word-specific information for each recognized
-      word.
+    words: Output only. A list of word-specific information for each
+      recognized word. Note: When enable_speaker_diarization is true, you will
+      see all the words from the beginning of the audio.
   """
 
   confidence = _messages.FloatField(1, variant=_messages.Variant.FLOAT)
@@ -391,12 +330,12 @@ class SpeechRecognitionAlternative(_messages.Message):
 
 
 class SpeechRecognitionResult(_messages.Message):
-  """A speech recognition result corresponding to a portion of the audio.
+  r"""A speech recognition result corresponding to a portion of the audio.
 
   Fields:
-    alternatives: *Output-only* May contain one or more recognition hypotheses
+    alternatives: Output only. May contain one or more recognition hypotheses
       (up to the maximum specified in `max_alternatives`). These alternatives
-      are ordered in terms of accuracy, with the first/top alternative being
+      are ordered in terms of accuracy, with the top (first) alternative being
       the most probable, as ranked by the recognizer.
   """
 
@@ -404,7 +343,7 @@ class SpeechRecognitionResult(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -433,7 +372,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -445,7 +384,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -471,7 +410,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -519,7 +458,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -531,7 +470,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -549,33 +488,35 @@ class Status(_messages.Message):
 
 
 class WordInfo(_messages.Message):
-  """Word-specific information detected along with speech recognition when
-  certain request parameters are set.
+  r"""Word-specific information for recognized words.
 
   Fields:
-    endTime: *Output-only* Time offset relative to the beginning of the audio,
+    endTime: Output only. Time offset relative to the beginning of the audio,
       and corresponding to the end of the spoken word. This field is only set
       if `enable_word_time_offsets=true` and only in the top hypothesis. This
       is an experimental feature and the accuracy of the time offset can vary.
-    startTime: *Output-only* Time offset relative to the beginning of the
+    speakerTag: Output only. A distinct integer value is assigned for every
+      speaker within the audio. This field specifies which one of those
+      speakers was detected to have spoken this word. Value ranges from '1' to
+      diarization_speaker_count. speaker_tag is set if
+      enable_speaker_diarization = 'true' and only in the top alternative.
+    startTime: Output only. Time offset relative to the beginning of the
       audio, and corresponding to the start of the spoken word. This field is
       only set if `enable_word_time_offsets=true` and only in the top
       hypothesis. This is an experimental feature and the accuracy of the time
       offset can vary.
-    word: *Output-only* The word corresponding to this set of information.
+    word: Output only. The word corresponding to this set of information.
   """
 
   endTime = _messages.StringField(1)
-  startTime = _messages.StringField(2)
-  word = _messages.StringField(3)
+  speakerTag = _messages.IntegerField(2, variant=_messages.Variant.INT32)
+  startTime = _messages.StringField(3)
+  word = _messages.StringField(4)
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'speech')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'speech')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'speech')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

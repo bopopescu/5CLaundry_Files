@@ -15,6 +15,8 @@
 """Implementation of gcloud dataflow jobs show command.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.dataflow import apis
 from googlecloudsdk.api_lib.dataflow import job_display
 from googlecloudsdk.api_lib.dataflow import step_json
@@ -52,10 +54,11 @@ class Show(base.Command):
     Returns:
       A Job message.
     """
-    job_ref = job_utils.ExtractJobRef(args.job)
+    job_ref = job_utils.ExtractJobRef(args)
     job = apis.Jobs.Get(
         job_id=job_ref.jobId,
         project_id=job_ref.projectId,
+        region_id=job_ref.location,
         view=apis.Jobs.GET_REQUEST.ViewValueValuesEnum.JOB_VIEW_ALL)
 
     # Extract the basic display information for the job

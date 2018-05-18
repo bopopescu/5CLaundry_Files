@@ -13,6 +13,8 @@
 # limitations under the License.
 """Flags and helpers for the compute security policies commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
@@ -36,7 +38,7 @@ def SecurityPolicyArgument(required=True, plural=False):
       global_collection='compute.securityPolicies')
 
 
-def SecurityPolicyArgumentForTargetResource(resource, required=True):
+def SecurityPolicyArgumentForTargetResource(resource, required=False):
   return compute_flags.ResourceArgument(
       resource_name='security policy',
       name='--security-policy',
@@ -46,3 +48,14 @@ def SecurityPolicyArgumentForTargetResource(resource, required=True):
       global_collection='compute.securityPolicies',
       short_help=('The security policy that will be set for this {0}.'
                   .format(resource)))
+
+
+def SecurityPolicyArgumentForRules(required=False):
+  return compute_flags.ResourceArgument(
+      resource_name='security policy',
+      name='--security-policy',
+      completer=SecurityPoliciesCompleter,
+      plural=False,
+      required=required,
+      global_collection='compute.securityPolicies',
+      short_help='The security policy that this rule belongs to.')

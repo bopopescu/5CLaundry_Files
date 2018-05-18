@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for updating HTTP health checks."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
@@ -72,8 +74,8 @@ class Update(base.UpdateCommand):
         type=arg_parsers.Duration(),
         help="""\
         How often to perform a health check for an instance. For example,
-        specifying ``10s'' will run the check every 10 seconds. Valid units
-        for this flag are ``s'' for seconds and ``m'' for minutes.
+        specifying ``10s'' will run the check every 10 seconds.
+        See $ gcloud topic datetimes for information on duration formats.
         """)
 
     parser.add_argument(

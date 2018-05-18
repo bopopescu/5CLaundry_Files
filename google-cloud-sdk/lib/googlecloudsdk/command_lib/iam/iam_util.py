@@ -24,10 +24,9 @@ from googlecloudsdk.command_lib.iam import completers
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import resources
+from googlecloudsdk.core import yaml
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.util import files
-
-import yaml
 
 msgs = core_apis.GetMessagesModule('iam', 'v1')
 MANAGED_BY = (msgs.IamProjectsServiceAccountsKeysListRequest
@@ -55,6 +54,47 @@ class IamEtagReadError(core_exceptions.Error):
   """IamEtagReadError is raised when etag is badly formatted."""
 
 
+class IamPolicyBindingNotFound(core_exceptions.Error):
+  """Raised when the specified IAM policy binding is not found."""
+
+
+def _AddMemberFlag(parser, verb, required=True):
+  """Create --member flag and add to parser."""
+  help_str = (
+      """\
+The member {verb}. Should be of the form `user|group|serviceAccount:email` or
+`domain:domain`.
+
+Examples: `user:test-user@gmail.com`, `group:admins@example.com`,
+`serviceAccount:my-sa@test-123.iam.gserviceaccount.com`, or
+`domain:example.com`.
+
+Can also be one of the following special values:
+* `allUsers` - anyone who is on the internet, with or without a Google account.
+* `allAuthenticatedUsers` - anyone who is authenticated with a Google account or
+   a service account.
+      """
+  ).format(verb=verb)
+  parser.add_argument('--member', required=required, help=help_str)
+
+
+def AddArgForPolicyFile(parser):
+  """Adds the IAM policy file argument to the given parser.
+
+  Args:
+    parser: An argparse.ArgumentParser-like object to which we add the argss.
+
+  Raises:
+    ArgumentError if one of the arguments is already defined in the parser.
+  """
+  parser.add_argument(
+      'policy_file',
+      metavar='POLICY_FILE',
+      help="""\
+        Path to a local JSON or YAML formatted file containing a valid policy.
+        """)
+
+
 def AddArgsForAddIamPolicyBinding(parser, completer=None):
   """Adds the IAM policy binding arguments for role and members.
 
@@ -70,11 +110,7 @@ def AddArgsForAddIamPolicyBinding(parser, completer=None):
   parser.add_argument(
       '--role', required=True, completer=completer,
       help='Define the role of the member.')
-  parser.add_argument(
-      '--member', required=True,
-      help='The member to add to the binding. '
-      'Should be of the form `user:user_email` '
-      '(e.g. `user:test-user@gmail.com.`)')
+  _AddMemberFlag(parser, 'to add the binding for')
 
 
 def AddArgsForRemoveIamPolicyBinding(parser, completer=None):
@@ -92,11 +128,7 @@ def AddArgsForRemoveIamPolicyBinding(parser, completer=None):
   parser.add_argument(
       '--role', required=True, completer=completer,
       help='The role to remove the member from.')
-  parser.add_argument(
-      '--member', required=True,
-      help='The member to add to the binding. '
-      'Should be of the form `user:user_email` '
-      '(e.g. `user:test-user@gmail.com.`)')
+  _AddMemberFlag(parser, 'to remove the binding for')
 
 
 def AddBindingToIamPolicy(binding_message_type, policy, member, role):
@@ -136,7 +168,7 @@ def AddBindingToIamPolicy(binding_message_type, policy, member, role):
 
 
 def RemoveBindingFromIamPolicy(policy, member, role):
-  """Given an IAM policy, add remove bindings as specified by the args.
+  """Given an IAM policy, remove bindings as specified by the args.
 
   An IAM binding is a pair of role and member. Check if the arguments passed
   define both the role and member attribute, search the policy for a binding
@@ -146,6 +178,9 @@ def RemoveBindingFromIamPolicy(policy, member, role):
     policy: IAM policy from which we want to remove bindings.
     member: The member to remove from the IAM policy.
     role: The role the member should be removed from.
+
+  Raises:
+    IamPolicyBindingNotFound: If specified binding is not found.
   """
 
   # First, remove the member from any binding that has the given role.
@@ -153,6 +188,10 @@ def RemoveBindingFromIamPolicy(policy, member, role):
   for binding in policy.bindings:
     if binding.role == role and member in binding.members:
       binding.members.remove(member)
+      break
+  else:
+    message = 'Policy binding with the specified member and role not found!'
+    raise IamPolicyBindingNotFound(message)
 
   # Second, remove any empty bindings.
   policy.bindings[:] = [b for b in policy.bindings if b.members]
@@ -168,13 +207,8 @@ def ConstructUpdateMaskFromPolicy(policy_file_path):
     are present in the input file.
   """
   policy_file = files.GetFileContents(policy_file_path)
-  try:
-    # Since json is a subset of yaml, parse file as yaml.
-    policy = yaml.load(policy_file)
-  except yaml.YAMLError as e:
-    raise gcloud_exceptions.BadFileException(
-        'Policy file {0} is not a properly formatted JSON or YAML policy file'
-        '. {1}'.format(policy_file_path, str(e)))
+  # Since json is a subset of yaml, parse file as yaml.
+  policy = yaml.load(policy_file)
 
   # The IAM update mask should only contain top level fields. Sort the fields
   # for testing purposes.
@@ -182,7 +216,7 @@ def ConstructUpdateMaskFromPolicy(policy_file_path):
 
 
 def ParsePolicyFile(policy_file_path, policy_message_type):
-  """Construct an IAM Policy protorpc.Message from a JSON or YAML formated file.
+  """Construct an IAM Policy protorpc.Message from a JSON/YAML formatted file.
 
   Args:
     policy_file_path: Path to the JSON or YAML IAM policy file.
@@ -193,15 +227,8 @@ def ParsePolicyFile(policy_file_path, policy_message_type):
   Raises:
     BadFileException if the JSON or YAML file is malformed.
   """
-  try:
-    policy = ParseJsonPolicyFile(policy_file_path, policy_message_type)
-  except gcloud_exceptions.BadFileException:
-    try:
-      policy = ParseYamlPolicyFile(policy_file_path, policy_message_type)
-    except gcloud_exceptions.BadFileException:
-      raise gcloud_exceptions.BadFileException(
-          'Policy file {0} is not a properly formatted JSON or YAML policy file'
-          '.'.format(policy_file_path))
+  policy, unused_mask = ParseYamlOrJsonPolicyFile(policy_file_path,
+                                                  policy_message_type)
 
   if not policy.etag:
     msg = ('The specified policy does not contain an "etag" field '
@@ -213,86 +240,71 @@ def ParsePolicyFile(policy_file_path, policy_message_type):
   return policy
 
 
-def ParseJsonPolicyFile(policy_file_path, policy_message_type):
-  """Construct an IAM Policy protorpc.Message from a JSON formated file.
+def ParsePolicyFileWithUpdateMask(policy_file_path, policy_message_type):
+  """Construct an IAM Policy protorpc.Message from a JSON/YAML formatted file.
 
+  Also contructs a FieldMask based on input policy.
   Args:
-    policy_file_path: Path to the JSON IAM policy file.
-    policy_message_type: Policy message type to convert JSON to.
+    policy_file_path: Path to the JSON or YAML IAM policy file.
+    policy_message_type: Policy message type to convert JSON or YAML to.
   Returns:
-    a protorpc.Message of type policy_message_type filled in from the JSON
-    policy file.
+    a tuple of (policy, updateMask) where policy is a protorpc.Message of type
+    policy_message_type filled in from the JSON or YAML policy file and
+    updateMask is a FieldMask containing policy fields to be modified, based on
+    which fields are present in the input file.
   Raises:
-    BadFileException if the JSON file is malformed.
+    BadFileException if the JSON or YAML file is malformed.
     IamEtagReadError if the etag is badly formatted.
   """
-  try:
-    with open(policy_file_path) as policy_file:
-      policy_json = policy_file.read()
-  except EnvironmentError:
-    # EnvironmnetError is parent of IOError, OSError and WindowsError.
-    # Raised when file does not exist or can't be opened/read.
-    raise core_exceptions.Error(
-        'Unable to read policy file {0}'.format(policy_file_path))
+  policy, update_mask = ParseYamlOrJsonPolicyFile(policy_file_path,
+                                                  policy_message_type)
 
-  try:
-    policy = encoding.JsonToMessage(policy_message_type, policy_json)
-  except (ValueError) as e:
-    # ValueError is raised when JSON is badly formatted
-    raise gcloud_exceptions.BadFileException(
-        'Policy file {0} is not a properly formatted JSON policy file. {1}'
-        .format(policy_file_path, str(e)))
-  except (apitools_messages.DecodeError) as e:
-    # DecodeError is raised when etag is badly formatted (not proper Base64)
-    raise IamEtagReadError(
-        'The etag of policy file {0} is not properly formatted. {1}'
-        .format(policy_file_path, str(e)))
-  return policy
+  if not policy.etag:
+    msg = ('The specified policy does not contain an "etag" field '
+           'identifying a specific version to replace. Changing a '
+           'policy without an "etag" can overwrite concurrent policy '
+           'changes.')
+    console_io.PromptContinue(
+        message=msg, prompt_string='Replace existing policy', cancel_on_no=True)
+  return (policy, update_mask)
 
 
-def ParseYamlPolicyFile(policy_file_path, policy_message_type):
-  """Construct an IAM Policy protorpc.Message from a YAML formatted file.
+def ParseYamlOrJsonPolicyFile(policy_file_path, policy_message_type):
+  """Create an IAM Policy protorpc.Message from a YAML or JSON formatted file.
 
+  Returns the parsed policy object and FieldMask derived from input dict.
   Args:
-    policy_file_path: Path to the YAML IAM policy file.
+    policy_file_path: Path to the YAML or JSON IAM policy file.
     policy_message_type: Policy message type to convert YAML to.
   Returns:
-    a protorpc.Message of type policy_message_type filled in from the YAML
-    policy file.
+    a tuple of (policy, updateMask) where policy is a protorpc.Message of type
+    policy_message_type filled in from the JSON or YAML policy file and
+    updateMask is a FieldMask containing policy fields to be modified, based on
+    which fields are present in the input file.
   Raises:
-    BadFileException if the YAML file is malformed.
+    BadFileException if the YAML or JSON file is malformed.
     IamEtagReadError if the etag is badly formatted.
   """
-  try:
-    with open(policy_file_path) as policy_file:
-      policy_to_parse = yaml.safe_load(policy_file)
-  except EnvironmentError:
-    # EnvironmnetError is parent of IOError, OSError and WindowsError.
-    # Raised when file does not exist or can't be opened/read.
-    raise core_exceptions.Error('Unable to read policy file {0}'.format(
-        policy_file_path))
-  except (yaml.scanner.ScannerError, yaml.parser.ParserError) as e:
-    # Raised when the YAML file is not properly formatted.
-    raise gcloud_exceptions.BadFileException(
-        'Policy file {0} is not a properly formatted YAML policy file. {1}'
-        .format(policy_file_path, str(e)))
+  policy_to_parse = yaml.load_path(policy_file_path)
   try:
     policy = encoding.PyValueToMessage(policy_message_type, policy_to_parse)
+    update_mask = ','.join(sorted(policy_to_parse.keys()))
   except (AttributeError) as e:
-    # Raised when the YAML file is not properly formatted YAML policy file.
+    # Raised when the input file is not properly formatted YAML policy file.
     raise gcloud_exceptions.BadFileException(
-        'Policy file {0} is not a properly formatted YAML policy file. {1}'
+        'Policy file [{0}] is not a properly formatted YAML or JSON '
+        'policy file. {1}'
         .format(policy_file_path, str(e)))
   except (apitools_messages.DecodeError) as e:
-    # DecodeError is raised when etag is badly formatted (not proper Base64)
+ # DecodeError is raised when etag is badly formatted (not proper Base64)
     raise IamEtagReadError(
-        'The etag of policy file {0} is not properly formatted. {1}'
+        'The etag of policy file [{0}] is not properly formatted. {1}'
         .format(policy_file_path, str(e)))
-  return policy
+  return (policy, update_mask)
 
 
 def ParseYamlToRole(file_path, role_message_type):
-  """Construct an IAM Role protorpc.Message from a Yaml formated file.
+  """Construct an IAM Role protorpc.Message from a Yaml formatted file.
 
   Args:
     file_path: Path to the Yaml IAM Role file.
@@ -303,19 +315,7 @@ def ParseYamlToRole(file_path, role_message_type):
   Raises:
     BadFileException if the Yaml file is malformed or does not exist.
   """
-  try:
-    with open(file_path) as role_file:
-      role_to_parse = yaml.safe_load(role_file)
-  except EnvironmentError:
-    # EnvironmnetError is parent of IOError, OSError and WindowsError.
-    # Raised when file does not exist or can't be opened/read.
-    raise core_exceptions.Error(
-        'Unable to read the role file {0}'.format(file_path))
-  except (yaml.scanner.ScannerError, yaml.parser.ParserError) as e:
-    # Raised when the YAML file is not properly formatted.
-    raise gcloud_exceptions.BadFileException(
-        'Role file {0} is not a properly formatted YAML role file. {1}'
-        .format(file_path, str(e)))
+  role_to_parse = yaml.load_path(file_path)
   if 'stage' in role_to_parse:
     role_to_parse['stage'] = role_to_parse['stage'].upper()
   try:
@@ -333,8 +333,9 @@ def ParseYamlToRole(file_path, role_message_type):
   return role
 
 
-def GetDetailedHelpForSetIamPolicy(collection, example_id, example_see_more='',
-                                   additional_flags=''):
+def GetDetailedHelpForSetIamPolicy(collection, example_id='',
+                                   example_see_more='', additional_flags='',
+                                   use_an=False):
   """Returns a detailed_help for a set-iam-policy command.
 
   Args:
@@ -345,32 +346,38 @@ def GetDetailedHelpForSetIamPolicy(collection, example_id, example_see_more='',
         includes a default reference to IAM managing-policies documentation
     additional_flags: str, additional flags to include in the example command
         (after the command name and before the ID of the resource).
+     use_an: If True, uses "an" instead of "a" for the article preceding uses of
+         the collection.
   Returns:
     a dict with boilerplate help text for the set-iam-policy command
   """
+  if not example_id:
+    example_id = 'example-' + collection
+
   if not example_see_more:
     example_see_more = """
           See https://cloud.google.com/iam/docs/managing-policies for details
           of the policy file format and contents."""
 
   additional_flags = additional_flags + ' ' if additional_flags else ''
+  a = 'an' if use_an else 'a'
   return {
-      'brief': 'Set IAM policy for a {0}.'.format(collection),
+      'brief': 'Set IAM policy for {0} {1}.'.format(a, collection),
       'DESCRIPTION': '{description}',
       'EXAMPLES': """\
           The following command will read an IAM policy defined in a JSON file
-          'policy.json' and set it for a {collection} with identifier '{id}'
+          'policy.json' and set it for {a} {collection} with identifier '{id}'
 
             $ {{command}} {flags}{id} policy.json
 
           {see_more}""".format(collection=collection, id=example_id,
                                see_more=example_see_more,
-                               flags=additional_flags)
+                               flags=additional_flags, a=a)
   }
 
 
 def GetDetailedHelpForAddIamPolicyBinding(collection, example_id,
-                                          role='roles/editor'):
+                                          role='roles/editor', use_an=False):
   """Returns a detailed_help for an add-iam-policy-binding command.
 
   Args:
@@ -380,27 +387,43 @@ def GetDetailedHelpForAddIamPolicyBinding(collection, example_id,
     role: The sample role to use in the documentation. The default of
         'roles/editor' is usually sufficient, but if your command group's
         users would more likely use a different role, you can override it here.
+     use_an: If True, uses "an" instead of "a" for the article preceding uses of
+         the collection.
   Returns:
     a dict with boilerplate help text for the add-iam-policy-binding command
   """
+  a = 'an' if use_an else 'a'
   return {
-      'brief': 'Add IAM policy binding for a {0}.'.format(collection),
+      'brief': 'Add IAM policy binding for {0} {1}.'.format(a, collection),
       'DESCRIPTION': '{description}',
       'EXAMPLES': """\
           The following command will add an IAM policy binding for the role
-          of '{role}' for the user 'test-user@gmail.com' on a {collection} with
+          of '{role}' for the user 'test-user@gmail.com' on {a} {collection} with
           identifier '{example_id}'
 
             $ {{command}} {example_id} --member='user:test-user@gmail.com' --role='{role}'
 
+          For a service account 'my-sa' linked to project 'test-123', the
+          following command will add an IAM policy binding for the role of
+          '{role}' to the given service account:
+
+            $ {{command}} test-123 --member='serviceAccount:my-sa@test-123.iam.gserviceaccount.com' --role='{role}'
+
+          The following command will add an IAM policy binding for the role of
+          '{role}' for all authenticated users on {a} {collection} with
+          identifier '{example_id}':
+
+            $ {{command}} {example_id} --member='allAuthenticatedUsers' --role='{role}'
+
           See https://cloud.google.com/iam/docs/managing-policies for details
           of policy role and member types.
-          """.format(collection=collection, example_id=example_id, role=role)
+          """.format(collection=collection, example_id=example_id, role=role,
+                     a=a)
   }
 
 
 def GetDetailedHelpForRemoveIamPolicyBinding(collection, example_id,
-                                             role='roles/editor'):
+                                             role='roles/editor', use_an=False):
   """Returns a detailed_help for a remove-iam-policy-binding command.
 
   Args:
@@ -410,18 +433,27 @@ def GetDetailedHelpForRemoveIamPolicyBinding(collection, example_id,
     role: The sample role to use in the documentation. The default of
         'roles/editor' is usually sufficient, but if your command group's
         users would more likely use a different role, you can override it here.
+     use_an: If True, uses "an" instead of "a" for the article preceding uses of
+         the collection.
   Returns:
     a dict with boilerplate help text for the remove-iam-policy-binding command
   """
+  a = 'an' if use_an else 'a'
   return {
-      'brief': 'Remove IAM policy binding for a {0}.'.format(collection),
+      'brief': 'Remove IAM policy binding for {0} {1}.'.format(a, collection),
       'DESCRIPTION': '{description}',
       'EXAMPLES': """\
-          The following command will remove a IAM policy binding for the role
+          The following command will remove an IAM policy binding for the role
           of '{role}' for the user 'test-user@gmail.com' on {collection} with
           identifier '{example_id}'
 
             $ {{command}} {example_id} --member='user:test-user@gmail.com' --role='{role}'
+
+          The following command will remove an IAM policy binding for the role
+          of '{role}' from all authenticated users on {collection}
+          '{example_id}':
+
+            $ {{command}} {example_id} --member='allAuthenticatedUsers' --role='{role}'
 
           See https://cloud.google.com/iam/docs/managing-policies for details
           of policy role and member types.
@@ -441,7 +473,7 @@ def GetHintForServiceAccountResource(action='act on'):
           'a resource or as an identity. This command is to {action} a '
           'service account resource. There are other gcloud commands to '
           'manage IAM policies for other types of resources. For example, to '
-          'manage IAM policies on a project, use the ```gcloud projects``` '
+          'manage IAM policies on a project, use the `$ gcloud projects` '
           'commands.'.format(action=action))
 
 
@@ -544,8 +576,8 @@ def AccountNameValidator():
   return arg_parsers.RegexpValidator(
       r'[a-z][a-z0-9\-]{4,28}[a-z0-9]',
       'Service account name must be between 6 and 30 characters (inclusive), '
-      'must begin with a lowercase letter, and consist of alphanumeric '
-      'characters that can be separated by hyphens.')
+      'must begin with a lowercase letter, and consist of lowercase '
+      'alphanumeric characters that can be separated by hyphens.')
 
 
 def ProjectToProjectResourceName(project):
@@ -660,7 +692,7 @@ def GetResourceName(resource_ref):
   """Convert a full resource URL to an atomic path."""
   full_name = resource_ref.SelfLink()
   full_name = re.sub(r'\w+://', '//', full_name)  # no protocol at the start
-  full_name = re.sub(r'/v[0-9]+[0-9a-zA-z]*/', '/', full_name)  # no version
+  full_name = re.sub(r'/v[0-9]+[0-9a-zA-Z]*/', '/', full_name)  # no version
   if full_name.startswith('//www.'):
     # Convert '//www.googleapis.com/compute/' to '//compute.googleapis.com/'
     splitted_list = full_name.split('/')
@@ -704,7 +736,9 @@ def AddServiceAccountNameArg(parser, action='to act on'):
                       type=GetIamAccountFormatValidator(),
                       completer=completers.IamServiceAccountCompleter,
                       help=('The service account {}. The account should be '
-                            'formatted as an email, like this: '
+                            'formatted either as a numeric service account ID '
+                            'or as an email, like this: '
+                            '123456789876543212345 or '
                             'my-iam-account@somedomain.com.'.format(action)))
 
 
@@ -713,10 +747,12 @@ def LogSetIamPolicy(name, kind):
 
 
 def GetIamAccountFormatValidator():
-  """Checks that provided iam account identifier is a valid email address."""
+  """Checks that provided iam account identifier is valid."""
   return arg_parsers.RegexpValidator(
-      r'^.+@.+\..+$',  # Overly broad on purpose but catches most common issues.
-      'Not a valid email address. It should be of the form: '
+      # Overly broad on purpose but catches most common issues.
+      r'^(.+@.+\..+|[0-9]+)$',
+      'Not a valid service account identifier. It should be either a '
+      'numeric string representing the unique_id or an email of the form: '
       'my-iam-account@somedomain.com or '
       'my-iam-account@PROJECT_ID.iam.gserviceaccount.com')
 
@@ -730,3 +766,51 @@ def SetRoleStageIfAlpha(role):
   if role.stage is None:
     role.stage = StageTypeFromString('alpha')
 
+
+def GetResourceReference(project, organization):
+  """Get the resource reference of a project or organization.
+
+  Args:
+    project: A project name string.
+    organization: An organization id string.
+
+  Returns:
+    The resource reference of the given project or organization.
+  """
+  if project:
+    return resources.REGISTRY.Parse(
+        project, collection='cloudresourcemanager.projects')
+  else:
+    return resources.REGISTRY.Parse(
+        organization, collection='cloudresourcemanager.organizations')
+
+
+def TestingPermissionsWarning(permissions):
+  """Prompt a warning for TESTING permissions with a 'y/n' question.
+
+  Args:
+    permissions: A list of permissions that need to be warned.
+  """
+  if permissions:
+    msg = ('Note: permissions [' + ', '.join(permissions) +
+           '] are in \'TESTING\' stage which means '
+           'the functionality is not mature and they can go away in the '
+           'future. This can break your workflows, so do not use them in '
+           'production systems!')
+    console_io.PromptContinue(
+        message=msg,
+        prompt_string='Are you sure you want to make this change?',
+        cancel_on_no=True)
+
+
+def ApiDisabledPermissionsWarning(permissions):
+  """Prompt a warning for API diabled permissions.
+
+  Args:
+    permissions: A list of permissions that need to be warned.
+  """
+  if permissions:
+    msg = (
+        'API is not enabled for permissions: [' + ', '.join(permissions) +
+        ']. Please enable the corresponding APIs to use those permissions.\n')
+    log.warning(msg)

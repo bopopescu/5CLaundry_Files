@@ -13,6 +13,8 @@
 # limitations under the License.
 """Submit build command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os.path
 import uuid
 
@@ -22,6 +24,7 @@ from googlecloudsdk.api_lib.cloudbuild import cloudbuild_util
 from googlecloudsdk.api_lib.cloudbuild import config
 from googlecloudsdk.api_lib.cloudbuild import logs as cb_logs
 from googlecloudsdk.api_lib.cloudbuild import snapshot
+from googlecloudsdk.api_lib.compute import utils as compute_utils
 from googlecloudsdk.api_lib.storage import storage_api
 from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.calliope import actions
@@ -29,6 +32,7 @@ from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exceptions
 from googlecloudsdk.command_lib.cloudbuild import execution
+from googlecloudsdk.command_lib.util.apis import arg_utils
 from googlecloudsdk.core import exceptions as core_exceptions
 from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core import log
@@ -55,7 +59,25 @@ class FailedBuildException(core_exceptions.Error):
     base.ReleaseTrack.BETA,
     base.ReleaseTrack.GA)
 class Submit(base.CreateCommand):
-  """Submit a build using the Google Container Builder service."""
+  """Submit a build using the Google Container Builder service.
+
+  Submit a build using the Google Container Builder service.
+
+  ## NOTES
+
+  You can also run a build locally using the
+  separate component: `gcloud components install container-builder-local`.
+  """
+
+  _machine_type_flag_map = arg_utils.ChoiceEnumMapper(
+      '--machine-type',
+      (cloudbuild_util.GetMessagesModule())
+      .BuildOptions.MachineTypeValueValuesEnum,
+      # TODO(b/69962368): remove this custom mapping when we can exclude
+      # UNSPECIFIED from the proto.
+      custom_mappings={
+          'N1_HIGHCPU_32': 'n1-highcpu-32', 'N1_HIGHCPU_8': 'n1-highcpu-8'},
+      help_str='Machine type used to run the build.')
 
   @staticmethod
   def Args(parser):
@@ -65,16 +87,25 @@ class Submit(base.CreateCommand):
       parser: An argparse.ArgumentParser-like object. It is mocked out in order
           to capture some information, but behaves like an ArgumentParser.
     """
-    parser.add_argument(
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument(
         'source',
         nargs='?',
+        default='.',  # By default, the current directory is used.
         help='The source directory on local disk or tarball in Google Cloud '
-             'Storage or disk to use for this build.',
+             'Storage or disk to use for this build. If source is a local '
+             'directory this command skips files specified in the '
+             '`.gcloudignore` file (see `$ gcloud topic gcloudignore` for more '
+             'information). If a .gitignore file is present in the local '
+             'source directory, gcloud will use a Git-compatible '
+             '.gcloudignore file that respects your .gitignore-ed files. The '
+             'global .gitignore is not respected.'
     )
-    parser.add_argument(
+    source.add_argument(
         '--no-source',
         action='store_true',
         help='Specify that no source should be uploaded with this build.')
+
     parser.add_argument(
         '--gcs-source-staging-dir',
         help='Directory in Google Cloud Storage to stage a copy of the source '
@@ -96,6 +127,14 @@ class Submit(base.CreateCommand):
              'assumed (eg "10" is 10 seconds).',
         action=actions.StoreProperty(properties.VALUES.container.build_timeout),
     )
+
+    Submit._machine_type_flag_map.choice_arg.AddToParser(parser)
+
+    parser.add_argument(
+        '--disk-size',
+        type=arg_parsers.BinarySize(lower_bound='100GB', upper_bound='1TB'),
+        help='Machine disk size (GB) to run the build.',
+    )
     parser.add_argument(
         '--substitutions',
         metavar='KEY=VALUE',
@@ -114,9 +153,14 @@ This will result in a build where every occurrence of ```${_FAVORITE_COLOR}```
 in certain fields is replaced by "blue", and similarly for ```${_NUM_CANDIES}```
 and "10".
 
+Only the following built-in variables can be specified with the
+`--substitutions` flag: REPO_NAME, BRANCH_NAME, TAG_NAME, REVISION_ID,
+COMMIT_SHA, SHORT_SHA.
+
 For more details, see:
 https://cloud.google.com/container-builder/docs/api/build-requests#substitutions
 """)
+
     build_config = parser.add_mutually_exclusive_group(required=True)
     build_config.add_argument(
         '--tag', '-t',
@@ -157,7 +201,7 @@ https://cloud.google.com/container-builder/docs/api/build-requests#substitutions
       FailedBuildException: If the build is completed and not 'SUCCESS'.
     """
 
-    project = properties.VALUES.core.project.Get()
+    project = properties.VALUES.core.project.Get(required=True)
     safe_project = project.replace(':', '_')
     safe_project = safe_project.replace('.', '_')
     # The string 'google' is not allowed in bucket names.
@@ -190,7 +234,8 @@ https://cloud.google.com/container-builder/docs/api/build-requests#substitutions
       timeout_str = None
 
     if args.tag:
-      if 'gcr.io/' not in args.tag:
+      if (properties.VALUES.container.build_check_tag.GetBool() and
+          'gcr.io/' not in args.tag):
         raise c_exceptions.InvalidArgumentException(
             '--tag',
             'Tag value must be in the gcr.io/* or *.gcr.io/* namespace.')
@@ -214,15 +259,12 @@ https://cloud.google.com/container-builder/docs/api/build-requests#substitutions
     if timeout_str:
       build_config.timeout = timeout_str
 
+    # --no-source overrides the default --source.
+    if not args.IsSpecified('source') and args.no_source:
+      args.source = None
+
     gcs_source_staging = None
     if args.source:
-      if args.no_source:
-        raise c_exceptions.InvalidArgumentException(
-            '--no-source',
-            'Cannot provide both source [{src}] and [--no-source].'.format(
-                src=args.source,
-            ))
-
       suffix = '.tgz'
       if args.source.startswith('gs://') or os.path.isfile(args.source):
         _, suffix = os.path.splitext(args.source)
@@ -336,6 +378,21 @@ https://cloud.google.com/container-builder/docs/api/build-requests#substitutions
 
       build_config.logsBucket = (
           'gs://'+gcs_log_dir.bucket+'/'+gcs_log_dir.object)
+
+    # Machine type.
+    if args.machine_type is not None:
+      machine_type = Submit._machine_type_flag_map.GetEnumForChoice(
+          args.machine_type)
+      if not build_config.options:
+        build_config.options = messages.BuildOptions()
+      build_config.options.machineType = machine_type
+
+    # Disk size.
+    if args.disk_size is not None:
+      disk_size = compute_utils.BytesToGb(args.disk_size)
+      if not build_config.options:
+        build_config.options = messages.BuildOptions()
+      build_config.options.diskSizeGb = int(disk_size)
 
     log.debug('submitting build: '+repr(build_config))
 

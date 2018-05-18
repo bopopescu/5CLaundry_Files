@@ -17,6 +17,10 @@ import re
 
 # pylint:disable=g-import-not-at-top
 try:
+  from googlecloudsdk.third_party.appengine.api import dispatchinfo
+except ImportError:
+  from google.appengine.api import dispatchinfo
+try:
   from googlecloudsdk.third_party.appengine.api import appinfo
 except ImportError:
   from google.appengine.api import appinfo
@@ -78,6 +82,20 @@ _NETWORK_UTILIZATION_SCALING_FIELDS = (
     'targetSentPacketsPerSecond',
     'targetReceivedBytesPerSecond',
     'targetReceivedPacketsPerSecond',
+)
+
+_ENDPOINTS_ROLLOUT_STRATEGY_VALUES = (
+    'fixed',
+    'managed',
+)
+(_ENDPOINTS_UNSPECIFIED_ROLLOUT_STRATEGY_ENUM_VALUE
+) = 'UNSPECIFIED_ROLLOUT_STRATEGY'
+
+_STANDARD_SCHEDULER_SETTINGS = (
+    'maxInstances',
+    'minInstances',
+    'targetCpuUtilization',
+    'targetThroughputUtilization',
 )
 
 
@@ -256,6 +274,7 @@ def ConvertAutomaticScaling(automatic_scaling):
   MoveFieldsTo(_REQUEST_UTILIZATION_SCALING_FIELDS, 'requestUtilization')
   MoveFieldsTo(_DISK_UTILIZATION_SCALING_FIELDS, 'diskUtilization')
   MoveFieldsTo(_NETWORK_UTILIZATION_SCALING_FIELDS, 'networkUtilization')
+  MoveFieldsTo(_STANDARD_SCHEDULER_SETTINGS, 'standardSchedulerSettings')
   return automatic_scaling
 
 
@@ -335,6 +354,54 @@ def ConvertUrlHandler(handler):
   return new_handler
 
 
+def ConvertDispatchHandler(handler):
+  """Create conversion function which handles dispatch rules.
+
+  Extract domain and path from dispatch url,
+  set service value from service or module info.
+
+  Args:
+    handler: Result of converting handler according to schema.
+
+  Returns:
+    Handler which has 'domain', 'path' and 'service' fields.
+
+  Raises:
+    ValueError: if both module and service presented in dispatch entry
+    or no module or service presented in dispatch entry.
+  """
+  dispatch_url = dispatchinfo.ParsedURL(handler['url'])
+
+  dispatch_service = None
+  if 'module' in handler:
+    dispatch_service = handler['module']
+  if 'service' in handler:
+    if dispatch_service:
+      raise ValueError(
+          "Both 'module' and 'service' in dispatch rule, "
+          "please use only one: %s" % handler)
+    else:
+      dispatch_service = handler['service']
+  if not dispatch_service:
+    raise ValueError(
+        "Missing required value 'service' in dispatch rule: %s" % handler)
+
+  dispatch_domain = dispatch_url.host
+  if not dispatch_url.host_exact:
+    dispatch_domain = '*' + dispatch_domain
+
+  dispatch_path = dispatch_url.path
+  if not dispatch_url.path_exact:
+    dispatch_path = dispatch_path.rstrip('/') + '/*'
+
+  new_handler = {}
+  new_handler['domain'] = dispatch_domain
+  new_handler['path'] = dispatch_path
+  new_handler['service'] = dispatch_service
+
+  return new_handler
+
+
 def _GetHandlerType(handler):
   """Get handler type of mapping.
 
@@ -357,3 +424,27 @@ def _GetHandlerType(handler):
     return 'script'
 
   raise ValueError('Unrecognized handler type: %s' % handler)
+
+
+def ConvertEndpointsRolloutStrategyToEnum(value):
+  """Converts the rollout strategy to an enum.
+
+  In the YAML file, the user does not use the enum values directly. Therefore we
+  must convert these to their corresponding enum values in version.proto.
+
+  Args:
+    value: A string that is a valid rollout strategy ("fixed" or "managed")
+
+  Returns:
+    Value converted to the proper enum value. Defaults to
+    "UNSPECIFIED_ROLLOUT_STRATEGY"
+
+  Raises:
+    ValueError: When the value is set and is not one of "fixed" or "managed".
+  """
+  if value is None:
+    return _ENDPOINTS_UNSPECIFIED_ROLLOUT_STRATEGY_ENUM_VALUE
+  if value in _ENDPOINTS_ROLLOUT_STRATEGY_VALUES:
+    return value.upper()
+
+  raise ValueError('Unrecognized rollout strategy: %s' % value)

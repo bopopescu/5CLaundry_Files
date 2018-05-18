@@ -14,6 +14,8 @@
 
 """Flags and helpers for the compute health-checks commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers as compute_completers
 from googlecloudsdk.command_lib.compute import flags as compute_flags
 
@@ -29,7 +31,7 @@ def HealthCheckArgument(
   return compute_flags.ResourceArgument(
       name=name,
       resource_name='{} health check'.format(protocol_string),
-      completer=compute_completers.DeprecatedHealthChecksCompleter,
+      completer=compute_completers.HealthChecksCompleter,
       plural=plural,
       required=required,
       global_collection='compute.healthChecks')

@@ -14,6 +14,8 @@
 
 """Utilities for interacting with Google Cloud Storage."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 import os
 import re
@@ -44,11 +46,11 @@ GCS_URL_PATTERN = (
 class InvalidNameError(ValueError):
   """Error indicating that a given name is invalid."""
 
-  def __init__(self, name, reason):
+  def __init__(self, name, reason, type_name, url):
     super(InvalidNameError, self).__init__(
         ('Invalid {type} name [{name}]: {reason}\n\n'
          'See {url} for details.').format(name=name, reason=reason,
-                                          type=self.TYPE, url=self.URL))
+                                          type=type_name, url=url))
 
 
 class InvalidBucketNameError(InvalidNameError):
@@ -56,11 +58,19 @@ class InvalidBucketNameError(InvalidNameError):
   TYPE = 'bucket'
   URL = 'https://cloud.google.com/storage/docs/naming#requirements'
 
+  def __init__(self, name, reason):
+    super(InvalidBucketNameError, self).__init__(
+        name, reason, self.TYPE, self.URL)
+
 
 class InvalidObjectNameError(InvalidNameError):
   """Error indicating that a given object name is invalid."""
   TYPE = 'object'
   URL = 'https://cloud.google.com/storage/docs/naming#objectnames'
+
+  def __init__(self, name, reason):
+    super(InvalidObjectNameError, self).__init__(
+        name, reason, self.TYPE, self.URL)
 
 
 VALID_BUCKET_CHARS_MESSAGE = """\
@@ -273,7 +283,11 @@ def _GetGsutilPath():
   return os.path.join(sdk_bin_path, 'gsutil')
 
 
-def RunGsutilCommand(command_name, command_arg_str, run_concurrent=False):
+def RunGsutilCommand(command_name,
+                     command_args=None,
+                     run_concurrent=False,
+                     out_func=log.file_only_logger.debug,
+                     err_func=log.file_only_logger.debug):
   """Runs the specified gsutil command and returns the command's exit code.
 
   This is more reliable than storage_api.StorageClient.CopyFilesToGcs especially
@@ -281,29 +295,28 @@ def RunGsutilCommand(command_name, command_arg_str, run_concurrent=False):
 
   Args:
     command_name: The gsutil command to run.
-    command_arg_str: Arguments to pass to the command.
+    command_args: List of arguments to pass to the command.
     run_concurrent: Whether concurrent uploads should be enabled while running
       the command.
+    out_func: str->None, a function to call with the stdout of the gsutil
+        command.
+    err_func: str->None, a function to call with the stderr of the gsutil
+        command.
 
   Returns:
     The exit code of the call to the gsutil command.
   """
   command_path = _GetGsutilPath()
 
-  if run_concurrent:
-    command_args = ['-m', command_name]
-  else:
-    command_args = [command_name]
-
-  command_args += command_arg_str.split(' ')
+  args = ['-m', command_name] if run_concurrent else [command_name]
+  if command_args is not None:
+    args += command_args
 
   if platforms.OperatingSystem.Current() == platforms.OperatingSystem.WINDOWS:
-    gsutil_args = execution_utils.ArgsForCMDTool(command_path + '.cmd',
-                                                 *command_args)
+    gsutil_args = execution_utils.ArgsForCMDTool(command_path + '.cmd', *args)
   else:
-    gsutil_args = execution_utils.ArgsForExecutableTool(command_path,
-                                                        *command_args)
+    gsutil_args = execution_utils.ArgsForExecutableTool(command_path, *args)
   log.debug('Running command: [{args}]]'.format(args=' '.join(gsutil_args)))
   return execution_utils.Exec(gsutil_args, no_exit=True,
-                              out_func=log.file_only_logger.debug,
-                              err_func=log.file_only_logger.debug)
+                              out_func=out_func,
+                              err_func=err_func)

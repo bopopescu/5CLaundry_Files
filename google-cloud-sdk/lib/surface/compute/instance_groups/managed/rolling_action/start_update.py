@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for updating instances of managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import managed_instance_groups_utils
 from googlecloudsdk.calliope import arg_parsers
@@ -54,7 +56,7 @@ def _AddArgs(parser):
   instance_groups_managed_flags.AddForceArg(parser)
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class StartUpdate(base.Command):
   """Start update instances of managed instance group."""
 

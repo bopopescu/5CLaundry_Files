@@ -81,8 +81,8 @@ def GenerateApi(base_dir, root_dir, api_name, api_version, api_config):
     package_dir = os.path.join(package_dir, subdir)
     init_file = os.path.join(package_dir, '__init__.py')
     if not os.path.isfile(init_file):
-      logging.warn('%s does not have __init__.py file, generating ...',
-                   package_dir)
+      logging.warning('%s does not have __init__.py file, generating ...',
+                      package_dir)
       with open(init_file, 'w') as f:
         f.write(_INIT_FILE_CONTENT)
 
@@ -179,9 +179,9 @@ def GenerateResourceModule(base_dir, root_dir, api_name, api_version,
   discovery_doc = resource_generator.DiscoveryDoc.FromJson(
       os.path.join(base_dir, root_dir, discovery_doc_path))
   if discovery_doc.api_version != api_version:
-    logging.warn('Discovery api version %s does not match %s, '
-                 'this client will be accessible via new alias.',
-                 discovery_doc.api_version, api_version)
+    logging.warning('Discovery api version %s does not match %s, '
+                    'this client will be accessible via new alias.',
+                    discovery_doc.api_version, api_version)
   if discovery_doc.api_name != api_name:
     raise WrongDiscoveryDoc('api name {0}, expected {1}'
                             .format(discovery_doc.api_name, api_name))
@@ -193,7 +193,7 @@ def GenerateResourceModule(base_dir, root_dir, api_name, api_version,
     for collection in resource_collections:
       if collection.name in custom_resources:
         matched_resources.add(collection.name)
-        custom_path = custom_resources[collection.name]
+        custom_path = custom_resources[collection.name]['path']
         if isinstance(custom_path, dict):
           collection.flat_paths.update(custom_path)
         elif isinstance(custom_path, basestring):
@@ -201,22 +201,28 @@ def GenerateResourceModule(base_dir, root_dir, api_name, api_version,
               resource_generator.DEFAULT_PATH_NAME] = custom_path
     # Remaining must be new custom resources.
     for collection_name in set(custom_resources.keys()) - matched_resources:
-      collection_path = custom_resources[collection_name]
+      collection_def = custom_resources[collection_name]
+      collection_path = collection_def['path']
+      enable_uri_parsing = collection_def.get('enable_uri_parsing', True)
       collection_info = discovery_doc.MakeResourceCollection(
-          collection_name, collection_path, api_version)
+          collection_name, collection_path, enable_uri_parsing, api_version)
       resource_collections.append(collection_info)
 
   api_dir = os.path.join(base_dir, root_dir, api_name, api_version)
   if not os.path.exists(api_dir):
     os.makedirs(api_dir)
   resource_file_name = os.path.join(api_dir, 'resources.py')
-  logging.debug('Generating resource module at %s', resource_file_name)
 
   if resource_collections:
+    logging.debug('Generating resource module at %s', resource_file_name)
     tpl = template.Template(filename=os.path.join(os.path.dirname(__file__),
                                                   'resources.tpl'))
     with open(resource_file_name, 'wb') as output_file:
       ctx = runtime.Context(output_file,
                             collections=sorted(resource_collections),
-                            base_url=resource_collections[0].base_url)
+                            base_url=resource_collections[0].base_url,
+                            docs_url=discovery_doc.docs_url)
       tpl.render_context(ctx)
+  elif os.path.isfile(resource_file_name):
+    logging.debug('Removing existing resource module at %s', resource_file_name)
+    os.remove(resource_file_name)

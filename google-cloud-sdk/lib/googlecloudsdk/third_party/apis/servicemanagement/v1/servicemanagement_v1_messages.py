@@ -15,7 +15,7 @@ package = 'servicemanagement'
 
 
 class Advice(_messages.Message):
-  """Generated advice about this change, used for providing more information
+  r"""Generated advice about this change, used for providing more information
   about how a change will affect the existing service.
 
   Fields:
@@ -27,7 +27,7 @@ class Advice(_messages.Message):
 
 
 class Api(_messages.Message):
-  """Api is a light-weight descriptor for an API Interface.  Interfaces are
+  r"""Api is a light-weight descriptor for an API Interface.  Interfaces are
   also described as "protocol buffer services" in some contexts, such as by
   the "service" keyword in a .proto file, but they are different from API
   Services, which represent a concrete implementation of an interface as
@@ -66,7 +66,7 @@ class Api(_messages.Message):
   """
 
   class SyntaxValueValuesEnum(_messages.Enum):
-    """The source syntax of the service.
+    r"""The source syntax of the service.
 
     Values:
       SYNTAX_PROTO2: Syntax `proto2`.
@@ -85,13 +85,13 @@ class Api(_messages.Message):
 
 
 class AuditConfig(_messages.Message):
-  """Specifies the audit configuration for a service. The configuration
+  r"""Specifies the audit configuration for a service. The configuration
   determines which permission types are logged, and what identities, if any,
   are exempted from logging. An AuditConfig must have one or more
   AuditLogConfigs.  If there are AuditConfigs for both `allServices` and a
   specific service, the union of the two AuditConfigs is used for that
   service: the log_types specified in each AuditConfig are enabled, and the
-  exempted_members in each AuditConfig are exempted.  Example Policy with
+  exempted_members in each AuditLogConfig are exempted.  Example Policy with
   multiple AuditConfigs:      {       "audit_configs": [         {
   "service": "allServices"           "audit_log_configs": [             {
   "log_type": "DATA_READ",               "exempted_members": [
@@ -108,20 +108,17 @@ class AuditConfig(_messages.Message):
 
   Fields:
     auditLogConfigs: The configuration for logging of each type of permission.
-      Next ID: 4
-    exemptedMembers: A string attribute.
     service: Specifies a service that will be enabled for audit logging. For
       example, `storage.googleapis.com`, `cloudsql.googleapis.com`.
       `allServices` is a special value that covers all services.
   """
 
   auditLogConfigs = _messages.MessageField('AuditLogConfig', 1, repeated=True)
-  exemptedMembers = _messages.StringField(2, repeated=True)
-  service = _messages.StringField(3)
+  service = _messages.StringField(2)
 
 
 class AuditLogConfig(_messages.Message):
-  """Provides the configuration for logging a type of permissions. Example:
+  r"""Provides the configuration for logging a type of permissions. Example:
   {       "audit_log_configs": [         {           "log_type": "DATA_READ",
   "exempted_members": [             "user:foo@gmail.com"           ]
   },         {           "log_type": "DATA_WRITE",         }       ]     }
@@ -138,7 +135,7 @@ class AuditLogConfig(_messages.Message):
   """
 
   class LogTypeValueValuesEnum(_messages.Enum):
-    """The log type that this config enables.
+    r"""The log type that this config enables.
 
     Values:
       LOG_TYPE_UNSPECIFIED: Default case. Should never be this.
@@ -156,9 +153,9 @@ class AuditLogConfig(_messages.Message):
 
 
 class AuthProvider(_messages.Message):
-  """Configuration for an anthentication provider, including support for [JSON
-  Web Token (JWT)](https://tools.ietf.org/html/draft-ietf-oauth-json-web-
-  token-32).
+  r"""Configuration for an anthentication provider, including support for
+  [JSON Web Token (JWT)](https://tools.ietf.org/html/draft-ietf-oauth-json-
+  web-token-32).
 
   Fields:
     audiences: The list of JWT [audiences](https://tools.ietf.org/html/draft-
@@ -198,8 +195,8 @@ class AuthProvider(_messages.Message):
 
 
 class AuthRequirement(_messages.Message):
-  """User-defined authentication requirements, including support for [JSON Web
-  Token (JWT)](https://tools.ietf.org/html/draft-ietf-oauth-json-web-
+  r"""User-defined authentication requirements, including support for [JSON
+  Web Token (JWT)](https://tools.ietf.org/html/draft-ietf-oauth-json-web-
   token-32).
 
   Fields:
@@ -224,7 +221,7 @@ class AuthRequirement(_messages.Message):
 
 
 class Authentication(_messages.Message):
-  """`Authentication` defines the authentication configuration for an API.
+  r"""`Authentication` defines the authentication configuration for an API.
   Example for an API targeted for external use:      name:
   calendar.googleapis.com     authentication:       providers:       - id:
   google_calendar_auth         jwks_uri:
@@ -245,19 +242,15 @@ class Authentication(_messages.Message):
 
 
 class AuthenticationRule(_messages.Message):
-  """Authentication rules for the service.  By default, if a method has any
+  r"""Authentication rules for the service.  By default, if a method has any
   authentication requirements, every request must include a valid credential
   matching one of the requirements. It's an error to include more than one
   kind of credential in a single request.  If a method doesn't have any auth
   requirements, request credentials will be ignored.
 
   Fields:
-    allowWithoutCredential: Whether to allow requests without a credential.
-      The credential can be an OAuth token, Google cookies (first-party auth)
-      or EndUserCreds.  For requests without credentials, if the service
-      control environment is specified, each incoming request **must** be
-      associated with a service consumer. This can be done by passing an API
-      key that belongs to a consumer project.
+    allowWithoutCredential: If true, the service accepts API keys without any
+      other credential.
     customAuth: Configuration for custom authentication.
     oauth: The requirements for OAuth credentials.
     requirements: Requirements for additional authentication providers.
@@ -273,7 +266,7 @@ class AuthenticationRule(_messages.Message):
 
 
 class AuthorizationConfig(_messages.Message):
-  """Configuration of authorization.  This section determines the
+  r"""Configuration of authorization.  This section determines the
   authorization provider, if unspecified, then no authorization check will be
   done.  Example:      experimental:       authorization:         provider:
   firebaserules.googleapis.com
@@ -287,7 +280,7 @@ class AuthorizationConfig(_messages.Message):
 
 
 class Backend(_messages.Message):
-  """`Backend` defines the backend configuration for a service.
+  r"""`Backend` defines the backend configuration for a service.
 
   Fields:
     rules: A list of API backend rules that apply to individual API methods.
@@ -298,12 +291,13 @@ class Backend(_messages.Message):
 
 
 class BackendRule(_messages.Message):
-  """A backend rule provides configuration for an individual API element.
+  r"""A backend rule provides configuration for an individual API element.
 
   Fields:
     address: The address of the API backend.
     deadline: The number of seconds to wait for a response from a request.
-      The default depends on the deployment context.
+      The default deadline for gRPC is infinite (no deadline) and HTTP
+      requests is 5 seconds.
     minDeadline: Minimum deadline in seconds needed for this method. Calls
       having deadline value lower than this will be rejected.
     selector: Selects the methods to which this rule applies.  Refer to
@@ -316,14 +310,47 @@ class BackendRule(_messages.Message):
   selector = _messages.StringField(4)
 
 
-class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+class Billing(_messages.Message):
+  r"""Billing related configuration of the service.  The following example
+  shows how to configure monitored resources and metrics for billing:
+  monitored_resources:     - type: library.googleapis.com/branch       labels:
+  - key: /city         description: The city where the library branch is
+  located in.       - key: /name         description: The name of the branch.
+  metrics:     - name: library.googleapis.com/book/borrowed_count
+  metric_kind: DELTA       value_type: INT64     billing:
+  consumer_destinations:       - monitored_resource:
+  library.googleapis.com/branch         metrics:         -
+  library.googleapis.com/book/borrowed_count
 
   Fields:
-    condition: The condition that is associated with this binding. NOTE: an
-      unsatisfied condition will not allow user access via current binding.
-      Different bindings, including their conditions, are examined
-      independently. This field is GOOGLE_INTERNAL.
+    consumerDestinations: Billing configurations for sending metrics to the
+      consumer project. There can be multiple consumer destinations per
+      service, each one must have a different monitored resource type. A
+      metric can be used in at most one consumer destination.
+  """
+
+  consumerDestinations = _messages.MessageField('BillingDestination', 1, repeated=True)
+
+
+class BillingDestination(_messages.Message):
+  r"""Configuration of a specific billing destination (Currently only support
+  bill against consumer project).
+
+  Fields:
+    metrics: Names of the metrics to report to this billing destination. Each
+      name must be defined in Service.metrics section.
+    monitoredResource: The monitored resource type. The type must be defined
+      in Service.monitored_resources section.
+  """
+
+  metrics = _messages.StringField(1, repeated=True)
+  monitoredResource = _messages.StringField(2)
+
+
+class Binding(_messages.Message):
+  r"""Associates `members` with a `role`.
+
+  Fields:
     members: Specifies the identities requesting access for a Cloud Platform
       resource. `members` can have the following values:  * `allUsers`: A
       special identifier that represents anyone who is    on the internet;
@@ -331,8 +358,8 @@ class Binding(_messages.Message):
       identifier that represents anyone    who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
       represents a specific Google    account. For example, `alice@gmail.com`
-      or `joe@example.com`.   * `serviceAccount:{emailid}`: An email address
-      that represents a service    account. For example, `my-other-
+      .   * `serviceAccount:{emailid}`: An email address that represents a
+      service    account. For example, `my-other-
       app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
       that represents a Google group.    For example, `admins@example.com`.
       * `domain:{domain}`: A Google Apps domain name that represents all the
@@ -341,13 +368,12 @@ class Binding(_messages.Message):
       `roles/editor`, or `roles/owner`. Required
   """
 
-  condition = _messages.MessageField('Expr', 1)
-  members = _messages.StringField(2, repeated=True)
-  role = _messages.StringField(3)
+  members = _messages.StringField(1, repeated=True)
+  role = _messages.StringField(2)
 
 
 class ChangeReport(_messages.Message):
-  """Change report associated with a particular service configuration.  It
+  r"""Change report associated with a particular service configuration.  It
   contains a list of ConfigChanges based on the comparison between two service
   configurations.
 
@@ -362,34 +388,8 @@ class ChangeReport(_messages.Message):
   configChanges = _messages.MessageField('ConfigChange', 1, repeated=True)
 
 
-class CloudAuditOptions(_messages.Message):
-  """Write a Cloud Audit log
-
-  Enums:
-    LogNameValueValuesEnum: The log_name to populate in the Cloud Audit
-      Record.
-
-  Fields:
-    logName: The log_name to populate in the Cloud Audit Record.
-  """
-
-  class LogNameValueValuesEnum(_messages.Enum):
-    """The log_name to populate in the Cloud Audit Record.
-
-    Values:
-      UNSPECIFIED_LOG_NAME: Default. Should not be used.
-      ADMIN_ACTIVITY: Corresponds to "cloudaudit.googleapis.com/activity"
-      DATA_ACCESS: Corresponds to "cloudaudit.googleapis.com/data_access"
-    """
-    UNSPECIFIED_LOG_NAME = 0
-    ADMIN_ACTIVITY = 1
-    DATA_ACCESS = 2
-
-  logName = _messages.EnumField('LogNameValueValuesEnum', 1)
-
-
 class CompositeOperationMetadata(_messages.Message):
-  """Metadata for composite operations.
+  r"""Metadata for composite operations.
 
   Messages:
     OriginalRequestValue: Original request that triggered this operation.
@@ -418,7 +418,7 @@ class CompositeOperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class OriginalRequestValue(_messages.Message):
-    """Original request that triggered this operation.
+    r"""Original request that triggered this operation.
 
     Messages:
       AdditionalProperty: An additional property for a OriginalRequestValue
@@ -430,7 +430,7 @@ class CompositeOperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a OriginalRequestValue object.
+      r"""An additional property for a OriginalRequestValue object.
 
       Fields:
         key: Name of the additional property.
@@ -444,7 +444,7 @@ class CompositeOperationMetadata(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseFieldMasksValue(_messages.Message):
-    """Defines which part of the response a child operation will contribute.
+    r"""Defines which part of the response a child operation will contribute.
     Each key of the map is the name of a child operation. Each value is a
     field mask that identifies what that child operation contributes to the
     response, for example, "quota_settings", "visiblity_settings", etc.
@@ -459,7 +459,7 @@ class CompositeOperationMetadata(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseFieldMasksValue object.
+      r"""An additional property for a ResponseFieldMasksValue object.
 
       Fields:
         key: Name of the additional property.
@@ -477,101 +477,8 @@ class CompositeOperationMetadata(_messages.Message):
   responseFieldMasks = _messages.MessageField('ResponseFieldMasksValue', 4)
 
 
-class Condition(_messages.Message):
-  """A condition to be met.
-
-  Enums:
-    IamValueValuesEnum: Trusted attributes supplied by the IAM system.
-    OpValueValuesEnum: An operator to apply the subject with.
-    SysValueValuesEnum: Trusted attributes supplied by any service that owns
-      resources and uses the IAM system for access control.
-
-  Fields:
-    iam: Trusted attributes supplied by the IAM system.
-    op: An operator to apply the subject with.
-    svc: Trusted attributes discharged by the service.
-    sys: Trusted attributes supplied by any service that owns resources and
-      uses the IAM system for access control.
-    value: DEPRECATED. Use 'values' instead.
-    values: The objects of the condition. This is mutually exclusive with
-      'value'.
-  """
-
-  class IamValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by the IAM system.
-
-    Values:
-      NO_ATTR: Default non-attribute.
-      AUTHORITY: Either principal or (if present) authority selector.
-      ATTRIBUTION: The principal (even if an authority selector is present),
-        which must only be used for attribution, not authorization.
-      APPROVER: An approver (distinct from the requester) that has authorized
-        this request. When used with IN, the condition indicates that one of
-        the approvers associated with the request matches the specified
-        principal, or is a member of the specified group. Approvers can only
-        grant additional access, and are thus only used in a strictly positive
-        context (e.g. ALLOW/IN or DENY/NOT_IN).
-      JUSTIFICATION_TYPE: What types of justifications have been supplied with
-        this request. String values should match enum names from
-        tech.iam.JustificationType, e.g. "MANUAL_STRING". It is not permitted
-        to grant access based on the *absence* of a justification, so
-        justification conditions can only be used in a "positive" context
-        (e.g., ALLOW/IN or DENY/NOT_IN).  Multiple justifications, e.g., a
-        Buganizer ID and a manually-entered reason, are normal and supported.
-    """
-    NO_ATTR = 0
-    AUTHORITY = 1
-    ATTRIBUTION = 2
-    APPROVER = 3
-    JUSTIFICATION_TYPE = 4
-
-  class OpValueValuesEnum(_messages.Enum):
-    """An operator to apply the subject with.
-
-    Values:
-      NO_OP: Default no-op.
-      EQUALS: DEPRECATED. Use IN instead.
-      NOT_EQUALS: DEPRECATED. Use NOT_IN instead.
-      IN: The condition is true if the subject (or any element of it if it is
-        a set) matches any of the supplied values.
-      NOT_IN: The condition is true if the subject (or every element of it if
-        it is a set) matches none of the supplied values.
-      DISCHARGED: Subject is discharged
-    """
-    NO_OP = 0
-    EQUALS = 1
-    NOT_EQUALS = 2
-    IN = 3
-    NOT_IN = 4
-    DISCHARGED = 5
-
-  class SysValueValuesEnum(_messages.Enum):
-    """Trusted attributes supplied by any service that owns resources and uses
-    the IAM system for access control.
-
-    Values:
-      NO_ATTR: Default non-attribute type
-      REGION: Region of the resource
-      SERVICE: Service name
-      NAME: Resource name
-      IP: IP address of the caller
-    """
-    NO_ATTR = 0
-    REGION = 1
-    SERVICE = 2
-    NAME = 3
-    IP = 4
-
-  iam = _messages.EnumField('IamValueValuesEnum', 1)
-  op = _messages.EnumField('OpValueValuesEnum', 2)
-  svc = _messages.StringField(3)
-  sys = _messages.EnumField('SysValueValuesEnum', 4)
-  value = _messages.StringField(5)
-  values = _messages.StringField(6, repeated=True)
-
-
 class ConfigChange(_messages.Message):
-  """Output generated from semantically comparing two versions of a service
+  r"""Output generated from semantically comparing two versions of a service
   configuration.  Includes detailed information about a field that have
   changed with applicable advice about potential consequences for the change,
   such as backwards-incompatibility.
@@ -599,7 +506,7 @@ class ConfigChange(_messages.Message):
   """
 
   class ChangeTypeValueValuesEnum(_messages.Enum):
-    """The type for this change, either ADDED, REMOVED, or MODIFIED.
+    r"""The type for this change, either ADDED, REMOVED, or MODIFIED.
 
     Values:
       CHANGE_TYPE_UNSPECIFIED: No value was provided.
@@ -623,7 +530,7 @@ class ConfigChange(_messages.Message):
 
 
 class ConfigFile(_messages.Message):
-  """Generic specification of a source configuration file
+  r"""Generic specification of a source configuration file
 
   Enums:
     FileTypeValueValuesEnum: The type of configuration file this represents.
@@ -637,7 +544,7 @@ class ConfigFile(_messages.Message):
   """
 
   class FileTypeValueValuesEnum(_messages.Enum):
-    """The type of configuration file this represents.
+    r"""The type of configuration file this represents.
 
     Values:
       FILE_TYPE_UNSPECIFIED: Unknown file type.
@@ -649,12 +556,18 @@ class ConfigFile(_messages.Message):
         example test.proto file, the following command would put the value in
         a new file named out.pb.  $protoc --include_imports
         --include_source_info test.proto -o out.pb
+      PROTO_FILE: Uncompiled Proto file. Used for storage and display purposes
+        only, currently server-side compilation is not supported. Should match
+        the inputs to 'protoc' command used to generated
+        FILE_DESCRIPTOR_SET_PROTO. A file of this type can only be included if
+        at least one file of type FILE_DESCRIPTOR_SET_PROTO is included.
     """
     FILE_TYPE_UNSPECIFIED = 0
     SERVICE_CONFIG_YAML = 1
     OPEN_API_JSON = 2
     OPEN_API_YAML = 3
     FILE_DESCRIPTOR_SET_PROTO = 4
+    PROTO_FILE = 5
 
   contents = _messages.StringField(1)
   fileContents = _messages.BytesField(2)
@@ -663,7 +576,7 @@ class ConfigFile(_messages.Message):
 
 
 class ConfigRef(_messages.Message):
-  """Represents a service configuration with its name and id.
+  r"""Represents a service configuration with its name and id.
 
   Fields:
     name: Resource name of a service config. It must have the following
@@ -674,7 +587,7 @@ class ConfigRef(_messages.Message):
 
 
 class ConfigSource(_messages.Message):
-  """Represents a source file which is used to generate the service
+  r"""Represents a source file which is used to generate the service
   configuration defined by `google.api.Service`.
 
   Fields:
@@ -690,12 +603,21 @@ class ConfigSource(_messages.Message):
 
 
 class Context(_messages.Message):
-  """`Context` defines which contexts an API requests.  Example:      context:
-  rules:       - selector: "*"         requested:         -
+  r"""`Context` defines which contexts an API requests.  Example:
+  context:       rules:       - selector: "*"         requested:         -
   google.rpc.context.ProjectContext         - google.rpc.context.OriginContext
   The above specifies that all methods in the API request
   `google.rpc.context.ProjectContext` and `google.rpc.context.OriginContext`.
-  Available context types are defined in package `google.rpc.context`.
+  Available context types are defined in package `google.rpc.context`.  This
+  also provides mechanism to whitelist any protobuf message extension that can
+  be sent in grpc metadata using \u201cx-goog-ext-<extension_id>-bin\u201d and \u201cx-goog-
+  ext-<extension_id>-jspb\u201d format. For example, list any service specific
+  protobuf types that can appear in grpc metadata as follows in your yaml
+  file:  Example:      context:       rules:        - selector:
+  "google.example.library.v1.LibraryService.CreateBook"
+  allowed_request_extensions:          - google.foo.v1.NewExtension
+  allowed_response_extensions:          - google.foo.v1.NewExtension  You can
+  also specify extension ID instead of fully qualified extension name here.
 
   Fields:
     rules: A list of RPC context rules that apply to individual API methods.
@@ -706,23 +628,29 @@ class Context(_messages.Message):
 
 
 class ContextRule(_messages.Message):
-  """A context rule provides information about the context for an individual
+  r"""A context rule provides information about the context for an individual
   API element.
 
   Fields:
+    allowedRequestExtensions: A list of full type names or extension IDs of
+      extensions allowed in grpc side channel from client to backend.
+    allowedResponseExtensions: A list of full type names or extension IDs of
+      extensions allowed in grpc side channel from backend to client.
     provided: A list of full type names of provided contexts.
     requested: A list of full type names of requested contexts.
     selector: Selects the methods to which this rule applies.  Refer to
       selector for syntax details.
   """
 
-  provided = _messages.StringField(1, repeated=True)
-  requested = _messages.StringField(2, repeated=True)
-  selector = _messages.StringField(3)
+  allowedRequestExtensions = _messages.StringField(1, repeated=True)
+  allowedResponseExtensions = _messages.StringField(2, repeated=True)
+  provided = _messages.StringField(3, repeated=True)
+  requested = _messages.StringField(4, repeated=True)
+  selector = _messages.StringField(5)
 
 
 class Control(_messages.Message):
-  """Selects and configures the service controller used by the service.  The
+  r"""Selects and configures the service controller used by the service.  The
   service controller handles features like abuse, quota, billing, logging,
   monitoring, etc.
 
@@ -735,7 +663,7 @@ class Control(_messages.Message):
 
 
 class ConvertConfigRequest(_messages.Message):
-  """Request message for `ConvertConfig` method.
+  r"""Request message for `ConvertConfig` method.
 
   Messages:
     ConfigSpecValue: Input configuration For this version of API, the
@@ -753,7 +681,7 @@ class ConvertConfigRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ConfigSpecValue(_messages.Message):
-    """Input configuration For this version of API, the supported type is
+    r"""Input configuration For this version of API, the supported type is
     OpenApiSpec
 
     Messages:
@@ -765,7 +693,7 @@ class ConvertConfigRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ConfigSpecValue object.
+      r"""An additional property for a ConfigSpecValue object.
 
       Fields:
         key: Name of the additional property.
@@ -784,7 +712,7 @@ class ConvertConfigRequest(_messages.Message):
 
 
 class ConvertConfigResponse(_messages.Message):
-  """Response message for `ConvertConfig` method.
+  r"""Response message for `ConvertConfig` method.
 
   Fields:
     diagnostics: Any errors or warnings that occured during config conversion.
@@ -796,20 +724,8 @@ class ConvertConfigResponse(_messages.Message):
   serviceConfig = _messages.MessageField('Service', 2)
 
 
-class CounterOptions(_messages.Message):
-  """Options for counters
-
-  Fields:
-    field: The field value to attribute.
-    metric: The metric to update.
-  """
-
-  field = _messages.StringField(1)
-  metric = _messages.StringField(2)
-
-
 class CustomAuthRequirements(_messages.Message):
-  """Configuration for a custom authentication provider.
+  r"""Configuration for a custom authentication provider.
 
   Fields:
     provider: A configuration string containing connection information for the
@@ -821,7 +737,7 @@ class CustomAuthRequirements(_messages.Message):
 
 
 class CustomError(_messages.Message):
-  """Customize service error responses.  For example, list any service
+  r"""Customize service error responses.  For example, list any service
   specific protobuf types that can appear in error detail lists of error
   responses.  Example:      custom_error:       types:       -
   google.foo.v1.CustomError       - google.foo.v1.AnotherError
@@ -839,7 +755,7 @@ class CustomError(_messages.Message):
 
 
 class CustomErrorRule(_messages.Message):
-  """A custom error rule.
+  r"""A custom error rule.
 
   Fields:
     isErrorType: Mark this message as possible payload in error response.
@@ -854,7 +770,7 @@ class CustomErrorRule(_messages.Message):
 
 
 class CustomHttpPattern(_messages.Message):
-  """A custom pattern is used for defining custom HTTP verb.
+  r"""A custom pattern is used for defining custom HTTP verb.
 
   Fields:
     kind: The name of this custom HTTP verb.
@@ -866,7 +782,7 @@ class CustomHttpPattern(_messages.Message):
 
 
 class CustomerSettings(_messages.Message):
-  """Settings that control how a customer (organization or folder) uses a
+  r"""Settings that control how a customer (organization or folder) uses a
   service.
 
   Fields:
@@ -884,19 +800,15 @@ class CustomerSettings(_messages.Message):
   serviceName = _messages.StringField(3)
 
 
-class DataAccessOptions(_messages.Message):
-  """Write a Data Access (Gin) log"""
-
-
 class DeleteServiceStrategy(_messages.Message):
-  """Strategy used to delete a service. This strategy is a placeholder only
+  r"""Strategy used to delete a service. This strategy is a placeholder only
   used by the system generated rollout to delete a service.
   """
 
 
 
 class Diagnostic(_messages.Message):
-  """Represents a diagnostic message (error or warning)
+  r"""Represents a diagnostic message (error or warning)
 
   Enums:
     KindValueValuesEnum: The kind of diagnostic information provided.
@@ -908,7 +820,7 @@ class Diagnostic(_messages.Message):
   """
 
   class KindValueValuesEnum(_messages.Enum):
-    """The kind of diagnostic information provided.
+    r"""The kind of diagnostic information provided.
 
     Values:
       WARNING: Warnings and errors
@@ -923,7 +835,7 @@ class Diagnostic(_messages.Message):
 
 
 class DisableServiceRequest(_messages.Message):
-  """Request message for DisableService method.
+  r"""Request message for DisableService method.
 
   Fields:
     consumerId: The identity of consumer resource which service disablement
@@ -936,7 +848,7 @@ class DisableServiceRequest(_messages.Message):
 
 
 class Documentation(_messages.Message):
-  """`Documentation` provides the information for describing a service.
+  r"""`Documentation` provides the information for describing a service.
   Example: <pre><code>documentation:   summary: >     The Google Calendar API
   gives access     to most calendar features.   pages:   - name: Overview
   content: &#40;== include google/foo/overview.md ==&#41;   - name: Tutorial
@@ -957,13 +869,10 @@ class Documentation(_messages.Message):
   the display text used for the link, this can be used:
   <pre><code>&#91;display text]&#91;fully.qualified.proto.name]</code></pre>
   Text can be excluded from doc using the following notation:
-  <pre><code>&#40;-- internal comment --&#41;</code></pre> Comments can be
-  made conditional using a visibility label. The below text will be only
-  rendered if the `BETA` label is available: <pre><code>&#40;--BETA: comment
-  for BETA users --&#41;</code></pre> A few directives are available in
-  documentation. Note that directives must appear on a single line to be
-  properly identified. The `include` directive includes a markdown file from
-  an external source: <pre><code>&#40;== include path/to/file
+  <pre><code>&#40;-- internal comment --&#41;</code></pre>  A few directives
+  are available in documentation. Note that directives must appear on a single
+  line to be properly identified. The `include` directive includes a markdown
+  file from an external source: <pre><code>&#40;== include path/to/file
   ==&#41;</code></pre> The `resource_for` directive marks a message to be the
   resource of a collection in REST view. If it is not specified, tools attempt
   to infer the resource from the operations in a collection:
@@ -996,7 +905,7 @@ class Documentation(_messages.Message):
 
 
 class DocumentationRule(_messages.Message):
-  """A documentation rule provides information about individual API elements.
+  r"""A documentation rule provides information about individual API elements.
 
   Fields:
     deprecationDescription: Deprecation description of the selected
@@ -1016,7 +925,7 @@ class DocumentationRule(_messages.Message):
 
 
 class EffectiveQuotaGroup(_messages.Message):
-  """An effective quota group contains both the metadata for a quota group as
+  r"""An effective quota group contains both the metadata for a quota group as
   derived from the service config, and the effective limits in that group as
   calculated from producer and consumer overrides together with service
   defaults.
@@ -1033,7 +942,7 @@ class EffectiveQuotaGroup(_messages.Message):
   """
 
   class BillingInteractionValueValuesEnum(_messages.Enum):
-    """BillingInteractionValueValuesEnum enum type.
+    r"""BillingInteractionValueValuesEnum enum type.
 
     Values:
       BILLING_INTERACTION_UNSPECIFIED: The interaction between this quota
@@ -1056,7 +965,7 @@ class EffectiveQuotaGroup(_messages.Message):
 
 
 class EffectiveQuotaLimit(_messages.Message):
-  """An effective quota limit contains the metadata for a quota limit as
+  r"""An effective quota limit contains the metadata for a quota limit as
   derived from the service config, together with fields that describe the
   effective limit value and what overrides can be applied to it.
 
@@ -1078,7 +987,7 @@ class EffectiveQuotaLimit(_messages.Message):
 
 
 class EffectiveQuotaLimit2(_messages.Message):
-  """An effective quota limit contains the metadata for a quota limit as
+  r"""An effective quota limit contains the metadata for a quota limit as
   derived from the service config, together with fields that describe the
   effective limit value and what overrides can be applied to it. This is used
   only for quota limits that are grouped by metrics instead of quota groups.
@@ -1099,7 +1008,7 @@ class EffectiveQuotaLimit2(_messages.Message):
 
 
 class EffectiveQuotasForMetric(_messages.Message):
-  """Effective quotas for a metric. It contains both the metadata for the
+  r"""Effective quotas for a metric. It contains both the metadata for the
   metric as defined in the service config, and the effective limits for quota
   limits defined on the metric as calculated from service default, producer
   and consumer overrides, and adjusted by the reputation tier of the user.
@@ -1118,7 +1027,7 @@ class EffectiveQuotasForMetric(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class EffectiveLimitsValue(_messages.Message):
-    """Effective limit values for all quota limits defined on the metric. The
+    r"""Effective limit values for all quota limits defined on the metric. The
     keys of the map are the name of the quota limits.
 
     Messages:
@@ -1130,7 +1039,7 @@ class EffectiveQuotasForMetric(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a EffectiveLimitsValue object.
+      r"""An additional property for a EffectiveLimitsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1147,7 +1056,7 @@ class EffectiveQuotasForMetric(_messages.Message):
 
 
 class EnableServiceRequest(_messages.Message):
-  """Request message for EnableService method.
+  r"""Request message for EnableService method.
 
   Fields:
     consumerId: The identity of consumer resource which service enablement
@@ -1160,7 +1069,7 @@ class EnableServiceRequest(_messages.Message):
 
 
 class Endpoint(_messages.Message):
-  """`Endpoint` describes a network endpoint that serves a set of APIs. A
+  r"""`Endpoint` describes a network endpoint that serves a set of APIs. A
   service may expose any number of endpoints, and all endpoints share the same
   service configuration, such as quota configuration and monitoring
   configuration.  Example service configuration:      name: library-
@@ -1174,15 +1083,13 @@ class Endpoint(_messages.Message):
   Fields:
     aliases: DEPRECATED: This field is no longer supported. Instead of using
       aliases, please specify multiple google.api.Endpoint for each of the
-      intented alias.  Additional names that this endpoint will be hosted on.
+      intended aliases.  Additional names that this endpoint will be hosted
+      on.
     allowCors: Allowing [CORS](https://en.wikipedia.org/wiki/Cross-
       origin_resource_sharing), aka cross-domain traffic, would allow the
       backends served from this endpoint to receive and respond to HTTP
       OPTIONS requests. The response will be used by the browser to determine
       whether the subsequent cross-origin request is allowed to proceed.
-    apis: The list of APIs served by this endpoint.  If no APIs are specified
-      this translates to "all APIs" exported by the service, as defined in the
-      top-level service configuration.
     features: The list of features enabled on this endpoint.
     name: The canonical name of this endpoint.
     target: The specification of an Internet routable address of API frontend
@@ -1194,14 +1101,13 @@ class Endpoint(_messages.Message):
 
   aliases = _messages.StringField(1, repeated=True)
   allowCors = _messages.BooleanField(2)
-  apis = _messages.StringField(3, repeated=True)
-  features = _messages.StringField(4, repeated=True)
-  name = _messages.StringField(5)
-  target = _messages.StringField(6)
+  features = _messages.StringField(3, repeated=True)
+  name = _messages.StringField(4)
+  target = _messages.StringField(5)
 
 
 class Enum(_messages.Message):
-  """Enum type definition.
+  r"""Enum type definition.
 
   Enums:
     SyntaxValueValuesEnum: The source syntax.
@@ -1215,7 +1121,7 @@ class Enum(_messages.Message):
   """
 
   class SyntaxValueValuesEnum(_messages.Enum):
-    """The source syntax.
+    r"""The source syntax.
 
     Values:
       SYNTAX_PROTO2: Syntax `proto2`.
@@ -1232,7 +1138,7 @@ class Enum(_messages.Message):
 
 
 class EnumValue(_messages.Message):
-  """Enum value definition.
+  r"""Enum value definition.
 
   Fields:
     name: Enum value name.
@@ -1246,7 +1152,7 @@ class EnumValue(_messages.Message):
 
 
 class Experimental(_messages.Message):
-  """Experimental service configuration. These configuration options can only
+  r"""Experimental service configuration. These configuration options can only
   be used by whitelisted users.
 
   Fields:
@@ -1256,32 +1162,8 @@ class Experimental(_messages.Message):
   authorization = _messages.MessageField('AuthorizationConfig', 1)
 
 
-class Expr(_messages.Message):
-  """Represents an expression text. Example:      title: "User account
-  presence"     description: "Determines whether the request has a user
-  account"     expression: "size(request.user) > 0"
-
-  Fields:
-    description: An optional description of the expression. This is a longer
-      text which describes the expression, e.g. when hovered over it in a UI.
-    expression: Textual representation of an expression in Common Expression
-      Language syntax.  The application context of the containing message
-      determines which well-known feature set of CEL is supported.
-    location: An optional string indicating the location of the expression for
-      error reporting, e.g. a file name and a position in the file.
-    title: An optional title for the expression, i.e. a short string
-      describing its purpose. This can be used e.g. in UIs which allow to
-      enter the expression.
-  """
-
-  description = _messages.StringField(1)
-  expression = _messages.StringField(2)
-  location = _messages.StringField(3)
-  title = _messages.StringField(4)
-
-
 class Field(_messages.Message):
-  """A single field of a message type.
+  r"""A single field of a message type.
 
   Enums:
     CardinalityValueValuesEnum: The field cardinality.
@@ -1306,7 +1188,7 @@ class Field(_messages.Message):
   """
 
   class CardinalityValueValuesEnum(_messages.Enum):
-    """The field cardinality.
+    r"""The field cardinality.
 
     Values:
       CARDINALITY_UNKNOWN: For fields with unknown cardinality.
@@ -1320,7 +1202,7 @@ class Field(_messages.Message):
     CARDINALITY_REPEATED = 3
 
   class KindValueValuesEnum(_messages.Enum):
-    """The field type.
+    r"""The field type.
 
     Values:
       TYPE_UNKNOWN: Field type unknown.
@@ -1376,7 +1258,7 @@ class Field(_messages.Message):
 
 
 class File(_messages.Message):
-  """A single swagger specification file.
+  r"""A single swagger specification file.
 
   Fields:
     contents: The contents of the swagger spec file.
@@ -1387,52 +1269,8 @@ class File(_messages.Message):
   path = _messages.StringField(2)
 
 
-class FlowOperationMetadata(_messages.Message):
-  """The metadata associated with a long running operation resource.
-
-  Enums:
-    CancelStateValueValuesEnum: The state of the operation with respect to
-      cancellation.
-
-  Fields:
-    cancelState: The state of the operation with respect to cancellation.
-    deadline: Deadline for the flow to complete, to prevent orphaned
-      Operations.  If the flow has not completed by this time, it may be
-      terminated by the engine, or force-failed by Operation lookup.  Note
-      that this is not a hard deadline after which the Flow will definitely be
-      failed, rather it is a deadline after which it is reasonable to suspect
-      a problem and other parts of the system may kill operation to ensure we
-      don't have orphans. see also: go/prevent-orphaned-operations
-    flowName: The name of the top-level flow corresponding to this operation.
-      Must be equal to the "name" field for a FlowName enum.
-    resourceNames: The full name of the resources that this flow is directly
-      associated with.
-    startTime: The start time of the operation.
-  """
-
-  class CancelStateValueValuesEnum(_messages.Enum):
-    """The state of the operation with respect to cancellation.
-
-    Values:
-      RUNNING: Default state, cancellable but not cancelled.
-      UNCANCELLABLE: The operation has proceeded past the point of no return
-        and cannot be cancelled.
-      CANCELLED: The operation has been cancelled, work should cease and any
-        needed rollback steps executed.
-    """
-    RUNNING = 0
-    UNCANCELLABLE = 1
-    CANCELLED = 2
-
-  cancelState = _messages.EnumField('CancelStateValueValuesEnum', 1)
-  deadline = _messages.StringField(2)
-  flowName = _messages.StringField(3)
-  resourceNames = _messages.StringField(4, repeated=True)
-  startTime = _messages.StringField(5)
-
-
 class GenerateConfigReportRequest(_messages.Message):
-  """Request message for GenerateConfigReport method.
+  r"""Request message for GenerateConfigReport method.
 
   Messages:
     NewConfigValue: Service configuration for which we want to generate the
@@ -1457,7 +1295,7 @@ class GenerateConfigReportRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class NewConfigValue(_messages.Message):
-    """Service configuration for which we want to generate the report. For
+    r"""Service configuration for which we want to generate the report. For
     this version of API, the supported types are
     google.api.servicemanagement.v1.ConfigRef,
     google.api.servicemanagement.v1.ConfigSource, and google.api.Service
@@ -1471,7 +1309,7 @@ class GenerateConfigReportRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a NewConfigValue object.
+      r"""An additional property for a NewConfigValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1485,7 +1323,7 @@ class GenerateConfigReportRequest(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class OldConfigValue(_messages.Message):
-    """Service configuration against which the comparison will be done. For
+    r"""Service configuration against which the comparison will be done. For
     this version of API, the supported types are
     google.api.servicemanagement.v1.ConfigRef,
     google.api.servicemanagement.v1.ConfigSource, and google.api.Service
@@ -1499,7 +1337,7 @@ class GenerateConfigReportRequest(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a OldConfigValue object.
+      r"""An additional property for a OldConfigValue object.
 
       Fields:
         key: Name of the additional property.
@@ -1516,7 +1354,7 @@ class GenerateConfigReportRequest(_messages.Message):
 
 
 class GenerateConfigReportResponse(_messages.Message):
-  """Response message for GenerateConfigReport method.
+  r"""Response message for GenerateConfigReport method.
 
   Fields:
     changeReports: list of ChangeReport, each corresponding to comparison
@@ -1534,11 +1372,11 @@ class GenerateConfigReportResponse(_messages.Message):
 
 
 class GetIamPolicyRequest(_messages.Message):
-  """Request message for `GetIamPolicy` method."""
+  r"""Request message for `GetIamPolicy` method."""
 
 
 class Http(_messages.Message):
-  """Defines the HTTP configuration for an API service. It contains a list of
+  r"""Defines the HTTP configuration for an API service. It contains a list of
   HttpRule, each specifying the mapping of an RPC method to one or more HTTP
   REST API methods.
 
@@ -1557,7 +1395,7 @@ class Http(_messages.Message):
 
 
 class HttpRule(_messages.Message):
-  """`HttpRule` defines the mapping of an RPC method to one or more HTTP REST
+  r"""`HttpRule` defines the mapping of an RPC method to one or more HTTP REST
   API methods. The mapping specifies how different portions of the RPC request
   message are mapped to URL path, URL query parameters, and HTTP request body.
   The mapping is typically specified as an `google.api.http` annotation on the
@@ -1690,11 +1528,6 @@ class HttpRule(_messages.Message):
     patch: Used for updating a resource.
     post: Used for creating a resource.
     put: Used for updating a resource.
-    responseBody: The name of the response field whose value is mapped to the
-      HTTP body of response. Other response fields are ignored. This field is
-      optional. When not set, the response message will be used as HTTP body
-      of response. NOTE: the referred field must be not a repeated field and
-      must be present at the top-level of response message type.
     selector: Selects methods to which this rule applies.  Refer to selector
       for syntax details.
   """
@@ -1709,12 +1542,11 @@ class HttpRule(_messages.Message):
   patch = _messages.StringField(8)
   post = _messages.StringField(9)
   put = _messages.StringField(10)
-  responseBody = _messages.StringField(11)
-  selector = _messages.StringField(12)
+  selector = _messages.StringField(11)
 
 
 class LabelDescriptor(_messages.Message):
-  """A description of a label.
+  r"""A description of a label.
 
   Enums:
     ValueTypeValueValuesEnum: The type of data that can be assigned to the
@@ -1727,7 +1559,7 @@ class LabelDescriptor(_messages.Message):
   """
 
   class ValueTypeValueValuesEnum(_messages.Enum):
-    """The type of data that can be assigned to the label.
+    r"""The type of data that can be assigned to the label.
 
     Values:
       STRING: A variable-length string. This is the default.
@@ -1744,7 +1576,7 @@ class LabelDescriptor(_messages.Message):
 
 
 class ListOperationsResponse(_messages.Message):
-  """The response message for Operations.ListOperations.
+  r"""The response message for Operations.ListOperations.
 
   Fields:
     nextPageToken: The standard List next-page token.
@@ -1757,7 +1589,7 @@ class ListOperationsResponse(_messages.Message):
 
 
 class ListServiceConfigsResponse(_messages.Message):
-  """Response message for ListServiceConfigs method.
+  r"""Response message for ListServiceConfigs method.
 
   Fields:
     nextPageToken: The token of the next page of results.
@@ -1769,7 +1601,7 @@ class ListServiceConfigsResponse(_messages.Message):
 
 
 class ListServiceConsumersResponse(_messages.Message):
-  """Response message for `ListServiceConsumers` method.
+  r"""Response message for `ListServiceConsumers` method.
 
   Fields:
     customerSettings: The organization/folder-level results of the query.
@@ -1784,7 +1616,7 @@ class ListServiceConsumersResponse(_messages.Message):
 
 
 class ListServiceRolloutsResponse(_messages.Message):
-  """Response message for ListServiceRollouts method.
+  r"""Response message for ListServiceRollouts method.
 
   Fields:
     nextPageToken: The token of the next page of results.
@@ -1796,7 +1628,7 @@ class ListServiceRolloutsResponse(_messages.Message):
 
 
 class ListServicesResponse(_messages.Message):
-  """Response message for `ListServices` method.
+  r"""Response message for `ListServices` method.
 
   Fields:
     nextPageToken: Token that can be passed to `ListServices` to resume a
@@ -1808,35 +1640,8 @@ class ListServicesResponse(_messages.Message):
   services = _messages.MessageField('ManagedService', 2, repeated=True)
 
 
-class LogConfig(_messages.Message):
-  """Specifies what kind of log the caller must write Increment a streamz
-  counter with the specified metric and field names.  Metric names should
-  start with a '/', generally be lowercase-only, and end in "_count". Field
-  names should not contain an initial slash. The actual exported metric names
-  will have "/iam/policy" prepended.  Field names correspond to IAM request
-  parameters and field values are their respective values.  At present the
-  only supported field names are    - "iam_principal", corresponding to
-  IAMContext.principal;    - "" (empty string), resulting in one aggretated
-  counter with no field.  Examples:   counter { metric: "/debug_access_count"
-  field: "iam_principal" }   ==> increment counter
-  /iam/policy/backend_debug_access_count
-  {iam_principal=[value of IAMContext.principal]}  At this time we do not
-  support: * multiple field names (though this may be supported in the future)
-  * decrementing the counter * incrementing it by anything other than 1
-
-  Fields:
-    cloudAudit: Cloud audit options.
-    counter: Counter options.
-    dataAccess: Data access options.
-  """
-
-  cloudAudit = _messages.MessageField('CloudAuditOptions', 1)
-  counter = _messages.MessageField('CounterOptions', 2)
-  dataAccess = _messages.MessageField('DataAccessOptions', 3)
-
-
 class LogDescriptor(_messages.Message):
-  """A description of a log type. Example in YAML format:      - name:
+  r"""A description of a log type. Example in YAML format:      - name:
   library.googleapis.com/activity_history       description: The history of
   borrowing and returning library items.       display_name: Activity
   labels:       - key: /customer_id         description: Identifier of a
@@ -1863,8 +1668,8 @@ class LogDescriptor(_messages.Message):
 
 
 class Logging(_messages.Message):
-  """Logging configuration of the service.  The following example shows how to
-  configure logs to be sent to the producer and consumer projects. In the
+  r"""Logging configuration of the service.  The following example shows how
+  to configure logs to be sent to the producer and consumer projects. In the
   example, the `activity_history` log is sent to both the producer and
   consumer projects, whereas the `purchase_history` log is only sent to the
   producer project.      monitored_resources:     - type:
@@ -1894,7 +1699,7 @@ class Logging(_messages.Message):
 
 
 class LoggingDestination(_messages.Message):
-  """Configuration of a specific logging destination (the producer project or
+  r"""Configuration of a specific logging destination (the producer project or
   the consumer project).
 
   Fields:
@@ -1911,7 +1716,7 @@ class LoggingDestination(_messages.Message):
 
 
 class ManagedService(_messages.Message):
-  """The full representation of a Service that is managed by Google Service
+  r"""The full representation of a Service that is managed by Google Service
   Management.
 
   Fields:
@@ -1937,7 +1742,7 @@ class ManagedService(_messages.Message):
 
 
 class MediaDownload(_messages.Message):
-  """Defines the Media configuration for a service in case of a download. Use
+  r"""Defines the Media configuration for a service in case of a download. Use
   this only for Scotty Requests. Do not use this for media support using
   Bytestream, add instead [][google.bytestream.RestByteStream] as an API to
   your configuration for Bytestream methods.
@@ -1965,7 +1770,7 @@ class MediaDownload(_messages.Message):
 
 
 class MediaUpload(_messages.Message):
-  """Defines the Media configuration for a service in case of an upload. Use
+  r"""Defines the Media configuration for a service in case of an upload. Use
   this only for Scotty Requests. Do not use this for media support using
   Bytestream, add instead [][google.bytestream.RestByteStream] as an API to
   your configuration for Bytestream methods.
@@ -1999,7 +1804,7 @@ class MediaUpload(_messages.Message):
 
 
 class Method(_messages.Message):
-  """Method represents a method of an API interface.
+  r"""Method represents a method of an API interface.
 
   Enums:
     SyntaxValueValuesEnum: The source syntax of this method.
@@ -2015,7 +1820,7 @@ class Method(_messages.Message):
   """
 
   class SyntaxValueValuesEnum(_messages.Enum):
-    """The source syntax of this method.
+    r"""The source syntax of this method.
 
     Values:
       SYNTAX_PROTO2: Syntax `proto2`.
@@ -2034,7 +1839,7 @@ class Method(_messages.Message):
 
 
 class MetricDescriptor(_messages.Message):
-  """Defines a metric type and its schema. Once a metric descriptor is
+  r"""Defines a metric type and its schema. Once a metric descriptor is
   created, deleting or altering it stops data collection and makes the metric
   type's existing data unusable.
 
@@ -2051,7 +1856,8 @@ class MetricDescriptor(_messages.Message):
       documentation.
     displayName: A concise name for the metric, which can be displayed in user
       interfaces. Use sentence case without an ending period, for example
-      "Request count".
+      "Request count". This field is optional but it is recommended to be set
+      for any metrics associated with user-visible concepts, such as Quota.
     labels: The set of labels that can be used to describe a specific instance
       of this metric type. For example, the
       `appengine.googleapis.com/http/server/response_latencies` metric type
@@ -2060,14 +1866,7 @@ class MetricDescriptor(_messages.Message):
     metricKind: Whether the metric records instantaneous values, changes to a
       value, etc. Some combinations of `metric_kind` and `value_type` might
       not be supported.
-    name: The resource name of the metric descriptor. Depending on the
-      implementation, the name typically includes: (1) the parent resource
-      name that defines the scope of the metric type or of its data; and (2)
-      the metric's URL-encoded type, which also appears in the `type` field of
-      this descriptor. For example, following is the resource name of a custom
-      metric within the GCP project `my-project-id`:      "projects/my-
-      project-
-      id/metricDescriptors/custom.googleapis.com%2Finvoice%2Fpaid%2Famount"
+    name: The resource name of the metric descriptor.
     type: The metric type, including its DNS name prefix. The type is not URL-
       encoded.  All user-defined custom metric types have the DNS name
       `custom.googleapis.com`.  Metric types should use a natural hierarchical
@@ -2086,25 +1885,26 @@ class MetricDescriptor(_messages.Message):
       pico    (10**-12) * `f`     femto   (10**-15) * `a`     atto
       (10**-18) * `z`     zepto   (10**-21) * `y`     yocto   (10**-24) * `Ki`
       kibi    (2**10) * `Mi`    mebi    (2**20) * `Gi`    gibi    (2**30) *
-      `Ti`    tebi    (2**40)  **Grammar**  The grammar includes the
-      dimensionless unit `1`, such as `1/s`.  The grammar also includes these
+      `Ti`    tebi    (2**40)  **Grammar**  The grammar also includes these
       connectors:  * `/`    division (as an infix operator, e.g. `1/s`). * `.`
       multiplication (as an infix operator, e.g. `GBy.d`)  The grammar for a
       unit is as follows:      Expression = Component { "." Component } { "/"
-      Component } ;      Component = [ PREFIX ] UNIT [ Annotation ]
+      Component } ;      Component = ( [ PREFIX ] UNIT | "%" ) [ Annotation ]
       | Annotation               | "1"               ;      Annotation = "{"
       NAME "}" ;  Notes:  * `Annotation` is just a comment if it follows a
       `UNIT` and is    equivalent to `1` if it is used alone. For examples,
       `{requests}/s == 1/s`, `By{transmitted}/s == By/s`. * `NAME` is a
       sequence of non-blank printable ASCII characters not    containing '{'
-      or '}'.
+      or '}'. * `1` represents dimensionless value 1, such as in `1/s`. * `%`
+      represents dimensionless value 1/100, and annotates values giving    a
+      percentage.
     valueType: Whether the measurement is an integer, a floating-point number,
       etc. Some combinations of `metric_kind` and `value_type` might not be
       supported.
   """
 
   class MetricKindValueValuesEnum(_messages.Enum):
-    """Whether the metric records instantaneous values, changes to a value,
+    r"""Whether the metric records instantaneous values, changes to a value,
     etc. Some combinations of `metric_kind` and `value_type` might not be
     supported.
 
@@ -2123,7 +1923,7 @@ class MetricDescriptor(_messages.Message):
     CUMULATIVE = 3
 
   class ValueTypeValueValuesEnum(_messages.Enum):
-    """Whether the measurement is an integer, a floating-point number, etc.
+    r"""Whether the measurement is an integer, a floating-point number, etc.
     Some combinations of `metric_kind` and `value_type` might not be
     supported.
 
@@ -2157,7 +1957,7 @@ class MetricDescriptor(_messages.Message):
 
 
 class MetricRule(_messages.Message):
-  """Bind API methods to metrics. Binding a method to a metric causes that
+  r"""Bind API methods to metrics. Binding a method to a metric causes that
   metric's configured quota behaviors to apply to the method call.
 
   Messages:
@@ -2179,7 +1979,7 @@ class MetricRule(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetricCostsValue(_messages.Message):
-    """Metrics to update when the selected methods are called, and the
+    r"""Metrics to update when the selected methods are called, and the
     associated cost applied to each metric.  The key of the map is the metric
     name, and the values are the amount increased for the metric against which
     the quota limits are defined. The value must not be negative.
@@ -2193,7 +1993,7 @@ class MetricRule(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetricCostsValue object.
+      r"""An additional property for a MetricCostsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2210,16 +2010,16 @@ class MetricRule(_messages.Message):
 
 
 class Mixin(_messages.Message):
-  """Declares an API Interface to be included in this interface. The including
-  interface must redeclare all the methods from the included interface, but
-  documentation and options are inherited as follows:  - If after comment and
-  whitespace stripping, the documentation   string of the redeclared method is
-  empty, it will be inherited   from the original method.  - Each annotation
-  belonging to the service config (http,   visibility) which is not set in the
-  redeclared method will be   inherited.  - If an http annotation is
-  inherited, the path pattern will be   modified as follows. Any version
-  prefix will be replaced by the   version of the including interface plus the
-  root path if   specified.  Example of a simple mixin:      package
+  r"""Declares an API Interface to be included in this interface. The
+  including interface must redeclare all the methods from the included
+  interface, but documentation and options are inherited as follows:  - If
+  after comment and whitespace stripping, the documentation   string of the
+  redeclared method is empty, it will be inherited   from the original method.
+  - Each annotation belonging to the service config (http,   visibility) which
+  is not set in the redeclared method will be   inherited.  - If an http
+  annotation is inherited, the path pattern will be   modified as follows. Any
+  version prefix will be replaced by the   version of the including interface
+  plus the root path if   specified.  Example of a simple mixin:      package
   google.acl.v1;     service AccessControl {       // Get the underlying ACL
   object.       rpc GetAcl(GetAclRequest) returns (Acl) {         option
   (google.api.http).get = "/v1/{resource=**}:getAcl";       }     }
@@ -2256,8 +2056,8 @@ class Mixin(_messages.Message):
 
 
 class MonitoredResourceDescriptor(_messages.Message):
-  """An object that describes the schema of a MonitoredResource object using a
-  type name and a set of labels.  For example, the monitored resource
+  r"""An object that describes the schema of a MonitoredResource object using
+  a type name and a set of labels.  For example, the monitored resource
   descriptor for Google Compute Engine VM instances has a type of
   `"gce_instance"` and specifies the use of the labels `"instance_id"` and
   `"zone"` to identify particular VM instances.  Different APIs can support
@@ -2294,7 +2094,7 @@ class MonitoredResourceDescriptor(_messages.Message):
 
 
 class Monitoring(_messages.Message):
-  """Monitoring configuration of the service.  The example below shows how to
+  r"""Monitoring configuration of the service.  The example below shows how to
   configure monitored resources and metrics for monitoring. In the example, a
   monitored resource and two metrics are defined. The
   `library.googleapis.com/book/returned_count` metric is sent to both producer
@@ -2331,7 +2131,7 @@ class Monitoring(_messages.Message):
 
 
 class MonitoringDestination(_messages.Message):
-  """Configuration of a specific monitoring destination (the producer project
+  r"""Configuration of a specific monitoring destination (the producer project
   or the consumer project).
 
   Fields:
@@ -2346,7 +2146,7 @@ class MonitoringDestination(_messages.Message):
 
 
 class OAuthRequirements(_messages.Message):
-  """OAuth scopes are a way to define data and permissions on data. For
+  r"""OAuth scopes are a way to define data and permissions on data. For
   example, there are scopes defined for "Read-only access to Google Calendar"
   and "Access to Cloud Platform". Users can consent to a scope for an
   application, giving it permission to access that data on their behalf.
@@ -2373,7 +2173,7 @@ class OAuthRequirements(_messages.Message):
 
 
 class OpenApiSpec(_messages.Message):
-  """A collection of OpenAPI specification files.
+  r"""A collection of OpenAPI specification files.
 
   Fields:
     openApiFiles: Individual files.
@@ -2383,8 +2183,8 @@ class OpenApiSpec(_messages.Message):
 
 
 class Operation(_messages.Message):
-  """This resource represents a long-running operation that is the result of a
-  network API call.
+  r"""This resource represents a long-running operation that is the result of
+  a network API call.
 
   Messages:
     MetadataValue: Service-specific metadata associated with the operation.
@@ -2402,7 +2202,7 @@ class Operation(_messages.Message):
 
   Fields:
     done: If the value is `false`, it means the operation is still in
-      progress. If true, the operation is completed, and either `error` or
+      progress. If `true`, the operation is completed, and either `error` or
       `response` is available.
     error: The error result of the operation in case of failure or
       cancellation.
@@ -2425,7 +2225,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class MetadataValue(_messages.Message):
-    """Service-specific metadata associated with the operation.  It typically
+    r"""Service-specific metadata associated with the operation.  It typically
     contains progress information and common metadata such as create time.
     Some services might not provide such metadata.  Any method that returns a
     long-running operation should document the metadata type, if any.
@@ -2439,7 +2239,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a MetadataValue object.
+      r"""An additional property for a MetadataValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2453,7 +2253,7 @@ class Operation(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ResponseValue(_messages.Message):
-    """The normal response of the operation in case of success.  If the
+    r"""The normal response of the operation in case of success.  If the
     original method returns no data on success, such as `Delete`, the response
     is `google.protobuf.Empty`.  If the original method is standard
     `Get`/`Create`/`Update`, the response should be the resource.  For other
@@ -2470,7 +2270,7 @@ class Operation(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ResponseValue object.
+      r"""An additional property for a ResponseValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2490,7 +2290,7 @@ class Operation(_messages.Message):
 
 
 class OperationMetadata(_messages.Message):
-  """The metadata associated with a long running operation resource.
+  r"""The metadata associated with a long running operation resource.
 
   Fields:
     progressPercentage: Percentage of completion of this operation, ranging
@@ -2509,7 +2309,7 @@ class OperationMetadata(_messages.Message):
 
 
 class Option(_messages.Message):
-  """A protocol buffer option, which can be attached to a message, field,
+  r"""A protocol buffer option, which can be attached to a message, field,
   enumeration, etc.
 
   Messages:
@@ -2533,7 +2333,7 @@ class Option(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ValueValue(_messages.Message):
-    """The option's value packed in an Any message. If the value is a
+    r"""The option's value packed in an Any message. If the value is a
     primitive, the corresponding wrapper type defined in
     google/protobuf/wrappers.proto should be used. If the value is an enum, it
     should be stored as an int32 value using the google.protobuf.Int32Value
@@ -2548,7 +2348,7 @@ class Option(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ValueValue object.
+      r"""An additional property for a ValueValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2565,8 +2365,8 @@ class Option(_messages.Message):
 
 
 class Page(_messages.Message):
-  """Represents a documentation page. A page can contain subpages to represent
-  nested documentation set structure.
+  r"""Represents a documentation page. A page can contain subpages to
+  represent nested documentation set structure.
 
   Fields:
     content: The Markdown content of the page. You can use <code>&#40;==
@@ -2589,19 +2389,24 @@ class Page(_messages.Message):
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.   A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**      {       "bindings": [         {
+  defined by IAM.  **JSON Example**      {       "bindings": [         {
   "role": "roles/owner",           "members": [
   "user:mike@example.com",             "group:admins@example.com",
   "domain:google.com",             "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com",           ]         },         {
+  app@appspot.gserviceaccount.com"           ]         },         {
   "role": "roles/viewer",           "members": ["user:sean@example.com"]
-  }       ]     }  For a description of IAM and its features, see the [IAM
-  developer's guide](https://cloud.google.com/iam).
+  }       ]     }  **YAML Example**      bindings:     - members:       -
+  user:mike@example.com       - group:admins@example.com       -
+  domain:google.com       - serviceAccount:my-other-
+  app@appspot.gserviceaccount.com       role: roles/owner     - members:
+  - user:sean@example.com       role: roles/viewer   For a description of IAM
+  and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     auditConfigs: Specifies cloud audit logging configuration for this policy.
@@ -2616,27 +2421,17 @@ class Policy(_messages.Message):
       to ensure that their change will be applied to the same version of the
       policy.  If no `etag` is provided in the call to `setIamPolicy`, then
       the existing policy is overwritten blindly.
-    iamOwned: A boolean attribute.
-    rules: If more than one rule is specified, the rules are applied in the
-      following manner: - All matching LOG rules are always applied. - If any
-      DENY/DENY_WITH_LOG rule matches, permission is denied.   Logging will be
-      applied if one or more matching rule requires logging. - Otherwise, if
-      any ALLOW/ALLOW_WITH_LOG rule matches, permission is   granted.
-      Logging will be applied if one or more matching rule requires logging. -
-      Otherwise, if no rule applies, permission is denied.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   auditConfigs = _messages.MessageField('AuditConfig', 1, repeated=True)
   bindings = _messages.MessageField('Binding', 2, repeated=True)
   etag = _messages.BytesField(3)
-  iamOwned = _messages.BooleanField(4)
-  rules = _messages.MessageField('Rule', 5, repeated=True)
-  version = _messages.IntegerField(6, variant=_messages.Variant.INT32)
+  version = _messages.IntegerField(4, variant=_messages.Variant.INT32)
 
 
 class ProjectSettings(_messages.Message):
-  """Settings that control how a consumer project uses a service.
+  r"""Settings that control how a consumer project uses a service.
 
   Messages:
     PropertiesValue: Service-defined per-consumer properties.  A key-value
@@ -2664,7 +2459,7 @@ class ProjectSettings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class PropertiesValue(_messages.Message):
-    """Service-defined per-consumer properties.  A key-value mapping a string
+    r"""Service-defined per-consumer properties.  A key-value mapping a string
     key to a google.protobuf.ListValue proto. Values in the list are typed as
     defined in the Service configuration's consumer.properties field.
 
@@ -2676,7 +2471,7 @@ class ProjectSettings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a PropertiesValue object.
+      r"""An additional property for a PropertiesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2698,7 +2493,7 @@ class ProjectSettings(_messages.Message):
 
 
 class QueryUserAccessResponse(_messages.Message):
-  """Request message for QueryUserAccess method.
+  r"""Request message for QueryUserAccess method.
 
   Fields:
     accessibleVisibilityLabels: Any visibility labels on the service that are
@@ -2712,7 +2507,7 @@ class QueryUserAccessResponse(_messages.Message):
 
 
 class Quota(_messages.Message):
-  """Quota configuration helps to achieve fairness and budgeting in service
+  r"""Quota configuration helps to achieve fairness and budgeting in service
   usage.  The quota configuration works this way: - The service configuration
   defines a set of metrics. - For API calls, the quota.metric_rules maps
   methods to metrics with   corresponding costs. - The quota.limits defines
@@ -2746,7 +2541,7 @@ class Quota(_messages.Message):
 
 
 class QuotaBucket(_messages.Message):
-  """The quota limit value and current usage for a quota bucket.
+  r"""The quota limit value and current usage for a quota bucket.
 
   Fields:
     bucketId: The quota bucket id
@@ -2764,7 +2559,7 @@ class QuotaBucket(_messages.Message):
 
 
 class QuotaBucketId(_messages.Message):
-  """A quota bucket is an instance of a quota limit.
+  r"""A quota bucket is an instance of a quota limit.
 
   Fields:
     containerId: A Quota limit is defined at container level ORGANIZATION,
@@ -2773,14 +2568,18 @@ class QuotaBucketId(_messages.Message):
     region: If a quota limit is defined on PER_REGION dimension, then each
       region will have its own quota bucket. This field is non-empty only if
       the quota limit is defined on PER_REGION dimension.
+    zone: If a quota limit is defined on PER_ZONE dimension, then each zone
+      will have its own quota bucket. This field is non-empty only if the
+      quota limit is defined on PER_ZONE dimension.
   """
 
   containerId = _messages.StringField(1)
   region = _messages.StringField(2)
+  zone = _messages.StringField(3)
 
 
 class QuotaGroup(_messages.Message):
-  """`QuotaGroup` defines a set of quota limits to enforce.  Used by group-
+  r"""`QuotaGroup` defines a set of quota limits to enforce.  Used by group-
   based quotas only.
 
   Fields:
@@ -2806,7 +2605,7 @@ class QuotaGroup(_messages.Message):
 
 
 class QuotaInfo(_messages.Message):
-  """Metadata about an individual quota, containing usage and limit
+  r"""Metadata about an individual quota, containing usage and limit
   information.
 
   Fields:
@@ -2824,12 +2623,14 @@ class QuotaInfo(_messages.Message):
 
 
 class QuotaLimit(_messages.Message):
-  """`QuotaLimit` defines a specific limit that applies over a specified
+  r"""`QuotaLimit` defines a specific limit that applies over a specified
   duration for a limit type. There can be at most one limit for a duration and
   limit type combination defined within a `QuotaGroup`.
 
   Messages:
-    ValuesValue: Tiered limit values, currently only STANDARD is supported.
+    ValuesValue: Tiered limit values. You must specify this as a key:value
+      pair, with an integer value that is the maximum number of requests
+      allowed for the specified unit. Currently only STANDARD is supported.
 
   Fields:
     defaultLimit: Default number of tokens that can be consumed during the
@@ -2868,36 +2669,27 @@ class QuotaLimit(_messages.Message):
       group-based quotas only.
     metric: The name of the metric this quota limit applies to. The quota
       limits with the same metric will be checked together during runtime. The
-      metric must be defined within the service config.  Used by metric-based
-      quotas only.
-    name: Name of the quota limit. The name is used to refer to the limit when
-      overriding the default limit on per-consumer basis.  For metric-based
-      quota limits, the name must be provided, and it must be unique within
-      the service. The name can only include alphanumeric characters as well
-      as '-'.  The maximum length of the limit name is 64 characters.  The
-      name of a limit is used as a unique identifier for this limit.
-      Therefore, once a limit has been put into use, its name should be
-      immutable. You can use the display_name field to provide a user-friendly
-      name for the limit. The display name can be evolved over time without
-      affecting the identity of the limit.
+      metric must be defined within the service config.
+    name: Name of the quota limit.  The name must be provided, and it must be
+      unique within the service. The name can only include alphanumeric
+      characters as well as '-'.  The maximum length of the limit name is 64
+      characters.
     unit: Specify the unit of the quota limit. It uses the same syntax as
       Metric.unit. The supported unit kinds are determined by the quota
-      backend system.  The [Google Service Control](https://cloud.google.com
-      /service-control) supports the following unit components: * One of the
-      time intevals:   * "/min"  for quota every minute.   * "/d"  for quota
-      every 24 hours, starting 00:00 US Pacific Time.   * Otherwise the quota
-      won't be reset by time, such as storage limit. * One and only one of the
-      granted containers:   * "/{project}" quota for a project  Here are some
-      examples: * "1/min/{project}" for quota per minute per project.  Note:
-      the order of unit components is insignificant. The "1" at the beginning
-      is required to follow the metric unit syntax.  Used by metric-based
-      quotas only.
-    values: Tiered limit values, currently only STANDARD is supported.
+      backend system.  Here are some examples: * "1/min/{project}" for quota
+      per minute per project.  Note: the order of unit components is
+      insignificant. The "1" at the beginning is required to follow the metric
+      unit syntax.
+    values: Tiered limit values. You must specify this as a key:value pair,
+      with an integer value that is the maximum number of requests allowed for
+      the specified unit. Currently only STANDARD is supported.
   """
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ValuesValue(_messages.Message):
-    """Tiered limit values, currently only STANDARD is supported.
+    r"""Tiered limit values. You must specify this as a key:value pair, with
+    an integer value that is the maximum number of requests allowed for the
+    specified unit. Currently only STANDARD is supported.
 
     Messages:
       AdditionalProperty: An additional property for a ValuesValue object.
@@ -2907,7 +2699,7 @@ class QuotaLimit(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ValuesValue object.
+      r"""An additional property for a ValuesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -2932,8 +2724,8 @@ class QuotaLimit(_messages.Message):
 
 
 class QuotaLimitOverride(_messages.Message):
-  """Specifies a custom quota limit that is applied for this consumer project.
-  This overrides the default value in google.api.QuotaLimit.
+  r"""Specifies a custom quota limit that is applied for this consumer
+  project. This overrides the default value in google.api.QuotaLimit.
 
   Fields:
     limit: The new limit for this project. May be -1 (unlimited), 0 (block),
@@ -2952,8 +2744,9 @@ class QuotaLimitOverride(_messages.Message):
 
 
 class QuotaSettings(_messages.Message):
-  """Per-consumer overrides for quota settings. See google/api/quota.proto for
-  the corresponding service configuration which provides the default values.
+  r"""Per-consumer overrides for quota settings. See google/api/quota.proto
+  for the corresponding service configuration which provides the default
+  values.
 
   Messages:
     AdminOverridesValue: Quota overrides set by an administrator of a consumer
@@ -3031,6 +2824,13 @@ class QuotaSettings(_messages.Message):
       For each limit, the effective value is the minimum of the producer and
       consumer overrides if either is present, or else the service default if
       neither is present. DEPRECATED. Use effective_quota_groups instead.
+    force: Whether to force applying the quota settings, even if this may
+      decrease effective limit for some quotas over the safe threshold, which
+      is currently set to 10 percent. When unset or set to false, the whole
+      request fails if quota overrides changes decrease effective limit for
+      any quota over the safe threshold. When set to true, the reason for
+      forcing the change must be specified in the 'request_reason' field of
+      the RPC system parameter context. Input only.
     producerOverrides: Quota overrides set by the producer. Note that if a
       consumer override is also specified, then the minimum of the two will be
       used. This allows consumers to cap their usage voluntarily.  The key for
@@ -3041,7 +2841,7 @@ class QuotaSettings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class AdminOverridesValue(_messages.Message):
-    """Quota overrides set by an administrator of a consumer organization or
+    r"""Quota overrides set by an administrator of a consumer organization or
     folder. The administrator of an organization or folder can set admin
     overrides for any folders or projects beneath it.  When a project or
     folder moves out of the folder or organization that sets the admin
@@ -3057,7 +2857,7 @@ class QuotaSettings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a AdminOverridesValue object.
+      r"""An additional property for a AdminOverridesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3071,7 +2871,7 @@ class QuotaSettings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ConsumerOverridesValue(_messages.Message):
-    """Quota overrides set by the consumer. Consumer overrides will only have
+    r"""Quota overrides set by the consumer. Consumer overrides will only have
     an effect up to the max_limit specified in the service config, or the the
     producer override, if one exists.  The key for this map is one of the
     following:  - '<GROUP_NAME>/<LIMIT_NAME>' for group-based quotas, where
@@ -3100,7 +2900,7 @@ class QuotaSettings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ConsumerOverridesValue object.
+      r"""An additional property for a ConsumerOverridesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3114,7 +2914,7 @@ class QuotaSettings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class EffectiveQuotasValue(_messages.Message):
-    """The effective quota limits for each group, derived from the service
+    r"""The effective quota limits for each group, derived from the service
     defaults together with any producer or consumer overrides. For each limit,
     the effective value is the minimum of the producer and consumer overrides
     if either is present, or else the service default if neither is present.
@@ -3129,7 +2929,7 @@ class QuotaSettings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a EffectiveQuotasValue object.
+      r"""An additional property for a EffectiveQuotasValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3143,7 +2943,7 @@ class QuotaSettings(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class ProducerOverridesValue(_messages.Message):
-    """Quota overrides set by the producer. Note that if a consumer override
+    r"""Quota overrides set by the producer. Note that if a consumer override
     is also specified, then the minimum of the two will be used. This allows
     consumers to cap their usage voluntarily.  The key for this map is the
     same as the key for consumer_overrides.
@@ -3158,7 +2958,7 @@ class QuotaSettings(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a ProducerOverridesValue object.
+      r"""An additional property for a ProducerOverridesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -3175,12 +2975,13 @@ class QuotaSettings(_messages.Message):
   effectiveQuotaForMetrics = _messages.MessageField('EffectiveQuotasForMetric', 3, repeated=True)
   effectiveQuotaGroups = _messages.MessageField('EffectiveQuotaGroup', 4, repeated=True)
   effectiveQuotas = _messages.MessageField('EffectiveQuotasValue', 5)
-  producerOverrides = _messages.MessageField('ProducerOverridesValue', 6)
-  variableTermQuotas = _messages.MessageField('VariableTermQuota', 7, repeated=True)
+  force = _messages.BooleanField(6)
+  producerOverrides = _messages.MessageField('ProducerOverridesValue', 7)
+  variableTermQuotas = _messages.MessageField('VariableTermQuota', 8, repeated=True)
 
 
 class QuotaUsage(_messages.Message):
-  """Specifies the used quota amount for a quota limit at a particular time.
+  r"""Specifies the used quota amount for a quota limit at a particular time.
 
   Enums:
     HierarchyLimitWarningValueValuesEnum: Somewhere in hierarchy a limit is
@@ -3196,7 +2997,7 @@ class QuotaUsage(_messages.Message):
   """
 
   class HierarchyLimitWarningValueValuesEnum(_messages.Enum):
-    """Somewhere in hierarchy a limit is close to full.  Readonly
+    r"""Somewhere in hierarchy a limit is close to full.  Readonly
 
     Values:
       HIERARCHY_LIMIT_WARNING_UNSPECIFIED: <no description>
@@ -3215,7 +3016,7 @@ class QuotaUsage(_messages.Message):
 
 
 class Rollout(_messages.Message):
-  """A rollout resource that defines how service configuration versions are
+  r"""A rollout resource that defines how service configuration versions are
   pushed to control plane systems. Typically, you create a new version of the
   service config, and then create a Rollout to push the service config.
 
@@ -3245,7 +3046,7 @@ class Rollout(_messages.Message):
   """
 
   class StatusValueValuesEnum(_messages.Enum):
-    """The status of this rollout. Readonly. In case of a failed rollout, the
+    r"""The status of this rollout. Readonly. In case of a failed rollout, the
     system will automatically rollback to the current Rollout version.
     Readonly.
 
@@ -3277,61 +3078,8 @@ class Rollout(_messages.Message):
   trafficPercentStrategy = _messages.MessageField('TrafficPercentStrategy', 7)
 
 
-class Rule(_messages.Message):
-  """A rule to be applied in a Policy.
-
-  Enums:
-    ActionValueValuesEnum: Required
-
-  Fields:
-    action: Required
-    conditions: Additional restrictions that must be met
-    description: Human-readable description of the rule.
-    in_: If one or more 'in' clauses are specified, the rule matches if the
-      PRINCIPAL/AUTHORITY_SELECTOR is in at least one of these entries.
-    logConfig: The config returned to callers of tech.iam.IAM.CheckPolicy for
-      any entries that match the LOG action.
-    notIn: If one or more 'not_in' clauses are specified, the rule matches if
-      the PRINCIPAL/AUTHORITY_SELECTOR is in none of the entries. The format
-      for in and not_in entries is the same as for members in a Binding (see
-      google/iam/v1/policy.proto).
-    permissions: A permission is a string of form '<service>.<resource
-      type>.<verb>' (e.g., 'storage.buckets.list'). A value of '*' matches all
-      permissions, and a verb part of '*' (e.g., 'storage.buckets.*') matches
-      all verbs.
-  """
-
-  class ActionValueValuesEnum(_messages.Enum):
-    """Required
-
-    Values:
-      NO_ACTION: Default no action.
-      ALLOW: Matching 'Entries' grant access.
-      ALLOW_WITH_LOG: Matching 'Entries' grant access and the caller promises
-        to log the request per the returned log_configs.
-      DENY: Matching 'Entries' deny access.
-      DENY_WITH_LOG: Matching 'Entries' deny access and the caller promises to
-        log the request per the returned log_configs.
-      LOG: Matching 'Entries' tell IAM.Check callers to generate logs.
-    """
-    NO_ACTION = 0
-    ALLOW = 1
-    ALLOW_WITH_LOG = 2
-    DENY = 3
-    DENY_WITH_LOG = 4
-    LOG = 5
-
-  action = _messages.EnumField('ActionValueValuesEnum', 1)
-  conditions = _messages.MessageField('Condition', 2, repeated=True)
-  description = _messages.StringField(3)
-  in_ = _messages.StringField(4, repeated=True)
-  logConfig = _messages.MessageField('LogConfig', 5, repeated=True)
-  notIn = _messages.StringField(6, repeated=True)
-  permissions = _messages.StringField(7, repeated=True)
-
-
 class Service(_messages.Message):
-  """`Service` is the root object of Google service configuration schema. It
+  r"""`Service` is the root object of Google service configuration schema. It
   describes basic information about a service, such as the name and the title,
   and delegates other aspects to sub-sections. Each sub-section is either a
   proto message or a repeated proto message that configures a specific aspect,
@@ -3353,6 +3101,7 @@ class Service(_messages.Message):
       files.
     authentication: Auth configuration.
     backend: API backend configuration.
+    billing: Billing configuration.
     configVersion: The semantic version of the service configuration. The
       config version affects the interpretation of the service configuration.
       For example, certain features are enabled by default for certain config
@@ -3400,41 +3149,40 @@ class Service(_messages.Message):
       as types used by the `google.protobuf.Any` type, should be listed here
       by name. Example:      types:     - name: google.protobuf.Int32
     usage: Configuration controlling usage of this service.
-    visibility: API visibility configuration.
   """
 
   apis = _messages.MessageField('Api', 1, repeated=True)
   authentication = _messages.MessageField('Authentication', 2)
   backend = _messages.MessageField('Backend', 3)
-  configVersion = _messages.IntegerField(4, variant=_messages.Variant.UINT32)
-  context = _messages.MessageField('Context', 5)
-  control = _messages.MessageField('Control', 6)
-  customError = _messages.MessageField('CustomError', 7)
-  documentation = _messages.MessageField('Documentation', 8)
-  endpoints = _messages.MessageField('Endpoint', 9, repeated=True)
-  enums = _messages.MessageField('Enum', 10, repeated=True)
-  experimental = _messages.MessageField('Experimental', 11)
-  http = _messages.MessageField('Http', 12)
-  id = _messages.StringField(13)
-  logging = _messages.MessageField('Logging', 14)
-  logs = _messages.MessageField('LogDescriptor', 15, repeated=True)
-  metrics = _messages.MessageField('MetricDescriptor', 16, repeated=True)
-  monitoredResources = _messages.MessageField('MonitoredResourceDescriptor', 17, repeated=True)
-  monitoring = _messages.MessageField('Monitoring', 18)
-  name = _messages.StringField(19)
-  producerProjectId = _messages.StringField(20)
-  quota = _messages.MessageField('Quota', 21)
-  sourceInfo = _messages.MessageField('SourceInfo', 22)
-  systemParameters = _messages.MessageField('SystemParameters', 23)
-  systemTypes = _messages.MessageField('Type', 24, repeated=True)
-  title = _messages.StringField(25)
-  types = _messages.MessageField('Type', 26, repeated=True)
-  usage = _messages.MessageField('Usage', 27)
-  visibility = _messages.MessageField('Visibility', 28)
+  billing = _messages.MessageField('Billing', 4)
+  configVersion = _messages.IntegerField(5, variant=_messages.Variant.UINT32)
+  context = _messages.MessageField('Context', 6)
+  control = _messages.MessageField('Control', 7)
+  customError = _messages.MessageField('CustomError', 8)
+  documentation = _messages.MessageField('Documentation', 9)
+  endpoints = _messages.MessageField('Endpoint', 10, repeated=True)
+  enums = _messages.MessageField('Enum', 11, repeated=True)
+  experimental = _messages.MessageField('Experimental', 12)
+  http = _messages.MessageField('Http', 13)
+  id = _messages.StringField(14)
+  logging = _messages.MessageField('Logging', 15)
+  logs = _messages.MessageField('LogDescriptor', 16, repeated=True)
+  metrics = _messages.MessageField('MetricDescriptor', 17, repeated=True)
+  monitoredResources = _messages.MessageField('MonitoredResourceDescriptor', 18, repeated=True)
+  monitoring = _messages.MessageField('Monitoring', 19)
+  name = _messages.StringField(20)
+  producerProjectId = _messages.StringField(21)
+  quota = _messages.MessageField('Quota', 22)
+  sourceInfo = _messages.MessageField('SourceInfo', 23)
+  systemParameters = _messages.MessageField('SystemParameters', 24)
+  systemTypes = _messages.MessageField('Type', 25, repeated=True)
+  title = _messages.StringField(26)
+  types = _messages.MessageField('Type', 27, repeated=True)
+  usage = _messages.MessageField('Usage', 28)
 
 
 class ServicemanagementOperationsGetRequest(_messages.Message):
-  """A ServicemanagementOperationsGetRequest object.
+  r"""A ServicemanagementOperationsGetRequest object.
 
   Fields:
     operationsId: Part of `name`. The name of the operation resource.
@@ -3444,7 +3192,7 @@ class ServicemanagementOperationsGetRequest(_messages.Message):
 
 
 class ServicemanagementOperationsListRequest(_messages.Message):
-  """A ServicemanagementOperationsListRequest object.
+  r"""A ServicemanagementOperationsListRequest object.
 
   Fields:
     filter: A string for filtering Operations.   The following filter fields
@@ -3473,7 +3221,7 @@ class ServicemanagementOperationsListRequest(_messages.Message):
 
 
 class ServicemanagementServicesAccessPolicyQueryRequest(_messages.Message):
-  """A ServicemanagementServicesAccessPolicyQueryRequest object.
+  r"""A ServicemanagementServicesAccessPolicyQueryRequest object.
 
   Fields:
     serviceName: The service to query access for.
@@ -3485,7 +3233,7 @@ class ServicemanagementServicesAccessPolicyQueryRequest(_messages.Message):
 
 
 class ServicemanagementServicesConfigsCreateRequest(_messages.Message):
-  """A ServicemanagementServicesConfigsCreateRequest object.
+  r"""A ServicemanagementServicesConfigsCreateRequest object.
 
   Fields:
     service: A Service resource to be passed as the request body.
@@ -3499,7 +3247,7 @@ class ServicemanagementServicesConfigsCreateRequest(_messages.Message):
 
 
 class ServicemanagementServicesConfigsGetRequest(_messages.Message):
-  """A ServicemanagementServicesConfigsGetRequest object.
+  r"""A ServicemanagementServicesConfigsGetRequest object.
 
   Enums:
     ViewValueValuesEnum: Specifies which parts of the Service Config should be
@@ -3515,7 +3263,7 @@ class ServicemanagementServicesConfigsGetRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Specifies which parts of the Service Config should be returned in the
+    r"""Specifies which parts of the Service Config should be returned in the
     response.
 
     Values:
@@ -3531,7 +3279,7 @@ class ServicemanagementServicesConfigsGetRequest(_messages.Message):
 
 
 class ServicemanagementServicesConfigsListRequest(_messages.Message):
-  """A ServicemanagementServicesConfigsListRequest object.
+  r"""A ServicemanagementServicesConfigsListRequest object.
 
   Fields:
     pageSize: The max number of items to include in the response list.
@@ -3547,7 +3295,7 @@ class ServicemanagementServicesConfigsListRequest(_messages.Message):
 
 
 class ServicemanagementServicesConfigsSubmitRequest(_messages.Message):
-  """A ServicemanagementServicesConfigsSubmitRequest object.
+  r"""A ServicemanagementServicesConfigsSubmitRequest object.
 
   Fields:
     serviceName: The name of the service.  See the [overview](/service-
@@ -3562,7 +3310,7 @@ class ServicemanagementServicesConfigsSubmitRequest(_messages.Message):
 
 
 class ServicemanagementServicesConsumersGetIamPolicyRequest(_messages.Message):
-  """A ServicemanagementServicesConsumersGetIamPolicyRequest object.
+  r"""A ServicemanagementServicesConsumersGetIamPolicyRequest object.
 
   Fields:
     consumersId: Part of `resource`. See documentation of `servicesId`.
@@ -3579,7 +3327,7 @@ class ServicemanagementServicesConsumersGetIamPolicyRequest(_messages.Message):
 
 
 class ServicemanagementServicesConsumersListRequest(_messages.Message):
-  """A ServicemanagementServicesConsumersListRequest object.
+  r"""A ServicemanagementServicesConsumersListRequest object.
 
   Fields:
     consumerId: Include services consumed by the specified consumer.  The
@@ -3608,7 +3356,7 @@ class ServicemanagementServicesConsumersListRequest(_messages.Message):
 
 
 class ServicemanagementServicesConsumersSetIamPolicyRequest(_messages.Message):
-  """A ServicemanagementServicesConsumersSetIamPolicyRequest object.
+  r"""A ServicemanagementServicesConsumersSetIamPolicyRequest object.
 
   Fields:
     consumersId: Part of `resource`. See documentation of `servicesId`.
@@ -3625,7 +3373,7 @@ class ServicemanagementServicesConsumersSetIamPolicyRequest(_messages.Message):
 
 
 class ServicemanagementServicesConsumersTestIamPermissionsRequest(_messages.Message):
-  """A ServicemanagementServicesConsumersTestIamPermissionsRequest object.
+  r"""A ServicemanagementServicesConsumersTestIamPermissionsRequest object.
 
   Fields:
     consumersId: Part of `resource`. See documentation of `servicesId`.
@@ -3642,7 +3390,7 @@ class ServicemanagementServicesConsumersTestIamPermissionsRequest(_messages.Mess
 
 
 class ServicemanagementServicesCustomerSettingsGetRequest(_messages.Message):
-  """A ServicemanagementServicesCustomerSettingsGetRequest object.
+  r"""A ServicemanagementServicesCustomerSettingsGetRequest object.
 
   Enums:
     ViewValueValuesEnum: Request only fields for the specified view.
@@ -3659,7 +3407,7 @@ class ServicemanagementServicesCustomerSettingsGetRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Request only fields for the specified view.
+    r"""Request only fields for the specified view.
 
     Values:
       PROJECT_SETTINGS_VIEW_UNSPECIFIED: <no description>
@@ -3679,7 +3427,7 @@ class ServicemanagementServicesCustomerSettingsGetRequest(_messages.Message):
 
 
 class ServicemanagementServicesCustomerSettingsPatchRequest(_messages.Message):
-  """A ServicemanagementServicesCustomerSettingsPatchRequest object.
+  r"""A ServicemanagementServicesCustomerSettingsPatchRequest object.
 
   Fields:
     customerId: ID for the customer. See the comment for
@@ -3700,7 +3448,7 @@ class ServicemanagementServicesCustomerSettingsPatchRequest(_messages.Message):
 
 
 class ServicemanagementServicesDeleteRequest(_messages.Message):
-  """A ServicemanagementServicesDeleteRequest object.
+  r"""A ServicemanagementServicesDeleteRequest object.
 
   Fields:
     serviceName: The name of the service.  See the [overview](/service-
@@ -3712,7 +3460,7 @@ class ServicemanagementServicesDeleteRequest(_messages.Message):
 
 
 class ServicemanagementServicesDisableRequest(_messages.Message):
-  """A ServicemanagementServicesDisableRequest object.
+  r"""A ServicemanagementServicesDisableRequest object.
 
   Fields:
     disableServiceRequest: A DisableServiceRequest resource to be passed as
@@ -3726,7 +3474,7 @@ class ServicemanagementServicesDisableRequest(_messages.Message):
 
 
 class ServicemanagementServicesEnableRequest(_messages.Message):
-  """A ServicemanagementServicesEnableRequest object.
+  r"""A ServicemanagementServicesEnableRequest object.
 
   Fields:
     enableServiceRequest: A EnableServiceRequest resource to be passed as the
@@ -3740,7 +3488,7 @@ class ServicemanagementServicesEnableRequest(_messages.Message):
 
 
 class ServicemanagementServicesGetConfigRequest(_messages.Message):
-  """A ServicemanagementServicesGetConfigRequest object.
+  r"""A ServicemanagementServicesGetConfigRequest object.
 
   Enums:
     ViewValueValuesEnum: Specifies which parts of the Service Config should be
@@ -3756,7 +3504,7 @@ class ServicemanagementServicesGetConfigRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Specifies which parts of the Service Config should be returned in the
+    r"""Specifies which parts of the Service Config should be returned in the
     response.
 
     Values:
@@ -3772,7 +3520,7 @@ class ServicemanagementServicesGetConfigRequest(_messages.Message):
 
 
 class ServicemanagementServicesGetIamPolicyRequest(_messages.Message):
-  """A ServicemanagementServicesGetIamPolicyRequest object.
+  r"""A ServicemanagementServicesGetIamPolicyRequest object.
 
   Fields:
     getIamPolicyRequest: A GetIamPolicyRequest resource to be passed as the
@@ -3787,7 +3535,7 @@ class ServicemanagementServicesGetIamPolicyRequest(_messages.Message):
 
 
 class ServicemanagementServicesGetRequest(_messages.Message):
-  """A ServicemanagementServicesGetRequest object.
+  r"""A ServicemanagementServicesGetRequest object.
 
   Enums:
     ViewValueValuesEnum: If project_settings is expanded, request only fields
@@ -3808,7 +3556,7 @@ class ServicemanagementServicesGetRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """If project_settings is expanded, request only fields for the specified
+    r"""If project_settings is expanded, request only fields for the specified
     view.
 
     Values:
@@ -3829,7 +3577,7 @@ class ServicemanagementServicesGetRequest(_messages.Message):
 
 
 class ServicemanagementServicesListRequest(_messages.Message):
-  """A ServicemanagementServicesListRequest object.
+  r"""A ServicemanagementServicesListRequest object.
 
   Fields:
     category: Include services only in the specified category. Supported
@@ -3840,11 +3588,13 @@ class ServicemanagementServicesListRequest(_messages.Message):
       project:<project_id>
     consumerProjectId: Include services consumed by the specified project.  If
       project_settings is expanded, then this field controls which project
-      project_settings is populated for.
+      project_settings is populated for. This field is deprecated. See details
+      go/deprecate-listservices-expand.
     expand: Fields to expand in any results. By default, the following fields
       are not fully included in list results, but they will if you specify
       them in this field: - `project_settings` - `quota_usage` (It requires
-      `project_settings`)
+      `project_settings`) This field is deprecated. See details go/deprecate-
+      listservices-expand.
     pageSize: Requested size of the next page of data.
     pageToken: Token identifying which result to start with; returned by a
       previous list call.
@@ -3861,7 +3611,7 @@ class ServicemanagementServicesListRequest(_messages.Message):
 
 
 class ServicemanagementServicesPatchRequest(_messages.Message):
-  """A ServicemanagementServicesPatchRequest object.
+  r"""A ServicemanagementServicesPatchRequest object.
 
   Fields:
     managedService: A ManagedService resource to be passed as the request
@@ -3879,7 +3629,7 @@ class ServicemanagementServicesPatchRequest(_messages.Message):
 
 
 class ServicemanagementServicesProjectSettingsGetRequest(_messages.Message):
-  """A ServicemanagementServicesProjectSettingsGetRequest object.
+  r"""A ServicemanagementServicesProjectSettingsGetRequest object.
 
   Enums:
     ViewValueValuesEnum: Request only the fields for the specified view.
@@ -3895,7 +3645,7 @@ class ServicemanagementServicesProjectSettingsGetRequest(_messages.Message):
   """
 
   class ViewValueValuesEnum(_messages.Enum):
-    """Request only the fields for the specified view.
+    r"""Request only the fields for the specified view.
 
     Values:
       PROJECT_SETTINGS_VIEW_UNSPECIFIED: <no description>
@@ -3915,7 +3665,7 @@ class ServicemanagementServicesProjectSettingsGetRequest(_messages.Message):
 
 
 class ServicemanagementServicesProjectSettingsPatchRequest(_messages.Message):
-  """A ServicemanagementServicesProjectSettingsPatchRequest object.
+  r"""A ServicemanagementServicesProjectSettingsPatchRequest object.
 
   Fields:
     consumerProjectId: The project ID of the consumer.
@@ -3933,8 +3683,41 @@ class ServicemanagementServicesProjectSettingsPatchRequest(_messages.Message):
   updateMask = _messages.StringField(4)
 
 
+class ServicemanagementServicesRolloutsCreateRequest(_messages.Message):
+  r"""A ServicemanagementServicesRolloutsCreateRequest object.
+
+  Fields:
+    force: This flag will skip safety checks for this rollout. The current
+      safety check is whether to skip default quota limit validation.  Quota
+      limit validation verifies that the default quota limits defined in the
+      configs that are effective in this rollout don't decrease by more than a
+      specific percentage (10% right now) from the configs that are effective
+      in the current rollout.  For group-based quota limits, the default limit
+      for a quota limit cannot decrease by more than 10%.  For metric-based
+      quota limits, the assigned quota for each reputation tier cannot
+      decrease by more than 10%. Regional quota is assigned per region, and
+      the quota for each region cannot decrease by more than 10%. Removing a
+      regional quota can cause an effective decrease for that region, if the
+      global quota for that tier is lower. For example, if the current rollout
+      has a quota limit with values: {STANDARD: 50, STANDARD/us-central1: 100}
+      and it is to be changed in the new rollout to: {STANDARD: 50} The net
+      effect is the STANDARD tier in us-central1 is decreased by 50%. Adding a
+      regional quota can have a similar effect for that region.  In order to
+      gradually dial down default quota limit, the recommended practice is to
+      create multiple rollouts at least 1 hour apart.
+    rollout: A Rollout resource to be passed as the request body.
+    serviceName: The name of the service.  See the [overview](/service-
+      management/overview) for naming requirements.  For example:
+      `example.googleapis.com`.
+  """
+
+  force = _messages.BooleanField(1)
+  rollout = _messages.MessageField('Rollout', 2)
+  serviceName = _messages.StringField(3, required=True)
+
+
 class ServicemanagementServicesRolloutsGetRequest(_messages.Message):
-  """A ServicemanagementServicesRolloutsGetRequest object.
+  r"""A ServicemanagementServicesRolloutsGetRequest object.
 
   Fields:
     rolloutId: The id of the rollout resource.
@@ -3948,7 +3731,7 @@ class ServicemanagementServicesRolloutsGetRequest(_messages.Message):
 
 
 class ServicemanagementServicesRolloutsListRequest(_messages.Message):
-  """A ServicemanagementServicesRolloutsListRequest object.
+  r"""A ServicemanagementServicesRolloutsListRequest object.
 
   Fields:
     filter: Use `filter` to return subset of rollouts. The following filters
@@ -3971,7 +3754,7 @@ class ServicemanagementServicesRolloutsListRequest(_messages.Message):
 
 
 class ServicemanagementServicesSetIamPolicyRequest(_messages.Message):
-  """A ServicemanagementServicesSetIamPolicyRequest object.
+  r"""A ServicemanagementServicesSetIamPolicyRequest object.
 
   Fields:
     servicesId: Part of `resource`. REQUIRED: The resource for which the
@@ -3986,7 +3769,7 @@ class ServicemanagementServicesSetIamPolicyRequest(_messages.Message):
 
 
 class ServicemanagementServicesTestIamPermissionsRequest(_messages.Message):
-  """A ServicemanagementServicesTestIamPermissionsRequest object.
+  r"""A ServicemanagementServicesTestIamPermissionsRequest object.
 
   Fields:
     servicesId: Part of `resource`. REQUIRED: The resource for which the
@@ -4001,7 +3784,7 @@ class ServicemanagementServicesTestIamPermissionsRequest(_messages.Message):
 
 
 class ServicemanagementServicesUndeleteRequest(_messages.Message):
-  """A ServicemanagementServicesUndeleteRequest object.
+  r"""A ServicemanagementServicesUndeleteRequest object.
 
   Fields:
     serviceName: The name of the service. See the [overview](/service-
@@ -4013,7 +3796,7 @@ class ServicemanagementServicesUndeleteRequest(_messages.Message):
 
 
 class ServicemanagementServicesUpdateRequest(_messages.Message):
-  """A ServicemanagementServicesUpdateRequest object.
+  r"""A ServicemanagementServicesUpdateRequest object.
 
   Fields:
     managedService: A ManagedService resource to be passed as the request
@@ -4032,7 +3815,7 @@ class ServicemanagementServicesUpdateRequest(_messages.Message):
 
 
 class SetIamPolicyRequest(_messages.Message):
-  """Request message for `SetIamPolicy` method.
+  r"""Request message for `SetIamPolicy` method.
 
   Fields:
     policy: REQUIRED: The complete policy to be applied to the `resource`. The
@@ -4050,7 +3833,7 @@ class SetIamPolicyRequest(_messages.Message):
 
 
 class SourceContext(_messages.Message):
-  """`SourceContext` represents information about the source of a protobuf
+  r"""`SourceContext` represents information about the source of a protobuf
   element, like the file in which it is defined.
 
   Fields:
@@ -4063,7 +3846,7 @@ class SourceContext(_messages.Message):
 
 
 class SourceInfo(_messages.Message):
-  """Source information used to create a Service Config
+  r"""Source information used to create a Service Config
 
   Messages:
     SourceFilesValueListEntry: A SourceFilesValueListEntry object.
@@ -4074,7 +3857,7 @@ class SourceInfo(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class SourceFilesValueListEntry(_messages.Message):
-    """A SourceFilesValueListEntry object.
+    r"""A SourceFilesValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a
@@ -4086,7 +3869,7 @@ class SourceInfo(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a SourceFilesValueListEntry object.
+      r"""An additional property for a SourceFilesValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -4102,7 +3885,7 @@ class SourceInfo(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -4131,7 +3914,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -4143,7 +3926,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -4169,7 +3952,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -4217,7 +4000,7 @@ class Status(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class DetailsValueListEntry(_messages.Message):
-    """A DetailsValueListEntry object.
+    r"""A DetailsValueListEntry object.
 
     Messages:
       AdditionalProperty: An additional property for a DetailsValueListEntry
@@ -4229,7 +4012,7 @@ class Status(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a DetailsValueListEntry object.
+      r"""An additional property for a DetailsValueListEntry object.
 
       Fields:
         key: Name of the additional property.
@@ -4247,7 +4030,7 @@ class Status(_messages.Message):
 
 
 class Step(_messages.Message):
-  """Represents the status of one operation step.
+  r"""Represents the status of one operation step.
 
   Enums:
     StatusValueValuesEnum: The status code.
@@ -4258,7 +4041,7 @@ class Step(_messages.Message):
   """
 
   class StatusValueValuesEnum(_messages.Enum):
-    """The status code.
+    r"""The status code.
 
     Values:
       STATUS_UNSPECIFIED: Unspecifed code.
@@ -4281,7 +4064,7 @@ class Step(_messages.Message):
 
 
 class SubmitConfigSourceRequest(_messages.Message):
-  """Request message for SubmitConfigSource method.
+  r"""Request message for SubmitConfigSource method.
 
   Fields:
     configSource: The source configuration for the service.
@@ -4295,7 +4078,7 @@ class SubmitConfigSourceRequest(_messages.Message):
 
 
 class SubmitConfigSourceResponse(_messages.Message):
-  """Response message for SubmitConfigSource method.
+  r"""Response message for SubmitConfigSource method.
 
   Fields:
     diagnostics: Diagnostics occured during config conversion.
@@ -4307,7 +4090,7 @@ class SubmitConfigSourceResponse(_messages.Message):
 
 
 class SwaggerSpec(_messages.Message):
-  """A collection of swagger specification files.
+  r"""A collection of swagger specification files.
 
   Fields:
     swaggerFiles: The individual files.
@@ -4317,7 +4100,7 @@ class SwaggerSpec(_messages.Message):
 
 
 class SystemParameter(_messages.Message):
-  """Define a parameter's name and location. The parameter may be passed as
+  r"""Define a parameter's name and location. The parameter may be passed as
   either an HTTP header or a URL query parameter, and if both are passed the
   behavior is implementation-dependent.
 
@@ -4336,7 +4119,7 @@ class SystemParameter(_messages.Message):
 
 
 class SystemParameterRule(_messages.Message):
-  """Define a system parameter rule mapping system parameter definitions to
+  r"""Define a system parameter rule mapping system parameter definitions to
   methods.
 
   Fields:
@@ -4354,7 +4137,7 @@ class SystemParameterRule(_messages.Message):
 
 
 class SystemParameters(_messages.Message):
-  """### System parameter configuration  A system parameter is a special kind
+  r"""### System parameter configuration  A system parameter is a special kind
   of parameter defined by the API system, not by an individual API. It is
   typically mapped to an HTTP header and/or a URL query parameter. This
   configuration specifies which methods change the names of the system
@@ -4379,7 +4162,7 @@ class SystemParameters(_messages.Message):
 
 
 class TestIamPermissionsRequest(_messages.Message):
-  """Request message for `TestIamPermissions` method.
+  r"""Request message for `TestIamPermissions` method.
 
   Fields:
     permissions: The set of permissions to check for the `resource`.
@@ -4392,7 +4175,7 @@ class TestIamPermissionsRequest(_messages.Message):
 
 
 class TestIamPermissionsResponse(_messages.Message):
-  """Response message for `TestIamPermissions` method.
+  r"""Response message for `TestIamPermissions` method.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -4403,7 +4186,7 @@ class TestIamPermissionsResponse(_messages.Message):
 
 
 class TrafficPercentStrategy(_messages.Message):
-  """Strategy that specifies how clients of Google Service Controller want to
+  r"""Strategy that specifies how clients of Google Service Controller want to
   send traffic to use different config versions. This is generally used by API
   proxy to split traffic based on your configured precentage for each config
   version.  One example of how to gradually rollout a new service
@@ -4430,7 +4213,7 @@ class TrafficPercentStrategy(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class PercentagesValue(_messages.Message):
-    """Maps service configuration IDs to their corresponding traffic
+    r"""Maps service configuration IDs to their corresponding traffic
     percentage. Key is the service configuration ID, Value is the traffic
     percentage which must be greater than 0.0 and the sum must equal to 100.0.
 
@@ -4443,7 +4226,7 @@ class TrafficPercentStrategy(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a PercentagesValue object.
+      r"""An additional property for a PercentagesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -4459,7 +4242,7 @@ class TrafficPercentStrategy(_messages.Message):
 
 
 class Type(_messages.Message):
-  """A protocol buffer message type.
+  r"""A protocol buffer message type.
 
   Enums:
     SyntaxValueValuesEnum: The source syntax.
@@ -4474,7 +4257,7 @@ class Type(_messages.Message):
   """
 
   class SyntaxValueValuesEnum(_messages.Enum):
-    """The source syntax.
+    r"""The source syntax.
 
     Values:
       SYNTAX_PROTO2: Syntax `proto2`.
@@ -4492,7 +4275,7 @@ class Type(_messages.Message):
 
 
 class UndeleteServiceResponse(_messages.Message):
-  """Response message for UndeleteService method.
+  r"""Response message for UndeleteService method.
 
   Fields:
     service: Revived service resource.
@@ -4502,7 +4285,7 @@ class UndeleteServiceResponse(_messages.Message):
 
 
 class Usage(_messages.Message):
-  """Configuration controlling usage of a service.
+  r"""Configuration controlling usage of a service.
 
   Fields:
     producerNotificationChannel: The full resource name of a channel used for
@@ -4526,7 +4309,7 @@ class Usage(_messages.Message):
 
 
 class UsageRule(_messages.Message):
-  """Usage configuration rules for the service.  NOTE: Under development.
+  r"""Usage configuration rules for the service.  NOTE: Under development.
   Use this rule to configure unregistered calls for the service. Unregistered
   calls are calls that do not contain consumer project identity. (Example:
   calls that do not contain an API key). By default, API methods do not allow
@@ -4540,12 +4323,14 @@ class UsageRule(_messages.Message):
   allow_unregistered_calls: true
 
   Fields:
-    allowUnregisteredCalls: True, if the method allows unregistered calls;
-      false otherwise.
+    allowUnregisteredCalls: If true, the selected method allows unregistered
+      calls, e.g. calls that don't identify any user or application.
     selector: Selects the methods to which this rule applies. Use '*' to
       indicate all methods in all APIs.  Refer to selector for syntax details.
-    skipServiceControl: True, if the method should skip service control. If
-      so, no control plane feature (like quota and billing) will be enabled.
+    skipServiceControl: If true, the selected method should skip service
+      control and the control plane features, such as quota and billing, will
+      not be available. This flag is used by Google Cloud Endpoints to bypass
+      checks for internal methods, such as service health check methods.
   """
 
   allowUnregisteredCalls = _messages.BooleanField(1)
@@ -4554,7 +4339,7 @@ class UsageRule(_messages.Message):
 
 
 class UsageSettings(_messages.Message):
-  """Usage settings for a consumer of a service.
+  r"""Usage settings for a consumer of a service.
 
   Enums:
     ConsumerEnableStatusValueValuesEnum: Consumer controlled setting to
@@ -4568,7 +4353,7 @@ class UsageSettings(_messages.Message):
   """
 
   class ConsumerEnableStatusValueValuesEnum(_messages.Enum):
-    """Consumer controlled setting to enable/disable use of this service by
+    r"""Consumer controlled setting to enable/disable use of this service by
     the consumer project. The default value of this is controlled by the
     service configuration.
 
@@ -4583,7 +4368,7 @@ class UsageSettings(_messages.Message):
 
 
 class VariableTermQuota(_messages.Message):
-  """A variable term quota is a bucket of tokens that is consumed over a
+  r"""A variable term quota is a bucket of tokens that is consumed over a
   specified (usually long) time period. When present, it overrides any "1d"
   duration per-project quota specified on the group.  Variable terms run from
   midnight to midnight, start_date to end_date (inclusive) in the
@@ -4617,51 +4402,10 @@ class VariableTermQuota(_messages.Message):
   startDate = _messages.StringField(7)
 
 
-class Visibility(_messages.Message):
-  """`Visibility` defines restrictions for the visibility of service elements.
-  Restrictions are specified using visibility labels (e.g., TRUSTED_TESTER)
-  that are elsewhere linked to users and projects.  Users and projects can
-  have access to more than one visibility label. The effective visibility for
-  multiple labels is the union of each label's elements, plus any unrestricted
-  elements.  If an element and its parents have no restrictions, visibility is
-  unconditionally granted.  Example:      visibility:       rules:       -
-  selector: google.calendar.Calendar.EnhancedSearch         restriction:
-  TRUSTED_TESTER       - selector: google.calendar.Calendar.Delegate
-  restriction: GOOGLE_INTERNAL  Here, all methods are publicly visible except
-  for the restricted methods EnhancedSearch and Delegate.
-
-  Fields:
-    rules: A list of visibility rules that apply to individual API elements.
-      **NOTE:** All service configuration rules follow "last one wins" order.
-  """
-
-  rules = _messages.MessageField('VisibilityRule', 1, repeated=True)
-
-
-class VisibilityRule(_messages.Message):
-  """A visibility rule provides visibility configuration for an individual API
-  element.
-
-  Fields:
-    restriction: A comma-separated list of visibility labels that apply to the
-      `selector`. Any of the listed labels can be used to grant the
-      visibility.  If a rule has multiple labels, removing one of the labels
-      but not all of them can break clients.  Example:      visibility:
-      rules:       - selector: google.calendar.Calendar.EnhancedSearch
-      restriction: GOOGLE_INTERNAL, TRUSTED_TESTER  Removing GOOGLE_INTERNAL
-      from this restriction will break clients that rely on this method and
-      only had access to it through GOOGLE_INTERNAL.
-    selector: Selects methods, messages, fields, enums, etc. to which this
-      rule applies.  Refer to selector for syntax details.
-  """
-
-  restriction = _messages.StringField(1)
-  selector = _messages.StringField(2)
-
-
 class VisibilitySettings(_messages.Message):
-  """Settings that control which features of the service are visible to the
-  consumer project.
+  r"""Settings that control which features of the service surface are visible
+  to the consumer project. More details: go/api/visibility.md That is the only
+  intended usecase for Visibility Labels.
 
   Fields:
     visibilityLabels: The set of visibility labels that are used to determine
@@ -4678,14 +4422,8 @@ class VisibilitySettings(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    Rule, 'in_', 'in',
-    package=u'servicemanagement')
-encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'servicemanagement')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'servicemanagement')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'servicemanagement')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

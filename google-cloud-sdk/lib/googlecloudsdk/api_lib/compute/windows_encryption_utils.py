@@ -13,10 +13,12 @@
 # limitations under the License.
 """Utilities for encryption functions on Windows."""
 # TODO(b/36051032) Create unittests for this module (which only run on Windows).
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import base64
 import ctypes
-from ctypes import windll
-from ctypes import wintypes
+from ctypes import windll  # pytype: disable=import-error
+from ctypes import wintypes  # pytype: disable=import-error
 
 advapi32 = windll.advapi32
 
@@ -28,7 +30,7 @@ RSA_KEY_LENGTH = 2048
 # API, however, so these shouldn't need to ever change (unless we change
 # the implementation).
 PROV_RSA_FULL = 1
-MS_ENHANCED_PROV_W = u'Microsoft Enhanced Cryptographic Provider v1.0'
+MS_ENHANCED_PROV_W = 'Microsoft Enhanced Cryptographic Provider v1.0'
 MS_ENHANCED_PROV = MS_ENHANCED_PROV_W
 CRYPT_VERIFYCONTEXT = 0xF0000000
 ALG_CLASS_KEY_EXCHANGE = 40960
@@ -139,7 +141,7 @@ class WinCrypt(object):
 
     # Get length of public key
     key_data = None
-    key_len = ctypes.c_ulong()
+    key_len = ctypes.c_ulong()  # pytype: disable=not-callable
     self.crypt_export_key(key,
                           user_crypto_key,
                           key_type,
@@ -179,7 +181,7 @@ class WinCrypt(object):
     """
     decoded_message = base64.b64decode(enc_message)
     little_endian_message = decoded_message[::-1]
-    data_len = ctypes.c_ulong(len(little_endian_message))
+    data_len = ctypes.c_ulong(len(little_endian_message))  # pytype: disable=not-callable
     data_buf = (ctypes.c_byte * data_len.value).from_buffer_copy(
         little_endian_message)
 
@@ -216,4 +218,3 @@ class WinCrypt(object):
     b64_exp = base64.b64encode(exponent)
 
     return (b64_mod, b64_exp)
-

@@ -14,20 +14,25 @@
 
 """deployments update command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.deployment_manager import dm_api_util
 from googlecloudsdk.api_lib.deployment_manager import dm_base
 from googlecloudsdk.api_lib.deployment_manager import dm_labels
-from googlecloudsdk.api_lib.deployment_manager import importer
+from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
+from googlecloudsdk.command_lib.deployment_manager import alpha_flags
 from googlecloudsdk.command_lib.deployment_manager import dm_util
-from googlecloudsdk.command_lib.deployment_manager import dm_v2_base
 from googlecloudsdk.command_lib.deployment_manager import dm_write
 from googlecloudsdk.command_lib.deployment_manager import flags
-from googlecloudsdk.command_lib.util import labels_util
+from googlecloudsdk.command_lib.deployment_manager import importer
+from googlecloudsdk.command_lib.util.apis import arg_utils
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
+from googlecloudsdk.core import properties
 
 # Number of seconds (approximately) to wait for update operation to complete.
 OPERATION_TIMEOUT = 20 * 60  # 20 mins
@@ -45,9 +50,18 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
 
   detailed_help = {
       'EXAMPLES': """\
-          To update an existing deployment with a new config file, run:
+          To update an existing deployment with a new config yaml file, run:
 
             $ {command} my-deployment --config new_config.yaml
+
+          To update an existing deployment with a new config template file, run:
+
+            $ {command} my-deployment --template new_config.{jinja|py}
+
+          To update an existing deployment with a composite type as a new config, run:
+
+            $ {command} my-deployment --composite-type <project-id>/composite:<new-config>
+
 
           To preview an update to an existing deployment without actually modifying the resources, run:
 
@@ -59,7 +73,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
 
           To specify different create, update, or delete policies, include any subset of the following flags;
 
-            $ {command} my-deployment --config new_config.yaml --create-policy ACQUIRE --delete-policy ABANDON
+            $ {command} my-deployment --config new_config.yaml --create-policy acquire --delete-policy abandon
 
           To perform an update without waiting for the operation to complete, run:
 
@@ -68,8 +82,30 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
           To update an existing deployment with a new config file and a fingerprint, run:
 
             $ {command} my-deployment --config new_config.yaml --fingerprint deployment-fingerprint
+
+          Either the --config, --template, or --composite-type flag is required unless launching an already-previewed update to a deployment.
+
+          More information is available at https://cloud.google.com/deployment-manager/docs/configuration/.
           """,
   }
+
+  _delete_policy_flag_map = flags.GetDeleteFlagEnumMap(
+      (apis.GetMessagesModule('deploymentmanager', 'v2')
+       .DeploymentmanagerDeploymentsUpdateRequest.DeletePolicyValueValuesEnum))
+
+  _create_policy_flag_map = arg_utils.ChoiceEnumMapper(
+      '--create-policy',
+      (apis.GetMessagesModule('deploymentmanager', 'v2')
+       .DeploymentmanagerDeploymentsUpdateRequest.CreatePolicyValueValuesEnum),
+      help_str='Create policy for resources that have changed in the update',
+      default='create-or-acquire')
+
+  _create_policy_v2beta_flag_map = arg_utils.ChoiceEnumMapper(
+      '--create-policy',
+      (apis.GetMessagesModule('deploymentmanager', 'v2beta')
+       .DeploymentmanagerDeploymentsUpdateRequest.CreatePolicyValueValuesEnum),
+      help_str='Create policy for resources that have changed in the update',
+      default='create-or-acquire')
 
   @staticmethod
   def Args(parser, version=base.ReleaseTrack.GA):
@@ -93,13 +129,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
     )
 
     group = parser.add_mutually_exclusive_group()
-    group.add_argument(
-        '--config',
-        help='Filename of config that specifies resources to deploy. '
-        'Required unless launching an already-previewed update to this '
-        'deployment. More information is available at '
-        'https://cloud.google.com/deployment-manager/docs/configuration/.',
-        dest='config')
+    flags.AddConfigFlags(group)
 
     if version in [base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA]:
       group.add_argument(
@@ -108,7 +138,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
           'This flag cannot be used with --config.',
           dest='manifest_id')
 
-    labels_util.AddUpdateLabelsFlags(parser)
+    labels_util.AddUpdateLabelsFlags(parser, enable_clear=False)
 
     parser.add_argument(
         '--preview',
@@ -118,17 +148,12 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
         default=False,
         action='store_true')
 
-    parser.add_argument(
-        '--create-policy',
-        help='Create policy for resources that have changed in the update.',
-        default='CREATE_OR_ACQUIRE',
-        choices=(sorted(dm_v2_base.GetMessages()
-                        .DeploymentmanagerDeploymentsUpdateRequest
-                        .CreatePolicyValueValuesEnum.to_dict().keys())))
+    if version in [base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA]:
+      Update._create_policy_v2beta_flag_map.choice_arg.AddToParser(parser)
+    else:
+      Update._create_policy_flag_map.choice_arg.AddToParser(parser)
 
-    flags.AddDeletePolicyFlag(
-        parser, dm_v2_base.GetMessages()
-        .DeploymentmanagerDeploymentsUpdateRequest)
+    Update._delete_policy_flag_map.choice_arg.AddToParser(parser)
     flags.AddFingerprintFlag(parser)
 
     parser.display_info.AddFormat(flags.RESOURCES_AND_OUTPUTS_FORMAT)
@@ -158,30 +183,39 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
       HttpException: An http error response was received while executing api
           request.
     """
+    deployment_ref = self.resources.Parse(
+        args.deployment_name,
+        params={'project': properties.VALUES.core.project.GetOrFail},
+        collection='deploymentmanager.deployments')
     if not args.IsSpecified('format') and args.async:
       args.format = flags.OPERATION_FORMAT
 
     patch_request = False
     deployment = self.messages.Deployment(
-        name=args.deployment_name,
+        name=deployment_ref.deployment,
     )
 
-    if args.config:
+    if not (args.config is None and args.template is None
+            and args.composite_type is None):
       deployment.target = importer.BuildTargetConfig(
-          self.messages, args.config, args.properties)
+          self.messages,
+          config=args.config,
+          template=args.template,
+          composite_type=args.composite_type,
+          properties=args.properties)
     elif (self.ReleaseTrack() in [base.ReleaseTrack.ALPHA,
                                   base.ReleaseTrack.BETA]
           and args.manifest_id):
       deployment.target = importer.BuildTargetConfigFromManifest(
           self.client, self.messages,
           dm_base.GetProject(),
-          args.deployment_name, args.manifest_id, args.properties)
+          deployment_ref.deployment, args.manifest_id, args.properties)
     # Get the fingerprint from the deployment to update.
     try:
       current_deployment = self.client.deployments.Get(
           self.messages.DeploymentmanagerDeploymentsGetRequest(
               project=dm_base.GetProject(),
-              deployment=args.deployment_name
+              deployment=deployment_ref.deployment
           )
       )
 
@@ -191,7 +225,12 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
         # If no fingerprint is present, default to an empty fingerprint.
         # TODO(b/34966984): Remove the empty default after cleaning up all
         # deployments that has no fingerprint
-        deployment.fingerprint = current_deployment.fingerprint or ''
+        deployment.fingerprint = current_deployment.fingerprint or b''
+
+      # Get the credential from the deployment to update.
+      if self.ReleaseTrack() in [base.ReleaseTrack.ALPHA] and args.credential:
+        deployment.credential = dm_util.CredentialFrom(self.messages,
+                                                       args.credential)
 
       # Update the labels of the deployment
 
@@ -217,29 +256,41 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
     if patch_request:
       args.format = flags.DEPLOYMENT_FORMAT
     try:
+      # Necessary to handle API Version abstraction below
+      parsed_delete_flag = Update._delete_policy_flag_map.GetEnumForChoice(
+          args.delete_policy).name
+      if self.ReleaseTrack() in [
+          base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA
+      ]:
+        parsed_create_flag = (
+            Update._create_policy_v2beta_flag_map.GetEnumForChoice(
+                args.create_policy).name)
+      else:
+        parsed_create_flag = (
+            Update._create_policy_flag_map.GetEnumForChoice(
+                args.create_policy).name)
       request = self.messages.DeploymentmanagerDeploymentsUpdateRequest(
           deploymentResource=deployment,
           project=dm_base.GetProject(),
-          deployment=args.deployment_name,
+          deployment=deployment_ref.deployment,
           preview=args.preview,
           createPolicy=(self.messages.DeploymentmanagerDeploymentsUpdateRequest.
-                        CreatePolicyValueValuesEnum(args.create_policy)),
+                        CreatePolicyValueValuesEnum(parsed_create_flag)),
           deletePolicy=(self.messages.DeploymentmanagerDeploymentsUpdateRequest.
-                        DeletePolicyValueValuesEnum(args.delete_policy)),)
-
+                        DeletePolicyValueValuesEnum(parsed_delete_flag)))
       client = self.client
       client.additional_http_headers['X-Cloud-DM-Patch'] = patch_request
       operation = client.deployments.Update(request)
 
       # Fetch and print the latest fingerprint of the deployment.
-      updated_deployment = dm_api_util.FetchDeployment(self.client,
-                                                       self.messages,
-                                                       dm_base.GetProject(),
-                                                       args.deployment_name)
+      updated_deployment = dm_api_util.FetchDeployment(
+          self.client, self.messages, dm_base.GetProject(),
+          deployment_ref.deployment)
       if patch_request:
         if args.async:
-          log.warn('Updating Deployment metadata is synchronous, --async flag '
-                   'is ignored.')
+          log.warning(
+              'Updating Deployment metadata is synchronous, --async flag '
+              'is ignored.')
         log.status.Print('Update deployment metadata completed successfully.')
         return updated_deployment
       dm_util.PrintFingerprint(updated_deployment.fingerprint)
@@ -250,21 +301,21 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
     else:
       op_name = operation.name
       try:
-        dm_write.WaitForOperation(self.client,
-                                  self.messages,
-                                  op_name,
-                                  'update',
-                                  dm_base.GetProject(),
-                                  timeout=OPERATION_TIMEOUT)
-        log.status.Print('Update operation ' + op_name
-                         + ' completed successfully.')
+        operation = dm_write.WaitForOperation(
+            self.client,
+            self.messages,
+            op_name,
+            'update',
+            dm_base.GetProject(),
+            timeout=OPERATION_TIMEOUT)
+        dm_util.LogOperationStatus(operation, 'Update')
       except apitools_exceptions.HttpError as error:
         raise exceptions.HttpException(error, dm_api_util.HTTP_ERROR_FORMAT)
 
-      return dm_api_util.FetchResourcesAndOutputs(self.client,
-                                                  self.messages,
-                                                  dm_base.GetProject(),
-                                                  args.deployment_name)
+      return dm_api_util.FetchResourcesAndOutputs(
+          self.client, self.messages, dm_base.GetProject(),
+          deployment_ref.deployment,
+          self.ReleaseTrack() is base.ReleaseTrack.ALPHA)
 
   def _GetUpdatedDeploymentLabels(self, args, deployment):
     update_labels = labels_util.GetUpdateLabelsDictFromArgs(args)
@@ -276,6 +327,7 @@ class Update(base.UpdateCommand, dm_base.DmCommand):
 
 @base.UnicodeIsSupported
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@dm_base.UseDmApi(dm_base.DmApiVersion.ALPHA)
 class UpdateAlpha(Update):
   """Update a deployment based on a provided config file.
 
@@ -286,10 +338,13 @@ class UpdateAlpha(Update):
   @staticmethod
   def Args(parser):
     Update.Args(parser, version=base.ReleaseTrack.ALPHA)
+    alpha_flags.AddCredentialFlag(parser)
+    parser.display_info.AddFormat(alpha_flags.RESOURCES_AND_OUTPUTS_FORMAT)
 
 
 @base.UnicodeIsSupported
 @base.ReleaseTracks(base.ReleaseTrack.BETA)
+@dm_base.UseDmApi(dm_base.DmApiVersion.V2BETA)
 class UpdateBeta(Update):
   """Update a deployment based on a provided config file.
 

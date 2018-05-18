@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating VPN tunnels."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 import re
 
@@ -34,7 +36,7 @@ class DeprecatedArgumentException(exceptions.ToolException):
 
   def __init__(self, arg, msg):
     super(DeprecatedArgumentException, self).__init__(
-        u'{0} is deprecated. {1}'.format(arg, msg))
+        '{0} is deprecated. {1}'.format(arg, msg))
 
 
 def ValidateSimpleSharedSecret(possible_secret):
@@ -113,7 +115,8 @@ class CreateGA(base.CreateCommand):
     parser.add_argument(
         '--ike-networks',
         type=arg_parsers.ArgList(min_length=1),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
     parser.add_argument(
         '--local-traffic-selector',
@@ -143,6 +146,8 @@ class CreateGA(base.CreateCommand):
     parser.add_argument(
         '--router',
         help='The Router to use for dynamic routing.')
+
+    parser.display_info.AddCacheUpdater(flags.VpnTunnelsCompleter)
 
   def Run(self, args):
     """Issues API requests to construct VPN Tunnels."""

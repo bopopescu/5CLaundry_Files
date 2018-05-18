@@ -15,21 +15,34 @@
 """A command that prints an access token for Application Default Credentials.
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.api_lib.auth import util as auth_util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
+from googlecloudsdk.core import http
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
+
 from oauth2client import client
 
 
 class PrintAccessToken(base.Command):
-  """Print an access token for the your current Application Default Credentials.
+  r"""Print an access token for your current Application Default Credentials.
 
   Once you have generated Application Default Credentials using
   `{parent_command} login`, you can use this command to generate and print
   an access token that can be directly used for making an API call. This can be
   useful for manually testing out APIs via curl.
+
+  In order to print details of the access token, such as the associated account
+  and the token's expiration time in seconds, run:
+
+    $ curl https://www.googleapis.com/oauth2/v1/tokeninfo?access_token=\
+    $(gcloud auth application-default print-access-token)
+
+  This command should be used sparingly and for debugging alone.
   """
 
   @staticmethod
@@ -54,7 +67,7 @@ class PrintAccessToken(base.Command):
       else:
         creds = creds.create_scoped([auth_util.CLOUD_PLATFORM_SCOPE])
 
-    access_token_info = creds.get_access_token()
+    access_token_info = creds.get_access_token(http.Http())
     if not access_token_info:
       raise c_exc.ToolException(
           'No access token could be obtained from the current credentials.')

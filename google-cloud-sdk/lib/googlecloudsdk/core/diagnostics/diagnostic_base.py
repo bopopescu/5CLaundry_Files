@@ -14,6 +14,10 @@
 
 """Base classes for diagnostics."""
 
+from __future__ import absolute_import
+from __future__ import division
+
+from __future__ import unicode_literals
 from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import progress_tracker
@@ -32,7 +36,7 @@ class Diagnostic(object):
   _MAX_RETRIES = 5
 
   def __init__(self, intro, title, checklist):
-    """Initializes Diagnostic with neccessary attributes.
+    """Initializes Diagnostic with necessary attributes.
 
     Args:
       intro: A message to introduce the objectives and tasks of the diagnostic.
@@ -71,7 +75,7 @@ class Diagnostic(object):
           fixer = None
 
       if not result.passed and fixer and num_retries == self._MAX_RETRIES:
-        log.warn('Unable to fix {0} failure after {1} attempts.'.format(
+        log.warning('Unable to fix {0} failure after {1} attempts.'.format(
             self.title, num_retries))
       if result.passed:
         num_checks_passed += 1

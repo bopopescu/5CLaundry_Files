@@ -14,7 +14,9 @@
 
 """A collection of CLI walkers."""
 
-import cStringIO
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import io
 import os
 
 from googlecloudsdk.calliope import arg_parsers
@@ -54,12 +56,12 @@ class DevSiteGenerator(walker.Walker):
     files.MakeDir(self._directory)
     self._need_section_tag = []
     toc_path = os.path.join(self._directory, self._TOC)
-    self._toc_root = open(toc_path, 'w')
+    self._toc_root = io.open(toc_path, 'wt')
     self._toc_root.write('toc:\n')
     self._toc_root.write('- title: "gcloud Reference"\n')
     self._toc_root.write('  path: %s\n' % self._REFERENCE)
     self._toc_root.write('  section:\n')
-    self._toc_main = None
+    self._toc_main = None  # type: file
 
   def Visit(self, node, parent, is_group):
     """Updates the TOC and Renders a DevSite doc for each node in the CLI tree.
@@ -87,7 +89,7 @@ class DevSiteGenerator(walker.Walker):
             self._toc_main.close()
           # Create a new main group toc.
           toc_path = os.path.join(directory, self._TOC)
-          toc = open(toc_path, 'w')
+          toc = io.open(toc_path, 'wt')
           self._toc_main = toc
           toc.write('toc:\n')
           toc.write('- title: "%s"\n' % title)
@@ -116,18 +118,18 @@ class DevSiteGenerator(walker.Walker):
     command = node.GetPath()
     if is_group:
       directory = os.path.join(self._directory, *command[1:])
-      files.MakeDir(directory, mode=0755)
+      files.MakeDir(directory, mode=0o755)
     else:
       directory = os.path.join(self._directory, *command[1:-1])
 
     # Render the DevSite document.
     path = os.path.join(
         directory, 'index' if is_group else command[-1]) + '.html'
-    with open(path, 'w') as f:
+    with io.open(path, 'wt') as f:
       md = markdown.Markdown(node)
       render_document.RenderDocument(style='devsite',
                                      title=' '.join(command),
-                                     fin=cStringIO.StringIO(md),
+                                     fin=io.StringIO(md),
                                      out=f)
     _UpdateTOC()
     return parent
@@ -146,7 +148,7 @@ class HelpTextGenerator(walker.Walker):
     _directory: The help text output directory.
   """
 
-  def __init__(self, cli, directory, progress_callback=None):
+  def __init__(self, cli, directory, progress_callback=None, restrict=None):
     """Constructor.
 
     Args:
@@ -154,9 +156,13 @@ class HelpTextGenerator(walker.Walker):
       directory: The help text output directory path name.
       progress_callback: f(float), The function to call to update the progress
         bar or None for no progress bar.
+      restrict: Restricts the walk to the command/group dotted paths in this
+        list. For example, restrict=['gcloud.alpha.test', 'gcloud.topic']
+        restricts the walk to the 'gcloud topic' and 'gcloud alpha test'
+        commands/groups.
     """
     super(HelpTextGenerator, self).__init__(
-        cli, progress_callback=progress_callback)
+        cli, progress_callback=progress_callback, restrict=restrict)
     self._directory = directory
     files.MakeDir(self._directory)
 
@@ -175,15 +181,15 @@ class HelpTextGenerator(walker.Walker):
     command = node.GetPath()
     if is_group:
       directory = os.path.join(self._directory, *command[1:])
-      files.MakeDir(directory, mode=0755)
+      files.MakeDir(directory, mode=0o755)
     else:
       directory = os.path.join(self._directory, *command[1:-1])
 
     # Render the help text document.
     path = os.path.join(directory, 'GROUP' if is_group else command[-1])
-    with open(path, 'w') as f:
+    with io.open(path, 'wt') as f:
       md = markdown.Markdown(node)
-      render_document.RenderDocument(style='text', fin=cStringIO.StringIO(md),
+      render_document.RenderDocument(style='text', fin=io.StringIO(md),
                                      out=f)
     return parent
 
@@ -227,11 +233,11 @@ class DocumentGenerator(walker.Walker):
     """
     command = node.GetPath()
     path = os.path.join(self._directory, '_'.join(command)) + self._suffix
-    with open(path, 'w') as f:
+    with io.open(path, 'wt') as f:
       md = markdown.Markdown(node)
       render_document.RenderDocument(style=self._style,
                                      title=' '.join(command),
-                                     fin=cStringIO.StringIO(md),
+                                     fin=io.StringIO(md),
                                      out=f)
     return parent
 
@@ -359,13 +365,13 @@ class CommandTreeGenerator(walker.Walker):
           self._global_flags.update(flags)
     if is_group:
       if parent:
-        if 'groups' not in parent:
-          parent['groups'] = []
-        parent['groups'].append(info)
+        if cli_tree.LOOKUP_GROUPS not in parent:
+          parent[cli_tree.LOOKUP_GROUPS] = []
+        parent[cli_tree.LOOKUP_GROUPS].append(info)
       return info
-    if 'commands' not in parent:
-      parent['commands'] = []
-    parent['commands'].append(info)
+    if cli_tree.LOOKUP_COMMANDS not in parent:
+      parent[cli_tree.LOOKUP_COMMANDS] = []
+    parent[cli_tree.LOOKUP_COMMANDS].append(info)
     return None
 
 
@@ -374,14 +380,6 @@ class GCloudTreeGenerator(walker.Walker):
 
   This implements the resource generator for gcloud meta list-gcloud.
   """
-
-  def __init__(self, cli):
-    """Constructor.
-
-    Args:
-      cli: The Cloud SDK CLI object.
-    """
-    super(GCloudTreeGenerator, self).__init__(cli)
 
   def Visit(self, node, parent, is_group):
     """Visits each node in the CLI command tree to construct the external rep.

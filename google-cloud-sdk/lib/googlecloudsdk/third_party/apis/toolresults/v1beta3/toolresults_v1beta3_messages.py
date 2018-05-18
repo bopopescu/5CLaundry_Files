@@ -10,20 +10,96 @@ from apitools.base.protorpclite import messages as _messages
 package = 'toolresults'
 
 
+class AndroidAppInfo(_messages.Message):
+  r"""Android app information.
+
+  Fields:
+    name: The name of the app. Optional
+    packageName: The package name of the app. Required.
+    versionCode: The internal version code of the app. Optional.
+    versionName: The version name of the app. Optional.
+  """
+
+  name = _messages.StringField(1)
+  packageName = _messages.StringField(2)
+  versionCode = _messages.StringField(3)
+  versionName = _messages.StringField(4)
+
+
+class AndroidInstrumentationTest(_messages.Message):
+  r"""A test of an Android application that can control an Android component
+  independently of its normal lifecycle.  See  for more information on types
+  of Android tests.
+
+  Fields:
+    testPackageId: The java package for the test to be executed. Required
+    testRunnerClass: The InstrumentationTestRunner class. Required
+    testTargets: Each target must be fully qualified with the package name or
+      class name, in one of these formats: - "package package_name" - "class
+      package_name.class_name" - "class package_name.class_name#method_name"
+      If empty, all targets in the module will be run.
+    useOrchestrator: The flag indicates whether Android Test Orchestrator will
+      be used to run test or not.
+  """
+
+  testPackageId = _messages.StringField(1)
+  testRunnerClass = _messages.StringField(2)
+  testTargets = _messages.StringField(3, repeated=True)
+  useOrchestrator = _messages.BooleanField(4)
+
+
+class AndroidRoboTest(_messages.Message):
+  r"""A test of an android application that explores the application on a
+  virtual or physical Android device, finding culprits and crashes as it goes.
+
+  Fields:
+    appInitialActivity: The initial activity that should be used to start the
+      app. Optional
+    bootstrapPackageId: The java package for the bootstrap. Optional
+    bootstrapRunnerClass: The runner class for the bootstrap. Optional
+    maxDepth: The max depth of the traversal stack Robo can explore. Optional
+    maxSteps: The max number of steps/actions Robo can execute. Default is no
+      limit (0). Optional
+  """
+
+  appInitialActivity = _messages.StringField(1)
+  bootstrapPackageId = _messages.StringField(2)
+  bootstrapRunnerClass = _messages.StringField(3)
+  maxDepth = _messages.IntegerField(4, variant=_messages.Variant.INT32)
+  maxSteps = _messages.IntegerField(5, variant=_messages.Variant.INT32)
+
+
+class AndroidTest(_messages.Message):
+  r"""An Android mobile test specification.
+
+  Fields:
+    androidAppInfo: Information about the application under test.
+    androidInstrumentationTest: An Android instrumentation test.
+    androidRoboTest: An Android robo test.
+    testTimeout: Max time a test is allowed to run before it is automatically
+      cancelled.
+  """
+
+  androidAppInfo = _messages.MessageField('AndroidAppInfo', 1)
+  androidInstrumentationTest = _messages.MessageField('AndroidInstrumentationTest', 2)
+  androidRoboTest = _messages.MessageField('AndroidRoboTest', 3)
+  testTimeout = _messages.MessageField('Duration', 4)
+
+
 class Any(_messages.Message):
-  """`Any` contains an arbitrary serialized protocol buffer message along with
-  a URL that describes the type of the serialized message.  Protobuf library
-  provides support to pack/unpack Any values in the form of utility functions
-  or additional generated methods of the Any type.  Example 1: Pack and unpack
-  a message in C++.  Foo foo = ...; Any any; any.PackFrom(foo); ... if
-  (any.UnpackTo(&foo)) { ... }  Example 2: Pack and unpack a message in Java.
-  Foo foo = ...; Any any = Any.pack(foo); ... if (any.is(Foo.class)) { foo =
-  any.unpack(Foo.class); }  Example 3: Pack and unpack a message in Python.
-  foo = Foo(...) any = Any() any.Pack(foo) ... if any.Is(Foo.DESCRIPTOR):
-  any.Unpack(foo) ...  Example 4: Pack and unpack a message in Go  foo :=
-  &pb.Foo{...} any, err := ptypes.MarshalAny(foo) ... foo := &pb.Foo{} if err
-  := ptypes.UnmarshalAny(any, foo); err != nil { ... }  The pack methods
-  provided by protobuf library will by default use
+  r"""`Any` contains an arbitrary serialized protocol buffer message along
+  with a URL that describes the type of the serialized message.  Protobuf
+  library provides support to pack/unpack Any values in the form of utility
+  functions or additional generated methods of the Any type.  Example 1: Pack
+  and unpack a message in C++.  Foo foo = ...; Any any; any.PackFrom(foo); ...
+  if (any.UnpackTo(&foo)) { ... }  Example 2: Pack and unpack a message in
+  Java.  Foo foo = ...; Any any = Any.pack(foo); ... if (any.is(Foo.class)) {
+  foo = any.unpack(Foo.class); }  Example 3: Pack and unpack a message in
+  Python.  foo = Foo(...) any = Any() any.Pack(foo) ... if
+  any.Is(Foo.DESCRIPTOR): any.Unpack(foo) ...  Example 4: Pack and unpack a
+  message in Go  foo := &pb.Foo{...} any, err := ptypes.MarshalAny(foo) ...
+  foo := &pb.Foo{} if err := ptypes.UnmarshalAny(any, foo); err != nil { ... }
+  The pack methods provided by protobuf library will by default use
   'type.googleapis.com/full.type.name' as the type URL and the unpack methods
   only use the fully qualified type name after the last '/' in the type URL,
   for example "foo.bar.com/x/y.z" will yield type name "y.z".    JSON ==== The
@@ -39,19 +115,24 @@ class Any(_messages.Message):
   "type.googleapis.com/google.protobuf.Duration", "value": "1.212s" }
 
   Fields:
-    typeUrl: A URL/resource name whose content describes the type of the
-      serialized protocol buffer message.  For URLs which use the scheme
-      `http`, `https`, or no scheme, the following restrictions and
-      interpretations apply:  * If no scheme is provided, `https` is assumed.
-      * The last segment of the URL's path must represent the fully qualified
-      name of the type (as in `path/google.protobuf.Duration`). The name
-      should be in a canonical form (e.g., leading "." is not accepted). * An
-      HTTP GET on the URL must yield a [google.protobuf.Type][] value in
-      binary format, or produce an error. * Applications are allowed to cache
-      lookup results based on the URL, or have them precompiled into a binary
-      to avoid any lookup. Therefore, binary compatibility needs to be
-      preserved on changes to types. (Use versioned type names to manage
-      breaking changes.)  Schemes other than `http`, `https` (or the empty
+    typeUrl: A URL/resource name that uniquely identifies the type of the
+      serialized protocol buffer message. The last segment of the URL's path
+      must represent the fully qualified name of the type (as in
+      `path/google.protobuf.Duration`). The name should be in a canonical form
+      (e.g., leading "." is not accepted).  In practice, teams usually
+      precompile into the binary all types that they expect it to use in the
+      context of Any. However, for URLs which use the scheme `http`, `https`,
+      or no scheme, one can optionally set up a type server that maps type
+      URLs to message definitions as follows:  * If no scheme is provided,
+      `https` is assumed. * An HTTP GET on the URL must yield a
+      [google.protobuf.Type][] value in binary format, or produce an error. *
+      Applications are allowed to cache lookup results based on the URL, or
+      have them precompiled into a binary to avoid any lookup. Therefore,
+      binary compatibility needs to be preserved on changes to types. (Use
+      versioned type names to manage breaking changes.)  Note: this
+      functionality is not currently available in the official protobuf
+      release, and it is not used for type URLs beginning with
+      type.googleapis.com.  Schemes other than `http`, `https` (or the empty
       scheme) might be used with implementation specific semantics.
     value: Must be a valid serialized protocol buffer of the above specified
       type.
@@ -62,7 +143,7 @@ class Any(_messages.Message):
 
 
 class AppStartTime(_messages.Message):
-  """A AppStartTime object.
+  r"""A AppStartTime object.
 
   Fields:
     fullyDrawnTime: Optional. The time from app start to reaching the
@@ -81,7 +162,7 @@ class AppStartTime(_messages.Message):
 
 
 class BasicPerfSampleSeries(_messages.Message):
-  """Encapsulates the metadata for basic sample series represented by a line
+  r"""Encapsulates the metadata for basic sample series represented by a line
   chart
 
   Enums:
@@ -96,7 +177,7 @@ class BasicPerfSampleSeries(_messages.Message):
   """
 
   class PerfMetricTypeValueValuesEnum(_messages.Enum):
-    """PerfMetricTypeValueValuesEnum enum type.
+    r"""PerfMetricTypeValueValuesEnum enum type.
 
     Values:
       cpu: <no description>
@@ -112,7 +193,7 @@ class BasicPerfSampleSeries(_messages.Message):
     perfMetricTypeUnspecified = 4
 
   class PerfUnitValueValuesEnum(_messages.Enum):
-    """PerfUnitValueValuesEnum enum type.
+    r"""PerfUnitValueValuesEnum enum type.
 
     Values:
       byte: <no description>
@@ -130,7 +211,7 @@ class BasicPerfSampleSeries(_messages.Message):
     perfUnitUnspecified = 5
 
   class SampleSeriesLabelValueValuesEnum(_messages.Enum):
-    """SampleSeriesLabelValueValuesEnum enum type.
+    r"""SampleSeriesLabelValueValuesEnum enum type.
 
     Values:
       cpuKernel: <no description>
@@ -167,8 +248,8 @@ class BasicPerfSampleSeries(_messages.Message):
 
 
 class BatchCreatePerfSamplesRequest(_messages.Message):
-  """The request must provide up to a maximum of 5000 samples to be created; a
-  larger sample size will cause an INVALID_ARGUMENT error
+  r"""The request must provide up to a maximum of 5000 samples to be created;
+  a larger sample size will cause an INVALID_ARGUMENT error
 
   Fields:
     perfSamples: The set of PerfSamples to create should not include existing
@@ -179,7 +260,7 @@ class BatchCreatePerfSamplesRequest(_messages.Message):
 
 
 class BatchCreatePerfSamplesResponse(_messages.Message):
-  """A BatchCreatePerfSamplesResponse object.
+  r"""A BatchCreatePerfSamplesResponse object.
 
   Fields:
     perfSamples: A PerfSample attribute.
@@ -189,7 +270,7 @@ class BatchCreatePerfSamplesResponse(_messages.Message):
 
 
 class CPUInfo(_messages.Message):
-  """A CPUInfo object.
+  r"""A CPUInfo object.
 
   Fields:
     cpuProcessor: description of the device processor ie '1.8 GHz hexa core
@@ -204,7 +285,7 @@ class CPUInfo(_messages.Message):
 
 
 class Duration(_messages.Message):
-  """A Duration represents a signed, fixed-length span of time represented as
+  r"""A Duration represents a signed, fixed-length span of time represented as
   a count of seconds and fractions of seconds at nanosecond resolution. It is
   independent of any calendar and concepts like "day" or "month". It is
   related to Timestamp in that the difference between two Timestamp values is
@@ -247,7 +328,7 @@ class Duration(_messages.Message):
 
 
 class Execution(_messages.Message):
-  """An Execution represents a collection of Steps. For instance, it could
+  r"""An Execution represents a collection of Steps. For instance, it could
   represent: - a mobile test executed across a range of device configurations
   - a jenkins job with a build step followed by a test step  The maximum size
   of an execution message is 1 MiB.  An Execution can be updated until its
@@ -278,6 +359,9 @@ class Execution(_messages.Message):
     outcome: Classify the result, for example into SUCCESS or FAILURE  - In
       response: present if set by create/update request - In create/update
       request: optional
+    specification: Lightweight information about execution request.  - In
+      response: present if set by create - In create: optional - In update:
+      optional
     state: The initial state is IN_PROGRESS.  The only legal state transitions
       is from IN_PROGRESS to COMPLETE.  A PRECONDITION_FAILED will be returned
       if an invalid transition is requested.  The state can only be set to
@@ -293,7 +377,7 @@ class Execution(_messages.Message):
   """
 
   class StateValueValuesEnum(_messages.Enum):
-    """The initial state is IN_PROGRESS.  The only legal state transitions is
+    r"""The initial state is IN_PROGRESS.  The only legal state transitions is
     from IN_PROGRESS to COMPLETE.  A PRECONDITION_FAILED will be returned if
     an invalid transition is requested.  The state can only be set to COMPLETE
     once. A FAILED_PRECONDITION will be returned if the state is set to
@@ -317,19 +401,22 @@ class Execution(_messages.Message):
   creationTime = _messages.MessageField('Timestamp', 2)
   executionId = _messages.StringField(3)
   outcome = _messages.MessageField('Outcome', 4)
-  state = _messages.EnumField('StateValueValuesEnum', 5)
-  testExecutionMatrixId = _messages.StringField(6)
+  specification = _messages.MessageField('Specification', 5)
+  state = _messages.EnumField('StateValueValuesEnum', 6)
+  testExecutionMatrixId = _messages.StringField(7)
 
 
 class FailureDetail(_messages.Message):
-  """A FailureDetail object.
+  r"""A FailureDetail object.
 
   Fields:
-    crashed: If the failure was severe because the system under test crashed.
+    crashed: If the failure was severe because the system (app) under test
+      crashed.
     notInstalled: If an app is not installed and thus no test can be run with
       the app. This might be caused by trying to run a test on an unsupported
       platform.
-    otherNativeCrash: If a native process other than the app crashed.
+    otherNativeCrash: If a native process (including any other than the app)
+      crashed.
     timedOut: If the test overran some time limit, and that is why it failed.
     unableToCrawl: If the robo was unable to crawl the app; perhaps because
       the app did not start.
@@ -343,7 +430,7 @@ class FailureDetail(_messages.Message):
 
 
 class FileReference(_messages.Message):
-  """A reference to a file.
+  r"""A reference to a file.
 
   Fields:
     fileUri: The URI of a file stored in Google Cloud Storage.  For example:
@@ -357,8 +444,57 @@ class FileReference(_messages.Message):
   fileUri = _messages.StringField(1)
 
 
+class GraphicsStats(_messages.Message):
+  r"""Graphics statistics for the App. The information is collected from 'adb
+  shell dumpsys graphicsstats'. For more info see:
+  https://developer.android.com/training/testing/performance.html Statistics
+  will only be present for API 23+.
+
+  Fields:
+    buckets: Histogram of frame render times. There should be 154 buckets
+      ranging from [5ms, 6ms) to [4950ms, infinity)
+    highInputLatencyCount: Total "high input latency" events.
+    jankyFrames: Total frames with slow render time. Should be <=
+      total_frames.
+    missedVsyncCount: Total "missed vsync" events.
+    p50Millis: 50th percentile frame render time in milliseconds.
+    p90Millis: 90th percentile frame render time in milliseconds.
+    p95Millis: 95th percentile frame render time in milliseconds.
+    p99Millis: 99th percentile frame render time in milliseconds.
+    slowBitmapUploadCount: Total "slow bitmap upload" events.
+    slowDrawCount: Total "slow draw" events.
+    slowUiThreadCount: Total "slow UI thread" events.
+    totalFrames: Total frames rendered by package.
+  """
+
+  buckets = _messages.MessageField('GraphicsStatsBucket', 1, repeated=True)
+  highInputLatencyCount = _messages.IntegerField(2)
+  jankyFrames = _messages.IntegerField(3)
+  missedVsyncCount = _messages.IntegerField(4)
+  p50Millis = _messages.IntegerField(5)
+  p90Millis = _messages.IntegerField(6)
+  p95Millis = _messages.IntegerField(7)
+  p99Millis = _messages.IntegerField(8)
+  slowBitmapUploadCount = _messages.IntegerField(9)
+  slowDrawCount = _messages.IntegerField(10)
+  slowUiThreadCount = _messages.IntegerField(11)
+  totalFrames = _messages.IntegerField(12)
+
+
+class GraphicsStatsBucket(_messages.Message):
+  r"""A GraphicsStatsBucket object.
+
+  Fields:
+    frameCount: Number of frames in the bucket.
+    renderMillis: Lower bound of render time in milliseconds.
+  """
+
+  frameCount = _messages.IntegerField(1)
+  renderMillis = _messages.IntegerField(2)
+
+
 class History(_messages.Message):
-  """A History represents a sorted list of Executions ordered by the
+  r"""A History represents a sorted list of Executions ordered by the
   start_timestamp_millis field (descending). It can be used to group all the
   Executions of a continuous build.  Note that the ordering only operates on
   one-dimension. If a repository has multiple branches, it means that multiple
@@ -372,7 +508,7 @@ class History(_messages.Message):
       INVALID_ARGUMENT if this field is set or overwritten by the caller.  -
       In response always set - In create request: never set
     name: A name to uniquely identify a history within a project. Maximum of
-      100 characters.  - In response always set - In create request: always
+      200 characters.  - In response always set - In create request: always
       set
   """
 
@@ -382,7 +518,7 @@ class History(_messages.Message):
 
 
 class Image(_messages.Message):
-  """An image, with a link to the main image and a thumbnail.
+  r"""An image, with a link to the main image and a thumbnail.
 
   Fields:
     error: An error explaining why the thumbnail could not be rendered.
@@ -400,7 +536,7 @@ class Image(_messages.Message):
 
 
 class InconclusiveDetail(_messages.Message):
-  """A InconclusiveDetail object.
+  r"""A InconclusiveDetail object.
 
   Fields:
     abortedByUser: If the end user aborted the test execution before a pass or
@@ -418,7 +554,7 @@ class InconclusiveDetail(_messages.Message):
 
 
 class ListExecutionsResponse(_messages.Message):
-  """A ListExecutionsResponse object.
+  r"""A ListExecutionsResponse object.
 
   Fields:
     executions: Executions.  Always set.
@@ -431,7 +567,7 @@ class ListExecutionsResponse(_messages.Message):
 
 
 class ListHistoriesResponse(_messages.Message):
-  """Response message for HistoryService.List
+  r"""Response message for HistoryService.List
 
   Fields:
     histories: Histories.
@@ -448,7 +584,7 @@ class ListHistoriesResponse(_messages.Message):
 
 
 class ListPerfSampleSeriesResponse(_messages.Message):
-  """A ListPerfSampleSeriesResponse object.
+  r"""A ListPerfSampleSeriesResponse object.
 
   Fields:
     perfSampleSeries: The resulting PerfSampleSeries sorted by id
@@ -458,7 +594,7 @@ class ListPerfSampleSeriesResponse(_messages.Message):
 
 
 class ListPerfSamplesResponse(_messages.Message):
-  """A ListPerfSamplesResponse object.
+  r"""A ListPerfSamplesResponse object.
 
   Fields:
     nextPageToken: Optional, returned if result size exceeds the page size
@@ -472,8 +608,18 @@ class ListPerfSamplesResponse(_messages.Message):
   perfSamples = _messages.MessageField('PerfSample', 2, repeated=True)
 
 
+class ListScreenshotClustersResponse(_messages.Message):
+  r"""A ListScreenshotClustersResponse object.
+
+  Fields:
+    clusters: The set of clusters associated with an execution Always set
+  """
+
+  clusters = _messages.MessageField('ScreenshotCluster', 1, repeated=True)
+
+
 class ListStepThumbnailsResponse(_messages.Message):
-  """A response containing the thumbnails in a step.
+  r"""A response containing the thumbnails in a step.
 
   Fields:
     nextPageToken: A continuation token to resume the query at the next item.
@@ -493,7 +639,7 @@ class ListStepThumbnailsResponse(_messages.Message):
 
 
 class ListStepsResponse(_messages.Message):
-  """Response message for StepService.List.
+  r"""Response message for StepService.List.
 
   Fields:
     nextPageToken: A continuation token to resume the query at the next item.
@@ -507,7 +653,7 @@ class ListStepsResponse(_messages.Message):
 
 
 class MemoryInfo(_messages.Message):
-  """A MemoryInfo object.
+  r"""A MemoryInfo object.
 
   Fields:
     memoryCapInKibibyte: Maximum memory that can be allocated to the process
@@ -520,7 +666,7 @@ class MemoryInfo(_messages.Message):
 
 
 class Outcome(_messages.Message):
-  """Interprets a result so that humans and machines can act on it.
+  r"""Interprets a result so that humans and machines can act on it.
 
   Enums:
     SummaryValueValuesEnum: The simplest way to interpret a result.  Required
@@ -542,7 +688,7 @@ class Outcome(_messages.Message):
   """
 
   class SummaryValueValuesEnum(_messages.Enum):
-    """The simplest way to interpret a result.  Required
+    r"""The simplest way to interpret a result.  Required
 
     Values:
       failure: <no description>
@@ -565,7 +711,7 @@ class Outcome(_messages.Message):
 
 
 class PerfEnvironment(_messages.Message):
-  """Encapsulates performance environment info
+  r"""Encapsulates performance environment info
 
   Fields:
     cpuInfo: CPU related environment info
@@ -577,7 +723,7 @@ class PerfEnvironment(_messages.Message):
 
 
 class PerfMetricsSummary(_messages.Message):
-  """A summary of perf metrics collected and performance environment info
+  r"""A summary of perf metrics collected and performance environment info
 
   Enums:
     PerfMetricsValueListEntryValuesEnum:
@@ -585,6 +731,8 @@ class PerfMetricsSummary(_messages.Message):
   Fields:
     appStartTime: A AppStartTime attribute.
     executionId: A tool results execution ID.
+    graphicsStats: Graphics statistics for the entire run. Statistics are
+      reset at the beginning of the run and collected at the end of the run.
     historyId: A tool results history ID.
     perfEnvironment: Describes the environment in which the performance
       metrics were collected
@@ -594,7 +742,7 @@ class PerfMetricsSummary(_messages.Message):
   """
 
   class PerfMetricsValueListEntryValuesEnum(_messages.Enum):
-    """PerfMetricsValueListEntryValuesEnum enum type.
+    r"""PerfMetricsValueListEntryValuesEnum enum type.
 
     Values:
       cpu: <no description>
@@ -611,15 +759,16 @@ class PerfMetricsSummary(_messages.Message):
 
   appStartTime = _messages.MessageField('AppStartTime', 1)
   executionId = _messages.StringField(2)
-  historyId = _messages.StringField(3)
-  perfEnvironment = _messages.MessageField('PerfEnvironment', 4)
-  perfMetrics = _messages.EnumField('PerfMetricsValueListEntryValuesEnum', 5, repeated=True)
-  projectId = _messages.StringField(6)
-  stepId = _messages.StringField(7)
+  graphicsStats = _messages.MessageField('GraphicsStats', 3)
+  historyId = _messages.StringField(4)
+  perfEnvironment = _messages.MessageField('PerfEnvironment', 5)
+  perfMetrics = _messages.EnumField('PerfMetricsValueListEntryValuesEnum', 6, repeated=True)
+  projectId = _messages.StringField(7)
+  stepId = _messages.StringField(8)
 
 
 class PerfSample(_messages.Message):
-  """Resource representing a single performance measure or data point
+  r"""Resource representing a single performance measure or data point
 
   Fields:
     sampleTime: Timestamp of collection
@@ -631,7 +780,7 @@ class PerfSample(_messages.Message):
 
 
 class PerfSampleSeries(_messages.Message):
-  """Resource representing a collection of performance samples (or data
+  r"""Resource representing a collection of performance samples (or data
   points)
 
   Fields:
@@ -652,7 +801,7 @@ class PerfSampleSeries(_messages.Message):
 
 
 class ProjectSettings(_messages.Message):
-  """Per-project settings for the Tool Results service.
+  r"""Per-project settings for the Tool Results service.
 
   Fields:
     defaultBucket: The name of the Google Cloud Storage bucket to which
@@ -668,7 +817,7 @@ class ProjectSettings(_messages.Message):
 
 
 class PublishXunitXmlFilesRequest(_messages.Message):
-  """Request message for StepService.PublishXunitXmlFiles.
+  r"""Request message for StepService.PublishXunitXmlFiles.
 
   Fields:
     xunitXmlFiles: URI of the Xunit XML files to publish.  The maximum size of
@@ -678,8 +827,45 @@ class PublishXunitXmlFilesRequest(_messages.Message):
   xunitXmlFiles = _messages.MessageField('FileReference', 1, repeated=True)
 
 
+class Screen(_messages.Message):
+  r"""A Screen object.
+
+  Fields:
+    fileReference: File reference of the png file. Required.
+    locale: Locale of the device that the screenshot was taken on. Required.
+    model: Model of the device that the screenshot was taken on. Required.
+    version: OS version of the device that the screenshot was taken on.
+      Required.
+  """
+
+  fileReference = _messages.StringField(1)
+  locale = _messages.StringField(2)
+  model = _messages.StringField(3)
+  version = _messages.StringField(4)
+
+
+class ScreenshotCluster(_messages.Message):
+  r"""A ScreenshotCluster object.
+
+  Fields:
+    activity: A string that describes the activity of every screen in the
+      cluster.
+    clusterId: A unique identifier for the cluster.
+    keyScreen: A singular screen that represents the cluster as a whole. This
+      screen will act as the "cover" of the entire cluster. When users look at
+      the clusters, only the key screen from each cluster will be shown. Which
+      screen is the key screen is determined by the ClusteringAlgorithm
+    screens: Full list of screens.
+  """
+
+  activity = _messages.StringField(1)
+  clusterId = _messages.StringField(2)
+  keyScreen = _messages.MessageField('Screen', 3)
+  screens = _messages.MessageField('Screen', 4, repeated=True)
+
+
 class SkippedDetail(_messages.Message):
-  """A SkippedDetail object.
+  r"""A SkippedDetail object.
 
   Fields:
     incompatibleAppVersion: If the App doesn't support the specific API level.
@@ -694,8 +880,18 @@ class SkippedDetail(_messages.Message):
   incompatibleDevice = _messages.BooleanField(3)
 
 
+class Specification(_messages.Message):
+  r"""The details about how to run the execution.
+
+  Fields:
+    androidTest: An Android mobile test execution specification.
+  """
+
+  androidTest = _messages.MessageField('AndroidTest', 1)
+
+
 class StackTrace(_messages.Message):
-  """A stacktrace.
+  r"""A stacktrace.
 
   Fields:
     clusterId: Exception cluster ID
@@ -709,7 +905,7 @@ class StackTrace(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     AltValueValuesEnum: Data format for the response.
@@ -722,17 +918,15 @@ class StandardQueryParameters(_messages.Message):
       token.
     oauth_token: OAuth 2.0 token for the current user.
     prettyPrint: Returns response with indentations and line breaks.
-    quotaUser: Available to use for quota purposes for server-side
-      applications. Can be any arbitrary string assigned to a user, but should
-      not exceed 40 characters. Overrides userIp if both are provided.
+    quotaUser: An opaque string that represents a user for quota purposes.
+      Must not exceed 40 characters.
     trace: A tracing token of the form "token:<tokenid>" to include in api
       requests.
-    userIp: IP address of the site where the request originates. Use this if
-      you want to enforce per-user limits.
+    userIp: Deprecated. Please use quotaUser instead.
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for the response.
+    r"""Data format for the response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -750,7 +944,7 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Status(_messages.Message):
-  """The `Status` type defines a logical error model that is suitable for
+  r"""The `Status` type defines a logical error model that is suitable for
   different programming environments, including REST APIs and RPC APIs. It is
   used by [gRPC](https://github.com/grpc). The error model is designed to be:
   - Simple to use and understand for most users - Flexible enough to meet
@@ -800,7 +994,7 @@ class Status(_messages.Message):
 
 
 class Step(_messages.Message):
-  """A Step represents a single operation performed as part of Execution. A
+  r"""A Step represents a single operation performed as part of Execution. A
   step can be used to represent the execution of a tool ( for example a test
   runner execution or an execution of a compiler).  Steps can overlap (for
   instance two steps might have the same start time if some operations are
@@ -910,7 +1104,7 @@ class Step(_messages.Message):
   """
 
   class StateValueValuesEnum(_messages.Enum):
-    """The initial state is IN_PROGRESS. The only legal state transitions are
+    r"""The initial state is IN_PROGRESS. The only legal state transitions are
     * IN_PROGRESS -> COMPLETE  A PRECONDITION_FAILED will be returned if an
     invalid transition is requested.  It is valid to create Step with a state
     set to COMPLETE. The state can only be set to COMPLETE once. A
@@ -946,7 +1140,7 @@ class Step(_messages.Message):
 
 
 class StepDimensionValueEntry(_messages.Message):
-  """A StepDimensionValueEntry object.
+  r"""A StepDimensionValueEntry object.
 
   Fields:
     key: A string attribute.
@@ -958,7 +1152,7 @@ class StepDimensionValueEntry(_messages.Message):
 
 
 class StepLabelsEntry(_messages.Message):
-  """A StepLabelsEntry object.
+  r"""A StepLabelsEntry object.
 
   Fields:
     key: A string attribute.
@@ -970,7 +1164,7 @@ class StepLabelsEntry(_messages.Message):
 
 
 class SuccessDetail(_messages.Message):
-  """A SuccessDetail object.
+  r"""A SuccessDetail object.
 
   Fields:
     otherNativeCrash: If a native process other than the app crashed.
@@ -980,9 +1174,9 @@ class SuccessDetail(_messages.Message):
 
 
 class TestCaseReference(_messages.Message):
-  """A reference to a test case.  Test case references are canonically ordered
-  lexicographically by these three factors: * First, by test_suite_name. *
-  Second, by class_name. * Third, by name.
+  r"""A reference to a test case.  Test case references are canonically
+  ordered lexicographically by these three factors: * First, by
+  test_suite_name. * Second, by class_name. * Third, by name.
 
   Fields:
     className: The name of the class.
@@ -996,7 +1190,7 @@ class TestCaseReference(_messages.Message):
 
 
 class TestExecutionStep(_messages.Message):
-  """A step that represents running tests.  It accepts ant-junit xml files
+  r"""A step that represents running tests.  It accepts ant-junit xml files
   which will be parsed into structured test results by the service. Xml file
   paths are updated in order to append more files, however they can't be
   deleted.  Users can also add test results manually by using the test_result
@@ -1028,20 +1222,74 @@ class TestExecutionStep(_messages.Message):
 
 
 class TestIssue(_messages.Message):
-  """An abnormal event observed during the test execution.
+  r"""An issue detected occurring during a test execution.
+
+  Enums:
+    SeverityValueValuesEnum: Severity of issue. Required.
+    TypeValueValuesEnum: Type of issue. Required.
 
   Fields:
-    errorMessage: A brief human-readable message describing the abnormal
-      event.  Required.
-    stackTrace: Optional.
+    errorMessage: A brief human-readable message describing the issue.
+      Required.
+    severity: Severity of issue. Required.
+    stackTrace: Deprecated in favor of stack trace fields inside specific
+      warnings.
+    type: Type of issue. Required.
+    warning: Warning message with additional details of the issue. Should
+      always be a message from com.google.devtools.toolresults.v1.warnings
   """
 
+  class SeverityValueValuesEnum(_messages.Enum):
+    r"""Severity of issue. Required.
+
+    Values:
+      info: <no description>
+      severe: <no description>
+      unspecifiedSeverity: <no description>
+      warning: <no description>
+    """
+    info = 0
+    severe = 1
+    unspecifiedSeverity = 2
+    warning = 3
+
+  class TypeValueValuesEnum(_messages.Enum):
+    r"""Type of issue. Required.
+
+    Values:
+      anr: <no description>
+      compatibleWithOrchestrator: <no description>
+      completeRoboScriptExecution: <no description>
+      failedToInstall: <no description>
+      fatalException: <no description>
+      incompleteRoboScriptExecution: <no description>
+      launcherActivityNotFound: <no description>
+      nativeCrash: <no description>
+      startActivityNotFound: <no description>
+      unspecifiedType: <no description>
+      unusedRoboDirective: <no description>
+    """
+    anr = 0
+    compatibleWithOrchestrator = 1
+    completeRoboScriptExecution = 2
+    failedToInstall = 3
+    fatalException = 4
+    incompleteRoboScriptExecution = 5
+    launcherActivityNotFound = 6
+    nativeCrash = 7
+    startActivityNotFound = 8
+    unspecifiedType = 9
+    unusedRoboDirective = 10
+
   errorMessage = _messages.StringField(1)
-  stackTrace = _messages.MessageField('StackTrace', 2)
+  severity = _messages.EnumField('SeverityValueValuesEnum', 2)
+  stackTrace = _messages.MessageField('StackTrace', 3)
+  type = _messages.EnumField('TypeValueValuesEnum', 4)
+  warning = _messages.MessageField('Any', 5)
 
 
 class TestSuiteOverview(_messages.Message):
-  """A summary of a test suite result either parsed from XML or uploaded
+  r"""A summary of a test suite result either parsed from XML or uploaded
   directly by a user.  Note: the API related comments are for StepService
   only. This message is also being used in ExecutionService in a read only
   mode for the corresponding step.
@@ -1076,7 +1324,7 @@ class TestSuiteOverview(_messages.Message):
 
 
 class TestTiming(_messages.Message):
-  """Testing timing break down to know phases.
+  r"""Testing timing break down to know phases.
 
   Fields:
     testProcessDuration: How long it took to run the test process.  - In
@@ -1088,7 +1336,7 @@ class TestTiming(_messages.Message):
 
 
 class Thumbnail(_messages.Message):
-  """A single thumbnail, with its size and format.
+  r"""A single thumbnail, with its size and format.
 
   Fields:
     contentType: The thumbnail's content type, i.e. "image/png".  Always set.
@@ -1106,7 +1354,7 @@ class Thumbnail(_messages.Message):
 
 
 class Timestamp(_messages.Message):
-  """A Timestamp represents a point in time independent of any time zone or
+  r"""A Timestamp represents a point in time independent of any time zone or
   calendar, represented as seconds and fractions of seconds at nanosecond
   resolution in UTC Epoch time. It is encoded using the Proleptic Gregorian
   Calendar which extends the Gregorian calendar backwards to year one. It is
@@ -1138,18 +1386,20 @@ class Timestamp(_messages.Message):
   always expressed using four digits while {month}, {day}, {hour}, {min}, and
   {sec} are zero-padded to two digits each. The fractional seconds, which can
   go up to 9 digits (i.e. up to 1 nanosecond resolution), are optional. The
-  "Z" suffix indicates the timezone ("UTC"); the timezone is required, though
-  only UTC (as indicated by "Z") is presently supported.  For example,
-  "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past 01:30 UTC on January
-  15, 2017.  In JavaScript, one can convert a Date object to this format using
-  the standard [toISOString()](https://developer.mozilla.org/en-
+  "Z" suffix indicates the timezone ("UTC"); the timezone is required. A
+  proto3 JSON serializer should always use UTC (as indicated by "Z") when
+  printing the Timestamp type and a proto3 JSON parser should be able to
+  accept both UTC and other timezones (as indicated by an offset).  For
+  example, "2017-01-15T01:30:15.01Z" encodes 15.01 seconds past 01:30 UTC on
+  January 15, 2017.  In JavaScript, one can convert a Date object to this
+  format using the standard [toISOString()](https://developer.mozilla.org/en-
   US/docs/Web/JavaScript/Reference/Global_Objects/Date/toISOString] method. In
   Python, a standard `datetime.datetime` object can be converted to this
   format using
   [`strftime`](https://docs.python.org/2/library/time.html#time.strftime) with
   the time format spec '%Y-%m-%dT%H:%M:%S.%fZ'. Likewise, in Java, one can use
-  the Joda Time's [`ISODateTimeFormat.dateTime()`]( http://joda-time.sourcefor
-  ge.net/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime()) to
+  the Joda Time's [`ISODateTimeFormat.dateTime()`]( http://www.joda.org/joda-
+  time/apidocs/org/joda/time/format/ISODateTimeFormat.html#dateTime-- ) to
   obtain a formatter capable of generating timestamps in this format.
 
   Fields:
@@ -1167,7 +1417,7 @@ class Timestamp(_messages.Message):
 
 
 class ToolExecution(_messages.Message):
-  """An execution of an arbitrary tool. It could be a test runner or a tool
+  r"""An execution of an arbitrary tool. It could be a test runner or a tool
   copying artifacts or deploying code.
 
   Fields:
@@ -1201,7 +1451,7 @@ class ToolExecution(_messages.Message):
 
 
 class ToolExecutionStep(_messages.Message):
-  """Generic tool step to be used for binaries we do not explicitly support.
+  r"""Generic tool step to be used for binaries we do not explicitly support.
   For example: running cp to copy artifacts from one location to another.
 
   Fields:
@@ -1213,7 +1463,7 @@ class ToolExecutionStep(_messages.Message):
 
 
 class ToolExitCode(_messages.Message):
-  """Exit code from a tool execution.
+  r"""Exit code from a tool execution.
 
   Fields:
     number: Tool execution exit code. A value of 0 means that the execution
@@ -1225,7 +1475,7 @@ class ToolExitCode(_messages.Message):
 
 
 class ToolOutputReference(_messages.Message):
-  """A reference to a ToolExecution output file.
+  r"""A reference to a ToolExecution output file.
 
   Fields:
     creationTime: The creation time of the file.  - In response: present if
@@ -1243,7 +1493,7 @@ class ToolOutputReference(_messages.Message):
 
 
 class ToolresultsProjectsGetSettingsRequest(_messages.Message):
-  """A ToolresultsProjectsGetSettingsRequest object.
+  r"""A ToolresultsProjectsGetSettingsRequest object.
 
   Fields:
     projectId: A Project id.  Required.
@@ -1253,7 +1503,7 @@ class ToolresultsProjectsGetSettingsRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesCreateRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesCreateRequest object.
+  r"""A ToolresultsProjectsHistoriesCreateRequest object.
 
   Fields:
     history: A History resource to be passed as the request body.
@@ -1267,8 +1517,38 @@ class ToolresultsProjectsHistoriesCreateRequest(_messages.Message):
   requestId = _messages.StringField(3)
 
 
+class ToolresultsProjectsHistoriesExecutionsClustersGetRequest(_messages.Message):
+  r"""A ToolresultsProjectsHistoriesExecutionsClustersGetRequest object.
+
+  Fields:
+    clusterId: A Cluster id  Required.
+    executionId: An Execution id.  Required.
+    historyId: A History id.  Required.
+    projectId: A Project id.  Required.
+  """
+
+  clusterId = _messages.StringField(1, required=True)
+  executionId = _messages.StringField(2, required=True)
+  historyId = _messages.StringField(3, required=True)
+  projectId = _messages.StringField(4, required=True)
+
+
+class ToolresultsProjectsHistoriesExecutionsClustersListRequest(_messages.Message):
+  r"""A ToolresultsProjectsHistoriesExecutionsClustersListRequest object.
+
+  Fields:
+    executionId: An Execution id.  Required.
+    historyId: A History id.  Required.
+    projectId: A Project id.  Required.
+  """
+
+  executionId = _messages.StringField(1, required=True)
+  historyId = _messages.StringField(2, required=True)
+  projectId = _messages.StringField(3, required=True)
+
+
 class ToolresultsProjectsHistoriesExecutionsCreateRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsCreateRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsCreateRequest object.
 
   Fields:
     execution: A Execution resource to be passed as the request body.
@@ -1285,7 +1565,7 @@ class ToolresultsProjectsHistoriesExecutionsCreateRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsGetRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsGetRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsGetRequest object.
 
   Fields:
     executionId: An Execution id.  Required.
@@ -1299,7 +1579,7 @@ class ToolresultsProjectsHistoriesExecutionsGetRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsListRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsListRequest object.
 
   Fields:
     historyId: A History id.  Required.
@@ -1318,7 +1598,7 @@ class ToolresultsProjectsHistoriesExecutionsListRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsPatchRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsPatchRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsPatchRequest object.
 
   Fields:
     execution: A Execution resource to be passed as the request body.
@@ -1337,7 +1617,7 @@ class ToolresultsProjectsHistoriesExecutionsPatchRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsCreateRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsCreateRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsCreateRequest object.
 
   Fields:
     executionId: A Execution id.  Required.
@@ -1356,7 +1636,8 @@ class ToolresultsProjectsHistoriesExecutionsStepsCreateRequest(_messages.Message
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsGetPerfMetricsSummaryRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsGetPerfMetricsSummaryRequest
+  r"""A
+  ToolresultsProjectsHistoriesExecutionsStepsGetPerfMetricsSummaryRequest
   object.
 
   Fields:
@@ -1373,7 +1654,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsGetPerfMetricsSummaryRequest(_m
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsGetRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsGetRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsGetRequest object.
 
   Fields:
     executionId: A Execution id.  Required.
@@ -1389,7 +1670,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsGetRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsListRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsListRequest object.
 
   Fields:
     executionId: A Execution id.  Required.
@@ -1410,7 +1691,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsListRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPatchRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPatchRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPatchRequest object.
 
   Fields:
     executionId: A Execution id.  Required.
@@ -1431,7 +1712,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsPatchRequest(_messages.Message)
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesGetRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesGetRequest
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesGetRequest
   object.
 
   Fields:
@@ -1450,7 +1731,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesGetRequest(_mes
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesListRequest
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesListRequest
   object.
 
   Enums:
@@ -1467,7 +1748,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesListRequest(_me
   """
 
   class FilterValueValuesEnum(_messages.Enum):
-    """Specify one or more PerfMetricType values such as CPU to filter the
+    r"""Specify one or more PerfMetricType values such as CPU to filter the
     result
 
     Values:
@@ -1491,8 +1772,8 @@ class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesListRequest(_me
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesBatchCreateRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesBatch
-  CreateRequest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesBatc
+  hCreateRequest object.
 
   Fields:
     batchCreatePerfSamplesRequest: A BatchCreatePerfSamplesRequest resource to
@@ -1513,8 +1794,8 @@ class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesBatchCre
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesListR
-  equest object.
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesList
+  Request object.
 
   Fields:
     executionId: A tool results execution ID.
@@ -1538,7 +1819,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsPerfSampleSeriesSamplesListRequ
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsPublishXunitXmlFilesRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsPublishXunitXmlFilesRequest
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsPublishXunitXmlFilesRequest
   object.
 
   Fields:
@@ -1559,7 +1840,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsPublishXunitXmlFilesRequest(_me
 
 
 class ToolresultsProjectsHistoriesExecutionsStepsThumbnailsListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesExecutionsStepsThumbnailsListRequest
+  r"""A ToolresultsProjectsHistoriesExecutionsStepsThumbnailsListRequest
   object.
 
   Fields:
@@ -1583,7 +1864,7 @@ class ToolresultsProjectsHistoriesExecutionsStepsThumbnailsListRequest(_messages
 
 
 class ToolresultsProjectsHistoriesGetRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesGetRequest object.
+  r"""A ToolresultsProjectsHistoriesGetRequest object.
 
   Fields:
     historyId: A History id.  Required.
@@ -1595,7 +1876,7 @@ class ToolresultsProjectsHistoriesGetRequest(_messages.Message):
 
 
 class ToolresultsProjectsHistoriesListRequest(_messages.Message):
-  """A ToolresultsProjectsHistoriesListRequest object.
+  r"""A ToolresultsProjectsHistoriesListRequest object.
 
   Fields:
     filterByName: If set, only return histories with the given name.
@@ -1615,7 +1896,7 @@ class ToolresultsProjectsHistoriesListRequest(_messages.Message):
 
 
 class ToolresultsProjectsInitializeSettingsRequest(_messages.Message):
-  """A ToolresultsProjectsInitializeSettingsRequest object.
+  r"""A ToolresultsProjectsInitializeSettingsRequest object.
 
   Fields:
     projectId: A Project id.  Required.

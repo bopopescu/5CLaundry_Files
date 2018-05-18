@@ -28,8 +28,8 @@ import pkgutil
 import sys
 import tempfile
 
-if not (2, 6) <= sys.version_info[:3] < (3,):
-  sys.exit('gsutil requires python 2.6 or 2.7.')
+if not (2, 7) <= sys.version_info[:3] < (3,):
+  sys.exit('gsutil requires python 2.7.')
 
 import gslib.exception  # pylint: disable=g-import-not-at-top
 
@@ -120,3 +120,10 @@ CHECKSUM_FILE, CHECKSUM = _GetFileContents('CHECKSUM')
 if not CHECKSUM:
   raise gslib.exception.CommandException(
       'CHECKSUM file not found. Please reinstall gsutil from scratch')
+
+
+def GetGsutilVersionModifiedTime():
+  """Returns unix timestamp of when the VERSION file was last modified."""
+  if not VERSION_FILE:
+    return 0
+  return int(os.path.getmtime(VERSION_FILE))

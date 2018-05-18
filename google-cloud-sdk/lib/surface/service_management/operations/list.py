@@ -14,12 +14,8 @@
 
 """service-management operations list command."""
 
-from apitools.base.py import list_pager
-
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
 _FILTER_HELP = '''\
@@ -37,8 +33,13 @@ datetime value must be wrapped in quotation marks. For example:
 done is a boolean value and supports = and != operators.\
 '''
 
+_ERROR = ('The `service-management operations list` command has been '
+          'replaced by `endpoints operations list` and '
+          '`services operations list`.')
+
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA, base.ReleaseTrack.ALPHA)
+@base.Deprecate(is_removed=True, error=_ERROR)
 class List(base.ListCommand):
   # pylint: disable=line-too-long
   """List operations for a project.
@@ -80,14 +81,8 @@ class List(base.ListCommand):
     parser.add_argument(
         '--filter', metavar='EXPRESSION',
         help=_FILTER_HELP)
-
-  def DeprecatedFormat(self, args):
-    return 'table({fields})'.format(
-        fields=','.join([
-            'name',
-            'done',
-            'metadata.startTime.date(tz=LOCAL)',
-        ]))
+    parser.display_info.AddFormat(
+        'table(name, done, metadata.startTime.date(tz=LOCAL))')
 
   def Run(self, args):
     """Run 'service-management operations list'.
@@ -95,25 +90,5 @@ class List(base.ListCommand):
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The list of operations for this project.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    msg_filter = 'serviceName="{0}"'.format(service)
-    if args.filter:
-      msg_filter += ' AND ({0})'.format(args.filter)
-      args.filter = None  # We don't want Display() to handle the filter.
-
-    msg = messages.ServicemanagementOperationsListRequest(filter=msg_filter)
-
-    return list_pager.YieldFromList(
-        client.operations,
-        msg,
-        limit=args.limit,
-        batch_size_attribute='pageSize',
-        batch_size=args.page_size,
-        field='operations')
+    pass

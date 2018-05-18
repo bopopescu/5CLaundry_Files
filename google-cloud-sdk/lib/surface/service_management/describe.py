@@ -14,12 +14,15 @@
 
 """service-management describe command."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
+_ERROR = ('The `service-management describe` command has been '
+          'replaced by `endpoints services describe`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class Describe(base.DescribeCommand):
   """Describes a service given a service name."""
 
@@ -35,21 +38,10 @@ class Describe(base.DescribeCommand):
     common_flags.producer_service_flag(suffix='to describe').AddToParser(parser)
 
   def Run(self, args):
-    """Run 'service-management describe'.
+    """Stub for 'service-management describe'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the Get API call.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = messages.ServicemanagementServicesGetRequest(
-        serviceName=service,)
-
-    return client.services.Get(request)
+    pass

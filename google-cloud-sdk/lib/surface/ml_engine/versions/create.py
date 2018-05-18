@@ -13,16 +13,20 @@
 # limitations under the License.
 """ml-engine versions create command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.ml_engine import operations
 from googlecloudsdk.api_lib.ml_engine import versions_api
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.ml_engine import flags
 from googlecloudsdk.command_lib.ml_engine import versions_util
+from googlecloudsdk.command_lib.util.args import labels_util
 
 
 def _AddCreateArgs(parser):
   """Add common arguments for `versions create` command."""
   flags.GetModelName(positional=False, required=True).AddToParser(parser)
+  flags.GetDescriptionFlag('version').AddToParser(parser)
   flags.VERSION_NAME.AddToParser(parser)
   base.Argument(
       '--origin',
@@ -57,24 +61,33 @@ def _AddCreateArgs(parser):
               runtimeVersion: '1.0'
               manualScaling:
                 nodes: 10  # The number of nodes to allocate for this model.
+              autoScaling:
+                minNodes: 0  # The minimum number of nodes to allocate for this model.
+              labels:
+                user-defined-key: user-defined-value
 
           The name of the version must always be specified via the required
           VERSION argument.
+
+          Only one of manualScaling or autoScaling must be specified. If both
+          are specified in same yaml file an error will be returned.
 
           If an option is specified both in the configuration file and via
           command line arguments, the command line arguments override the
           configuration file.
       """
   ).AddToParser(parser)
+  labels_util.AddCreateLabelsFlags(parser)
 
 
-class Create(base.CreateCommand):
+@base.ReleaseTracks(base.ReleaseTrack.GA)
+class CreateGA(base.CreateCommand):
   """Create a new Cloud ML Engine version.
 
   Creates a new version of a Cloud ML Engine model.
 
   For more details on managing ML Engine models and versions see
-  <https://cloud.google.com/ml-engine/docs/how-tos/managing-models-jobs>
+  https://cloud.google.com/ml-engine/docs/how-tos/managing-models-jobs
   """
 
   @staticmethod
@@ -82,7 +95,9 @@ class Create(base.CreateCommand):
     _AddCreateArgs(parser)
 
   def Run(self, args):
-    return versions_util.Create(versions_api.VersionsClient(),
+    versions_client = versions_api.VersionsClient()
+    labels = versions_util.ParseCreateLabels(versions_client, args)
+    return versions_util.Create(versions_client,
                                 operations.OperationsClient(),
                                 args.version,
                                 model=args.model,
@@ -90,4 +105,78 @@ class Create(base.CreateCommand):
                                 staging_bucket=args.staging_bucket,
                                 runtime_version=args.runtime_version,
                                 config_file=args.config,
-                                async_=args.async)
+                                asyncronous=args.async,
+                                description=args.description,
+                                labels=labels)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.BETA)
+class CreateBeta(base.CreateCommand):
+  """Create a new Cloud ML Engine version.
+
+  Creates a new version of a Cloud ML Engine model.
+
+  For more details on managing ML Engine models and versions see
+  https://cloud.google.com/ml-engine/docs/how-tos/managing-models-jobs
+  """
+
+  @staticmethod
+  def Args(parser):
+    _AddCreateArgs(parser)
+    flags.FRAMEWORK_MAPPER.choice_arg.AddToParser(parser)
+    flags.AddPythonVersionFlag(parser, 'when creating the version')
+
+  def Run(self, args):
+    versions_client = versions_api.VersionsClient()
+    labels = versions_util.ParseCreateLabels(versions_client, args)
+    framework = flags.FRAMEWORK_MAPPER.GetEnumForChoice(args.framework)
+    return versions_util.Create(versions_client,
+                                operations.OperationsClient(),
+                                args.version,
+                                model=args.model,
+                                origin=args.origin,
+                                staging_bucket=args.staging_bucket,
+                                runtime_version=args.runtime_version,
+                                config_file=args.config,
+                                asyncronous=args.async,
+                                description=args.description,
+                                labels=labels,
+                                framework=framework,
+                                python_version=args.python_version)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class CreateAlpha(base.CreateCommand):
+  """Create a new Cloud ML Engine version.
+
+  Creates a new version of a Cloud ML Engine model.
+
+  For more details on managing ML Engine models and versions see
+  https://cloud.google.com/ml-engine/docs/how-tos/managing-models-jobs
+  """
+
+  @staticmethod
+  def Args(parser):
+    _AddCreateArgs(parser)
+    flags.MACHINE_TYPE.AddToParser(parser)
+    flags.FRAMEWORK_MAPPER.choice_arg.AddToParser(parser)
+    flags.AddPythonVersionFlag(parser, 'when creating the version')
+
+  def Run(self, args):
+    versions_client = versions_api.VersionsClient()
+    labels = versions_util.ParseCreateLabels(versions_client, args)
+    framework = flags.FRAMEWORK_MAPPER.GetEnumForChoice(args.framework)
+    return versions_util.Create(versions_client,
+                                operations.OperationsClient(),
+                                args.version,
+                                model=args.model,
+                                origin=args.origin,
+                                staging_bucket=args.staging_bucket,
+                                runtime_version=args.runtime_version,
+                                config_file=args.config,
+                                asyncronous=args.async,
+                                labels=labels,
+                                description=args.description,
+                                machine_type=args.machine_type,
+                                framework=framework,
+                                python_version=args.python_version)

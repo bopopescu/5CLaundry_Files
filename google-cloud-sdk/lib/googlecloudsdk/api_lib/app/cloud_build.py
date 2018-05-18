@@ -15,7 +15,9 @@
 
 """Utility methods to upload source to GCS and call Cloud Build service."""
 
+from __future__ import absolute_import
 import gzip
+import operator
 import os
 import StringIO
 import tarfile
@@ -30,6 +32,8 @@ from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.util import files
 from googlecloudsdk.core.util import times
+import six
+from six.moves import filter  # pylint: disable=redefined-builtin
 
 
 # Paths that shouldn't be ignored client-side.
@@ -59,10 +63,10 @@ def _CreateTar(source_dir, gen_files, paths, gz):
   for path in sorted(paths):
     full_path = os.path.join(root, path)
     t.add(full_path, arcname=path, recursive=False)
-  for name, contents in gen_files.iteritems():
+  for name, contents in six.iteritems(gen_files):
     genfileobj = StringIO.StringIO(contents)
     tar_info = tarfile.TarInfo(name=name)
-    tar_info.size = len(genfileobj.buf)
+    tar_info.size = len(genfileobj.buf)  # pytype: disable=attribute-error
     t.addfile(tar_info, fileobj=genfileobj)
     genfileobj.close()
   t.close()
@@ -236,6 +240,13 @@ def FixUpBuild(build, object_ref):
   messages = cloudbuild_util.GetMessagesModule()
   # Make a copy, so we don't modify the original
   build = encoding.CopyProtoMessage(build)
+  # CopyProtoMessage doesn't preserve the order of additionalProperties; sort
+  # these so that they're in a consistent order for tests (this *only* matters
+  # for tests).
+  if build.substitutions:
+    build.substitutions.additionalProperties.sort(
+        key=operator.attrgetter('key'))
+
   # Check that nothing we're expecting to fill in has been set already
   _ValidateBuildFields(build, ('source', 'timeout', 'logsBucket'))
 

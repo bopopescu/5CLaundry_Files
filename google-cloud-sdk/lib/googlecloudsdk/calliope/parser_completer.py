@@ -14,12 +14,14 @@
 
 """Calliope argparse argument completer objects."""
 
-import sys
+from __future__ import absolute_import
+from __future__ import unicode_literals
+import os
 
-from googlecloudsdk.command_lib.util import deprecated_completers
-from googlecloudsdk.core import properties
+from googlecloudsdk.core.cache import resource_cache
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.console import progress_tracker
+import six
 
 
 class ArgumentCompleter(object):
@@ -28,11 +30,19 @@ class ArgumentCompleter(object):
   Attributes:
     _argument: The argparse argument object.
     _completer_class: The uninstantiated completer class.
+    _parsed_args: argparse parsed_args, used here if not known at __call__ time.
   """
 
-  def __init__(self, completer_class, argument):
+  def __init__(self, completer_class, parsed_args=None, argument=None):
     self._completer_class = completer_class
     self._argument = argument
+    self._parsed_args = parsed_args
+    if '_ARGCOMPLETE' in os.environ:
+      # This progress tracker lets long completions run in a separate process.
+      # That can only happen when calliope is in argcomplete mode.
+      self._progress_tracker = progress_tracker.CompletionProgressTracker
+    else:
+      self._progress_tracker = progress_tracker.ProgressTracker
 
   @property
   def completer_class(self):
@@ -41,42 +51,67 @@ class ArgumentCompleter(object):
   @classmethod
   def _MakeCompletionErrorMessages(cls, msgs):
     """Returns a msgs list that will display 1 per line as completions."""
-    attr = console_attr.GetConsoleAttr(out=sys.stdin)
+    attr = console_attr.GetConsoleAttr()
     width, _ = attr.GetTermSize()
     # No worries for long msg: negative_integer * ' ' yields ''.
-    return [msg + (width / 2 - len(msg)) * ' ' for msg in msgs]
+    return [msg + (width // 2 - len(msg)) * ' ' for msg in msgs]
+
+  def _HandleCompleterException(self, exception, prefix, completer=None):
+    """Handles completer errors by crafting two "completions" from exception.
+
+    Fatal completer errors return two "completions", each an error
+    message that is displayed by the shell completers, and look more
+    like a pair of error messages than completions. This is much better than
+    the default that falls back to the file completer with no indication of
+    errors, typically yielding the list of all files in the current directory.
+
+    NOTICE: Each message must start with different characters, otherwise they
+    will be taken as valid completions. Also, the messages are sorted in the
+    display, so the messages here are displayed with ERROR first and REASON
+    second.
+
+    Args:
+      exception: The completer exception.
+      prefix: The current prefix string to be matched by the completer.
+      completer: The instantiated completer object or None.
+
+    Returns:
+      Two "completions" crafted from the completer exception.
+    """
+    if completer:
+      completer_name = completer.collection
+    else:
+      completer_name = self._completer_class.__name__
+    return self._MakeCompletionErrorMessages([
+        '{}ERROR: {} resource completer failed.'.format(
+            prefix, completer_name),
+        '{}REASON: {}'.format(prefix, six.text_type(exception)),
+    ])
 
   def __call__(self, prefix='', parsed_args=None, **kwargs):
-    """A completer function called by argparse in arg_complete mode."""
-    with progress_tracker.CompletionProgressTracker():
-      completer = None
+    """A completer function suitable for argparse."""
+    if not isinstance(self._completer_class, type):
+      # A function-type completer.
       try:
-        completer = self._completer_class()
-        parameter_info = completer.ParameterInfo(parsed_args, self._argument)
-        if (hasattr(completer, 'GetListCommand') and not isinstance(
-            completer, deprecated_completers.DeprecatedListCommandCompleter)):
-          list_command = ' '.join(completer.GetListCommand(parameter_info))
-          completer = deprecated_completers.DeprecatedListCommandCompleter(
-              collection=completer.collection, list_command=list_command)
-        return completer.Complete(prefix, parameter_info)
-      except (Exception, SystemExit) as e:  # pylint: disable=broad-except, e shall not pass
-        # Fatal completer errors return two "completions", each an error
-        # message that is displayed by the shell completers, and look more
-        # like a pair of error messages than completions.  This is much better
-        # than the default that falls back to the file completer, typically
-        # yielding the list of all files in the current directory.
-        #
-        # NOTICE: Each message must start with different characters,
-        # otherwise they will be taken as valid completions.  Also, the
-        # messages are sorted in the display, so choose the first words wisely.
-        if properties.VALUES.core.print_completion_tracebacks.Get():
-          raise
-        if completer:
-          completer_name = completer.collection
+        return self._completer_class(prefix)
+      except BaseException as e:  # pylint: disable=broad-except, e shall not pass
+        return self._HandleCompleterException(e, prefix=prefix)
+    if not parsed_args:
+      parsed_args = self._parsed_args
+    with self._progress_tracker():
+      with resource_cache.ResourceCache() as cache:
+        if parsed_args and len(
+            parsed_args._GetCommand().ai.positional_completers) > 1:  # pylint: disable=protected-access
+          qualified_parameter_names = {'collection'}
         else:
-          completer_name = self._completer_class.__name__
-        return self._MakeCompletionErrorMessages([
-            u'{} [[ERROR: {} resource completer failed.]]'.format(
-                prefix, completer_name),
-            u'{} [[REASON: {}]]'.format(prefix, unicode(e)),
-        ])
+          qualified_parameter_names = set()
+        completer = None
+        try:
+          completer = self._completer_class(
+              cache=cache,
+              qualified_parameter_names=qualified_parameter_names)
+          parameter_info = completer.ParameterInfo(parsed_args, self._argument)
+          return completer.Complete(prefix, parameter_info)
+        except BaseException as e:  # pylint: disable=broad-except, e shall not pass
+          return self._HandleCompleterException(
+              e, prefix=prefix, completer=completer)

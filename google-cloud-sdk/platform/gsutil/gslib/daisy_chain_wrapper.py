@@ -22,10 +22,9 @@ import time
 
 from gslib.cloud_api import BadRequestException
 from gslib.cloud_api import CloudApi
-from gslib.encryption_helper import CryptoTupleFromKey
-from gslib.util import CreateLock
-from gslib.util import TRANSFER_BUFFER_SIZE
-
+from gslib.utils import constants
+from gslib.utils import parallelism_framework_util
+from gslib.utils.encryption_helper import CryptoKeyWrapperFromKey
 
 # This controls the amount of bytes downloaded per download request.
 # We do not buffer this many bytes in memory at a time - that is controlled by
@@ -79,8 +78,8 @@ class DaisyChainWrapper(object):
   to copy a file.
 
   This class is coupled with the XML and JSON implementations in that it
-  expects that small buffers (maximum of TRANSFER_BUFFER_SIZE) in size will be
-  used.
+  expects that small buffers (maximum of constants.TRANSFER_BUFFER_SIZE) in
+  size will be used.
   """
 
   def __init__(self, src_url, src_obj_size, gsutil_api,
@@ -121,16 +120,15 @@ class DaisyChainWrapper(object):
     self.last_data = None
 
     # Protects buffer, position, bytes_buffered, last_position, and last_data.
-    self.lock = CreateLock()
+    self.lock = parallelism_framework_util.CreateLock()
 
     # Protects download_exception.
-    self.download_exception_lock = CreateLock()
+    self.download_exception_lock = parallelism_framework_util.CreateLock()
 
     self.src_obj_size = src_obj_size
     self.src_url = src_url
     self.compressed_encoding = compressed_encoding
-    self.decryption_tuple = CryptoTupleFromKey(decryption_key)
-
+    self.decryption_tuple = CryptoKeyWrapperFromKey(decryption_key)
 
     # This is safe to use the upload and download thread because the download
     # thread calls only GetObjectMedia, which creates a new HTTP connection
@@ -146,7 +144,6 @@ class DaisyChainWrapper(object):
     self.download_started = threading.Event()
     self.stop_download = threading.Event()
     self.StartDownloadThread(progress_callback=self.progress_callback)
-    # Python 2.6 will return None on timeout.
     if self.download_started.wait(60) == False:
       raise Exception('Could not start download thread after 60 seconds.')
 
@@ -214,10 +211,10 @@ class DaisyChainWrapper(object):
       # If there is no data left or 0 bytes were requested, return an empty
       # string so callers can call still call len() and read(0).
       return ''
-    if amt is None or amt > TRANSFER_BUFFER_SIZE:
+    if amt is None or amt > constants.TRANSFER_BUFFER_SIZE:
       raise BadRequestException(
           'Invalid HTTP read size %s during daisy chain operation, '
-          'expected <= %s.' % (amt, TRANSFER_BUFFER_SIZE))
+          'expected <= %s.' % (amt, constants.TRANSFER_BUFFER_SIZE))
 
     while True:
       with self.lock:

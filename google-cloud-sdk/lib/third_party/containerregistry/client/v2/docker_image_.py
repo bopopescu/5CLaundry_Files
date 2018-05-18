@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """This package provides DockerImage for examining docker_build outputs."""
 
 
@@ -27,8 +26,8 @@ import tarfile
 
 from containerregistry.client import docker_creds
 from containerregistry.client import docker_name
+from containerregistry.client.v2 import docker_digest
 from containerregistry.client.v2 import docker_http
-from containerregistry.client.v2 import util
 import httplib2
 
 
@@ -39,7 +38,7 @@ class DigestMismatchedError(Exception):
 class DockerImage(object):
   """Interface for implementations that interact with Docker images."""
 
-  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overriden.
+  __metaclass__ = abc.ABCMeta  # For enforcing that methods are overridden.
 
   def fs_layers(self):
     """The ordered collection of filesystem layers that comprise this image."""
@@ -52,7 +51,7 @@ class DockerImage(object):
 
   def digest(self):
     """The digest of the manifest."""
-    return util.Digest(self.manifest())
+    return docker_digest.SignedManifestToSHA256(self.manifest())
 
   # pytype: disable=bad-return-type
   @abc.abstractmethod
@@ -62,6 +61,7 @@ class DockerImage(object):
     Returns:
       The raw json manifest
     """
+
   # pytype: enable=bad-return-type
 
   def blob_size(self, digest):
@@ -79,6 +79,7 @@ class DockerImage(object):
     Returns:
       The raw blob string of the layer.
     """
+
   # pytype: enable=bad-return-type
 
   def uncompressed_blob(self, digest):
@@ -96,26 +97,27 @@ class DockerImage(object):
   def __exit__(self, unused_type, unused_value, unused_traceback):
     """Close the image."""
 
+  def __str__(self):
+    """A human-readable representation of the image."""
+    return str(type(self))
+
 
 class FromRegistry(DockerImage):
   """This accesses a docker image hosted on a registry (non-local)."""
 
-  def __init__(
-      self,
-      name,
-      basic_creds,
-      transport):
+  def __init__(self, name,
+               basic_creds,
+               transport):
     self._name = name
     self._creds = basic_creds
     self._original_transport = transport
     self._response = {}
 
-  def _content(self, suffix, cache=True):
+  def _content(self, suffix, cache = True):
     """Fetches content of the resources from registry by http calls."""
     if isinstance(self._name, docker_name.Repository):
       suffix = '{repository}/{suffix}'.format(
-          repository=self._name.repository,
-          suffix=suffix)
+          repository=self._name.repository, suffix=suffix)
 
     if suffix in self._response:
       return self._response[suffix]
@@ -170,7 +172,7 @@ class FromRegistry(DockerImage):
       assert isinstance(self._name, docker_name.Digest)
       c = self._content('manifests/' + self._name.digest)
       # v2 removes signatures to compute the manifest digest, this is hard.
-      computed = util.Digest(c)
+      computed = docker_digest.SignedManifestToSHA256(c)
       if validate and computed != self._name.digest:
         raise DigestMismatchedError(
             'The returned manifest\'s digest did not match requested digest, '
@@ -182,8 +184,7 @@ class FromRegistry(DockerImage):
     suffix = 'blobs/' + digest
     if isinstance(self._name, docker_name.Repository):
       suffix = '{repository}/{suffix}'.format(
-          repository=self._name.repository,
-          suffix=suffix)
+          repository=self._name.repository, suffix=suffix)
 
     resp, unused_content = self._transport.Request(
         '{scheme}://{registry}/v2/{suffix}'.format(
@@ -207,7 +208,7 @@ class FromRegistry(DockerImage):
           '%s vs. %s' % (digest, computed if c else '(content was empty)'))
     return c
 
-  def catalog(self, page_size=100):
+  def catalog(self, page_size = 100):
     # TODO(user): Handle docker_name.Repository for /v2/<name>/_catalog
     if isinstance(self._name, docker_name.Repository):
       raise ValueError('Expected docker_name.Registry for "name"')
@@ -240,11 +241,11 @@ class FromRegistry(DockerImage):
   def __exit__(self, unused_type, unused_value, unused_traceback):
     pass
 
+  def __str__(self):
+    return '<docker_image.FromRegistry name: {}>'.format(str(self._name))
 
-def _in_whiteout_dir(
-    fs,
-    name
-):
+
+def _in_whiteout_dir(fs, name):
   while name:
     dirname = os.path.dirname(name)
     if name == dirname:
@@ -253,6 +254,7 @@ def _in_whiteout_dir(
       return True
     name = dirname
   return False
+
 
 _WHITEOUT_PREFIX = '.wh.'
 

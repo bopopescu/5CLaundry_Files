@@ -14,9 +14,12 @@
 
 """Flags and helpers for the compute related commands."""
 
-import argparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import functools
+import enum  # pylint: disable=unused-import, for pytype
 
+from googlecloudsdk.api_lib.compute import filter_rewrite
 from googlecloudsdk.api_lib.compute.regions import service as regions_service
 from googlecloudsdk.api_lib.compute.zones import service as zones_service
 from googlecloudsdk.calliope import actions
@@ -25,13 +28,17 @@ from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.command_lib.compute import scope as compute_scope
 from googlecloudsdk.command_lib.compute import scope_prompter
 from googlecloudsdk.core import exceptions
+from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 from googlecloudsdk.core.console import console_io
+from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.util import text
+import six
 
 ZONE_PROPERTY_EXPLANATION = """\
-If not specified, you may be prompted to select a zone.
+If not specified and the ``compute/zone'' property isn't set, you
+may be prompted to select a zone.
 
 To avoid prompting when this flag is omitted, you can set the
 ``compute/zone'' property:
@@ -59,7 +66,7 @@ A list of zones can be fetched by running:
 """
 
 REGION_PROPERTY_EXPLANATION = """\
-If not specified, you will be prompted to select a region.
+If not specified, you may be prompted to select a region.
 
 To avoid prompting when this flag is omitted, you can set the
 ``compute/region'' property:
@@ -79,7 +86,7 @@ variable ``CLOUDSDK_COMPUTE_REGION''.
 """
 
 REGION_PROPERTY_EXPLANATION_NO_DEFAULT = """\
-If not specified, you will be prompted to select a region.
+If not specified, you may be prompted to select a region.
 
 A list of regions can be fetched by running:
 
@@ -227,11 +234,12 @@ class ResourceArgScopes(object):
     self.scopes = {}
 
   def AddScope(self, scope, collection):
+    # type: (enum.Enum, str) -> None
     self.scopes[scope] = ResourceArgScope(scope, self.flag_prefix, collection)
 
   def SpecifiedByArgs(self, args):
     """Given argparse args return selected scope and its value."""
-    for resource_scope in self.scopes.itervalues():
+    for resource_scope in six.itervalues(self.scopes):
       scope_value = getattr(args, resource_scope.flag_name, None)
       if scope_value is not None:
         return resource_scope, scope_value
@@ -240,11 +248,11 @@ class ResourceArgScopes(object):
   def GetImplicitScope(self, default_scope=None):
     """See if there is no ambiguity even if scope is not known from args."""
     if len(self.scopes) == 1:
-      return next(self.scopes.itervalues())
+      return next(six.itervalues(self.scopes))
     return default_scope
 
   def __iter__(self):
-    return iter(self.scopes.itervalues())
+    return iter(six.itervalues(self.scopes))
 
   def __contains__(self, scope):
     return scope in self.scopes
@@ -321,7 +329,7 @@ class ResourceResolver(object):
       New instance of ResourceResolver.
     """
     scopes = ResourceArgScopes(flag_prefix=scope_flag_prefix)
-    for scope, resource in scopes_map.iteritems():
+    for scope, resource in six.iteritems(scopes_map):
       scopes.AddScope(scope, resource)
     return ResourceResolver(scopes, resource_name)
 
@@ -499,7 +507,7 @@ class ResourceResolver(object):
         api_resource_registry)
 
     # Now unpack each element.
-    refs = [ref[0] for ref in refs]
+    refs = [ref[0] for ref in refs]  # type: list[resources.Resource]
 
     # Make sure correct collection was given for each resource, for example
     # URLs have implicit collections.
@@ -556,7 +564,8 @@ class ResourceArgument(object):
   def __init__(self, name=None, resource_name=None, completer=None,
                plural=False, required=True, zonal_collection=None,
                regional_collection=None, global_collection=None,
-               region_explanation=None, zone_explanation=None,
+               region_explanation=None, region_hidden=False,
+               zone_explanation=None, zone_hidden=False,
                short_help=None, detailed_help=None, custom_plural=None):
 
     """Constructor.
@@ -575,11 +584,11 @@ class ResourceArgument(object):
                               and uses this collection to resolve as
                               global resource.
       region_explanation: str, long help that will be given for region flag,
-                               empty by default. Provide argparse.SUPPRESS to
-                               hide in help.
+                               empty by default.
+      region_hidden: bool, Hide region in help if True.
       zone_explanation: str, long help that will be given for zone flag, empty
-                             by default. Provide argparse.SUPPRESS to hide in
-                             help.
+                             by default.
+      zone_hidden: bool, Hide region in help if True.
       short_help: str, help for the flag being added, if not provided help text
                        will be 'The name[s] of the ${resource_name}[s].'.
       detailed_help: str, detailed help for the flag being added, if not
@@ -620,7 +629,9 @@ class ResourceArgument(object):
       self.scopes.AddScope(compute_scope.ScopeEnum.GLOBAL,
                            collection=global_collection)
     self._region_explanation = region_explanation or ''
+    self._region_hidden = region_hidden
     self._zone_explanation = zone_explanation or ''
+    self._zone_hidden = zone_hidden
     self._resource_resolver = ResourceResolver(self.scopes, resource_name)
 
   # TODO(b/31933786) remove cust_metavar once surface supports metavars for
@@ -643,7 +654,7 @@ class ResourceArgument(object):
     elif self._short_help:
       params['help'] = self._short_help
     else:
-      params['help'] = 'The name{} of the {} to {}.'.format(
+      params['help'] = 'Name{} of the {} to {}.'.format(
           's' if self.plural else '',
           text.Pluralize(
               int(self.plural) + 1, self.resource_name or '',
@@ -675,7 +686,7 @@ class ResourceArgument(object):
           resource_type=self.resource_name,
           operation_type=operation_type,
           explanation=self._zone_explanation,
-          hidden=self._zone_explanation is argparse.SUPPRESS,
+          hidden=self._zone_hidden,
           plural=self.plural,
           custom_plural=self.custom_plural)
 
@@ -686,7 +697,7 @@ class ResourceArgument(object):
           resource_type=self.resource_name,
           operation_type=operation_type,
           explanation=self._region_explanation,
-          hidden=self._region_explanation is argparse.SUPPRESS,
+          hidden=self._region_hidden,
           plural=self.plural,
           custom_plural=self.custom_plural)
 
@@ -763,3 +774,50 @@ def AddRegexArg(parser):
       A regular expression to filter the names of the results on. Any names
       that do not match the entire regular expression will be filtered out.
       """)
+
+
+def AddPolicyFileFlag(parser):
+  parser.add_argument('policy_file', help="""\
+      JSON or YAML file containing the IAM policy.""")
+
+
+def AddStorageLocationFlag(parser, resource):
+  parser.add_argument(
+      '--storage-location',
+      metavar='LOCATION',
+      help="""\
+      Google Cloud Storage location, either regional or multi-regional, where
+      {} content is to be stored. If absent, a nearby regional or
+      multi-regional location is chosen automatically.
+      """.format(resource))
+
+
+def RewriteFilter(args, message=None, frontend_fields=None):
+  """Rewrites args.filter into client and server filter expression strings.
+
+  Usage:
+
+    args.filter, request_filter = flags.RewriteFilter(args)
+
+  Args:
+    args: The parsed args namespace containing the filter expression args.filter
+      and display_info.
+    message: The response resource message proto for the request.
+    frontend_fields: A set of dotted key names supported client side only.
+
+  Returns:
+    A (client_filter, server_filter) tuple of filter expression strings.
+    None means the filter does not need to applied on the respective
+    client/server side.
+  """
+  if not args.filter:
+    return None, None
+  display_info = args.GetDisplayInfo()
+  defaults = resource_projection_spec.ProjectionSpec(
+      symbols=display_info.transforms,
+      aliases=display_info.aliases)
+  client_filter, server_filter = filter_rewrite.Rewriter(
+      message=message, frontend_fields=frontend_fields).Rewrite(
+          args.filter, defaults=defaults)
+  log.info('client_filter=%r server_filter=%r', client_filter, server_filter)
+  return client_filter, server_filter

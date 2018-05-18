@@ -20,18 +20,26 @@ will be accepted, and a consistent python object will be returned for use in
 code.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import collections
 import copy
 import re
-import types
-import urllib
 
+# pytype: disable=import-error
 from googlecloudsdk.api_lib.util import apis_internal
 from googlecloudsdk.api_lib.util import apis_util
 from googlecloudsdk.api_lib.util import resource as resource_util
+# pytype: enable=import-error
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import properties
 
+import six
+from six.moves import map  # pylint: disable=redefined-builtin
+from six.moves import urllib
+from six.moves import zip  # pylint: disable=redefined-builtin
 import uritemplate
 
 _COLLECTION_SUB_RE = r'[a-zA-Z_]+(?:\.[a-zA-Z0-9_]+)+'
@@ -81,6 +89,31 @@ class AmbiguousResourcePath(Error):
         'can not register another one {1}'.format(parser1, parser2))
 
 
+class ParentCollectionResolutionException(Error):
+  """Exception for when the parent collection cannot be computed automatically.
+  """
+
+  def __init__(self, collection, params):
+    super(ParentCollectionResolutionException, self).__init__(
+        'Could not resolve the parent collection of collection [{collection}]. '
+        'No collections found with parameters [{params}]'.format(
+            collection=collection, params=', '.join(params)))
+
+
+class ParentCollectionMismatchException(Error):
+  """Exception when the parent collection does not have the expected params."""
+
+  def __init__(self, collection, parent_collection, expected_params,
+               actual_params):
+    super(ParentCollectionMismatchException, self).__init__(
+        'The parent collection [{parent_collection}] of collection '
+        '[{collection}] does have have the expected parameters. Expected '
+        '[{expected_params}], found [{actual_params}].'.format(
+            parent_collection=parent_collection, collection=collection,
+            expected_params=', '.join(expected_params),
+            actual_params=', '.join(actual_params)))
+
+
 class UserError(exceptions.Error, Error):
   """Exceptions that are caused by user input."""
 
@@ -128,20 +161,24 @@ class UnknownCollectionException(UserError):
 class InvalidCollectionException(UserError):
   """A command line that was given did not specify a collection."""
 
-  def __init__(self, collection):
-    super(InvalidCollectionException, self).__init__(
-        'unknown collection [{collection}]'.format(collection=collection))
+  def __init__(self, collection, api_version=None):
+    message = 'unknown collection [{collection}]'.format(collection=collection)
+    if api_version:
+      message += ' for API version [{version}]'.format(version=api_version)
+    super(InvalidCollectionException, self).__init__(message)
 
 
 class _ResourceParser(object):
   """Class that turns command-line arguments into a cloud resource message."""
 
-  def __init__(self, collection_info):
+  def __init__(self, registry, collection_info):
     """Create a _ResourceParser for a given collection.
 
     Args:
+      registry: Registry, The resource registry this parser belongs to.
       collection_info: resource_util.CollectionInfo, description for collection.
     """
+    self.registry = registry
     self.collection_info = collection_info
 
   def ParseRelativeName(
@@ -172,9 +209,9 @@ class _ResourceParser(object):
     params = self.collection_info.GetParams(subcollection)
     fields = match.groups()
     if url_unescape:
-      fields = map(urllib.unquote, fields)
+      fields = map(urllib.parse.unquote, fields)
 
-    return Resource(self.collection_info, subcollection,
+    return Resource(self.registry, self.collection_info, subcollection,
                     param_values=dict(zip(params, fields)),
                     endpoint_url=base_url)
 
@@ -269,8 +306,8 @@ class _ResourceParser(object):
       elif default_resolver:
         param_values[param] = default_resolver(param)
 
-    ref = Resource(self.collection_info, subcollection, param_values,
-                   base_url)
+    ref = Resource(self.registry, self.collection_info, subcollection,
+                   param_values, base_url)
     return ref
 
   def __str__(self):
@@ -284,7 +321,7 @@ class _ResourceParser(object):
 class Resource(object):
   """Information about a Cloud resource."""
 
-  def __init__(self, collection_info, subcollection, param_values,
+  def __init__(self, registry, collection_info, subcollection, param_values,
                endpoint_url):
     """Create a Resource object that may be partially resolved.
 
@@ -293,6 +330,7 @@ class Resource(object):
     class.
 
     Args:
+      registry: Registry, The resource registry this parser belongs to.
       collection_info: resource_util.CollectionInfo, The collection description
           for this resource.
       subcollection: str, id for subcollection of this collection.
@@ -302,22 +340,22 @@ class Resource(object):
     Raises:
       RequiredFieldOmittedException: if param_values have None value.
     """
+    self._registry = registry
     self._collection_info = collection_info
     self._endpoint_url = endpoint_url or collection_info.base_url
     self._subcollection = subcollection
     self._path = collection_info.GetPath(subcollection)
     self._params = collection_info.GetParams(subcollection)
-    for param, value in param_values.iteritems():
+    for param, value in six.iteritems(param_values):
       if value is None:
         raise RequiredFieldOmittedException(collection_info.full_name, param)
       setattr(self, param, value)
 
     self._self_link = '{0}{1}'.format(
         self._endpoint_url, uritemplate.expand(self._path, self.AsDict()))
-    if (self._collection_info.api_name
-        in ('compute', 'clouduseraccounts', 'storage')):
+    if self._collection_info.api_name in ('compute', 'storage'):
       # TODO(b/15425944): Unquote URLs for now for these apis.
-      self._self_link = urllib.unquote(self._self_link)
+      self._self_link = urllib.parse.unquote(self._self_link)
     self._initialized = True
 
   def __setattr__(self, key, value):
@@ -364,13 +402,13 @@ class Resource(object):
        then relative name is
          projects/myprj/topics/mytopic.
     """
-    escape_func = urllib.quote if url_escape else lambda x, safe: x
+    escape_func = urllib.parse.quote if url_escape else lambda x, safe: x
 
     effective_params = dict(
         [(k, escape_func(getattr(self, k), safe=''))
          for k in self._params])
 
-    return urllib.unquote(
+    return urllib.parse.unquote(
         uritemplate.expand(self._path, effective_params))
 
   def AsDict(self):
@@ -384,6 +422,59 @@ class Resource(object):
   def SelfLink(self):
     """Returns URI for this resource."""
     return self._self_link
+
+  def Parent(self, parent_collection=None):
+    """Gets a reference to the parent of this resource.
+
+    If parent_collection is not given, we attempt to automatically determine it
+    by finding the collection within the same API that has the correct set of
+    URI parameters for what we expect. If the parent collection cannot be
+    automatically determined, it can be specified manually.
+
+    Args:
+      parent_collection: str, The full collection name of the parent resource.
+        Only required if it cannot be automatically determined.
+
+    Raises:
+      ParentCollectionResolutionException: If the parent collection cannot be
+        determined or doesn't exist.
+      ParentCollectionMismatchException: If the given or auto-resolved parent
+       collection does not have the expected URI parameters.
+
+    Returns:
+      Resource, The reference to the parent resource.
+    """
+    parent_params = self._params[:-1]
+    all_collections = self._registry.parsers_by_collection[
+        self._collection_info.api_name][self._collection_info.api_version]
+
+    if parent_collection:
+      # Parent explicitly provided. Make sure it exists and that the params
+      # match what we would expect the parent to have.
+      try:
+        parent_parser = all_collections[parent_collection]
+      except KeyError:
+        raise UnknownCollectionException(parent_collection)
+      actual_parent_params = parent_parser.collection_info.GetParams('')
+      if actual_parent_params != parent_params:
+        raise ParentCollectionMismatchException(
+            self.Collection(), parent_collection, parent_params,
+            actual_parent_params)
+    else:
+      # Auto resolve the parent collection by finding the collection with
+      # matching parameters.
+      for collection, parser in six.iteritems(all_collections):
+        if parser.collection_info.GetParams('') == parent_params:
+          parent_collection = collection
+          break
+      if not parent_collection:
+        raise ParentCollectionResolutionException(
+            self.Collection(), parent_params)
+
+    parent_param_values = {k: getattr(self, k) for k in parent_params}
+    ref = self._registry.Parse(None, parent_param_values,
+                               collection=parent_collection)
+    return ref
 
   def __str__(self):
     return self._self_link
@@ -410,9 +501,9 @@ def _GRIsAreEnabled():
 
 
 def _CopyNestedDictSpine(maybe_dictionary):
-  if isinstance(maybe_dictionary, types.DictType):
+  if isinstance(maybe_dictionary, dict):
     result = {}
-    for key, val in maybe_dictionary.iteritems():
+    for key, val in six.iteritems(maybe_dictionary):
       result[key] = _CopyNestedDictSpine(val)
     return result
   else:
@@ -673,7 +764,7 @@ class Registry(object):
 
     Args:
       api_name: str, The API name.
-      api_version: if available, the version of the API being registered.
+      api_version: str, The API version, None for the default version.
     Returns:
       api version which was registered.
     """
@@ -709,7 +800,7 @@ class Registry(object):
     """
     api_name = collection_info.api_name
     api_version = collection_info.api_version
-    parser = _ResourceParser(collection_info)
+    parser = _ResourceParser(self, collection_info)
 
     collection_parsers = (self.parsers_by_collection.setdefault(api_name, {})
                           .setdefault(api_version, {}))
@@ -717,7 +808,7 @@ class Registry(object):
     if not collection_subpaths:
       collection_subpaths = {'': collection_info.path}
 
-    for subname, path in collection_subpaths.iteritems():
+    for subname, path in six.iteritems(collection_subpaths):
       collection_name = collection_info.full_name + (
           '.' + subname if subname else '')
       existing_parser = collection_parsers.get(collection_name)
@@ -727,7 +818,8 @@ class Registry(object):
                                      existing_parser.collection_info.base_url])
       collection_parsers[collection_name] = parser
 
-      self._AddParserForUriPath(api_name, api_version, subname, parser, path)
+      if collection_info.enable_uri_parsing:
+        self._AddParserForUriPath(api_name, api_version, subname, parser, path)
 
   def _AddParserForUriPath(self, api_name, api_version,
                            subcollection, parser, path):
@@ -740,7 +832,7 @@ class Registry(object):
     # the instance's get method's relative path. At the leaf, a key of
     # None indicates that the URL can finish here, and provides the parser
     # for this resource.
-    cur_level = self.parsers_by_url
+    cur_level = self.parsers_by_url  # type: dict
     while tokens:
       token = tokens.pop(0)
       if token[0] == '{' and token[-1] == '}':
@@ -751,13 +843,14 @@ class Registry(object):
     if None in cur_level:
       raise AmbiguousResourcePath(cur_level[None], parser)
 
-    cur_level[None] = subcollection, parser
+    cur_level[None] = subcollection, parser  # pytype: disable=attribute-error
 
-  def GetParserForCollection(self, collection):
+  def GetParserForCollection(self, collection, api_version=None):
     """Returns a parser object for collection.
 
     Args:
       collection: str, The resource collection name.
+      api_version: str, The API version, None for the default version.
 
     Raises:
       InvalidCollectionException: If there is no parser.
@@ -767,16 +860,16 @@ class Registry(object):
     """
     # Register relevant API if necessary and possible
     api_name = _APINameFromCollection(collection)
-    api_version = self.RegisterApiByName(api_name)
+    api_version = self.RegisterApiByName(api_name, api_version=api_version)
 
     parser = (self.parsers_by_collection
               .get(api_name, {}).get(api_version, {}).get(collection, None))
     if parser is None:
-      raise InvalidCollectionException(collection)
+      raise InvalidCollectionException(collection, api_version)
     return parser
 
   def ParseResourceId(self, collection, resource_id, kwargs, validate=True,
-                      default_resolver=None):
+                      api_version=None, default_resolver=None):
     """Parse a resource id string into a Resource.
 
     Args:
@@ -798,6 +891,7 @@ class Registry(object):
             strings character by character. Completers need to do the
             string => parameters => string round trip with validate=False to
             handle the "add character TAB" cycle.
+      api_version: str, The API version, None for the default version.
       default_resolver: func(str) => str, a default param resolver function
         called if kwargs doesn't resolve a param.
 
@@ -822,9 +916,9 @@ class Registry(object):
     if not collection:
       raise UnknownCollectionException(resource_id)
 
-    parser = self.GetParserForCollection(collection)
-    base_url = _GetApiBaseUrl(parser.collection_info.api_name,
-                              parser.collection_info.api_version)
+    parser = self.GetParserForCollection(collection, api_version=api_version)
+    base_url = GetApiBaseUrl(parser.collection_info.api_name,
+                             parser.collection_info.api_version)
 
     parser_collection = parser.collection_info.full_name
     subcollection = ''
@@ -841,7 +935,7 @@ class Registry(object):
               .get(api_name, {}).get(api_version, {})
               .get(collection_name, None))
     if parser is None:
-      raise InvalidCollectionException(collection_name)
+      raise InvalidCollectionException(collection_name, api_version)
     return parser.collection_info
 
   def ParseURL(self, url):
@@ -882,6 +976,9 @@ class Registry(object):
     default_enpoint_url = apis_internal._GetDefaultEndpointUrl(url)
     api_name, api_version, resource_path = (
         resource_util.SplitDefaultEndpointUrl(default_enpoint_url))
+    # Force hyphenated API names to use underscores to conform with apitools
+    # generated clients
+    api_name = api_name.replace('-', '_')
     if not url.startswith(default_enpoint_url):
       # Use last registered api version in case of override.
       api_version = self.registered_apis.get(api_name, [api_version])[-1]
@@ -916,7 +1013,7 @@ class Registry(object):
 
       # If the literal token is not here, see if this can be a parameter.
       param, next_level = '', {}  # Predefine these to silence linter.
-      for param, next_level in cur_level.iteritems():
+      for param, next_level in six.iteritems(cur_level):
         if param == '{}':
           break
       else:
@@ -926,12 +1023,12 @@ class Registry(object):
       if len(next_level) == 1 and None in next_level:
         # This is the last parameter so we can combine the remaining tokens.
         token = '/'.join(tokens[i:])
-        params.append(urllib.unquote(token))
+        params.append(urllib.parse.unquote(token))
         cur_level = next_level
         break
 
       # Clean up the provided value
-      params.append(urllib.unquote(token))
+      params.append(urllib.parse.unquote(token))
 
       # Keep digging down.
       cur_level = next_level
@@ -945,11 +1042,12 @@ class Registry(object):
         None, params, base_url=endpoint,
         subcollection=subcollection)
 
-  def ParseRelativeName(self, relative_name, collection, url_unescape=False):
+  def ParseRelativeName(self, relative_name, collection, url_unescape=False,
+                        api_version=None):
     """Parser relative names. See Resource.RelativeName() method."""
-    parser = self.GetParserForCollection(collection)
-    base_url = _GetApiBaseUrl(parser.collection_info.api_name,
-                              parser.collection_info.api_version)
+    parser = self.GetParserForCollection(collection, api_version=api_version)
+    base_url = GetApiBaseUrl(parser.collection_info.api_name,
+                             parser.collection_info.api_version)
     subcollection = parser.collection_info.GetSubcollection(collection)
 
     return parser.ParseRelativeName(
@@ -977,7 +1075,7 @@ class Registry(object):
         kwargs={'bucket': match.group(1)})
 
   def Parse(self, line, params=None, collection=None, enforce_collection=True,
-            validate=True, default_resolver=None):
+            validate=True, default_resolver=None, api_version=None):
     """Parse a Cloud resource from a command line.
 
     Args:
@@ -994,6 +1092,7 @@ class Registry(object):
         construction.
       default_resolver: func(str) => str, a default param resolver function
         called if params doesn't resolve a param.
+      api_version: str, The API version, None for the default version.
 
     Returns:
       A resource object.
@@ -1052,6 +1151,7 @@ class Registry(object):
       raise InvalidResourceException(line)
 
     return self.ParseResourceId(collection, line, params or {},
+                                api_version=api_version,
                                 validate=validate,
                                 default_resolver=default_resolver)
 
@@ -1078,7 +1178,7 @@ class Registry(object):
 REGISTRY = Registry()
 
 
-def _GetApiBaseUrl(api_name, api_version):
+def GetApiBaseUrl(api_name, api_version):
   """Determine base url to use for resources of given version."""
   # Use current override endpoint for this resource name.
   endpoint_override_property = getattr(
@@ -1094,5 +1194,5 @@ def _GetApiBaseUrl(api_name, api_version):
       _, url_version, _ = resource_util.SplitDefaultEndpointUrl(
           client_class.BASE_URL)
       if url_version is None:
-        base_url += api_version + u'/'
+        base_url += api_version + '/'
   return base_url

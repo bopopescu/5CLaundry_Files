@@ -11,39 +11,20 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub subscriptions update command."""
 
-from apitools.base.py import exceptions as api_ex
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
+from googlecloudsdk.api_lib.pubsub import subscriptions
 from googlecloudsdk.api_lib.util import exceptions
-from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.pubsub import flags
+from googlecloudsdk.command_lib.pubsub import resource_args
 from googlecloudsdk.command_lib.pubsub import util
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import log
-
-
-DEFAULT_MESSAGE_RETENTION_VALUE = 'default'
-
-
-def _Duration():
-  """Returns a function that can parse time duration args.
-
-  This is an extension of googlecloudsdk.calliope.arg_parsers.Duration() to
-  a) Format the result as expected for a Duration proto field, and
-  b) Allow for a special default string value.
-
-  Raises:
-    An ArgumentTypeError if the input cannot be parsed.
-
-  Returns:
-    A function that accepts a single time duration as input to be parsed.
-  """
-  def ParseWithDefault(value):
-    if value == DEFAULT_MESSAGE_RETENTION_VALUE:
-      return DEFAULT_MESSAGE_RETENTION_VALUE
-    return str(arg_parsers.Duration()(value)) + 's'
-
-  return ParseWithDefault
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA)
@@ -57,46 +38,15 @@ class UpdateAlpha(base.UpdateCommand):
   contact cloud-pubsub@google.com with any questions in the meantime.
   """
 
-  @staticmethod
-  def Args(parser):
-    """Registers flags for this command."""
+  @classmethod
+  def Args(cls, parser):
+    resource_args.AddSubscriptionResourceArg(parser, 'to update.')
+    flags.AddSubscriptionSettingsFlags(parser, cls.ReleaseTrack(),
+                                       is_update=True)
 
-    parser.add_argument('subscription',
-                        help='Name of the subscription to update.')
+    labels_util.AddUpdateLabelsFlags(parser)
 
-    parser.add_argument(
-        '--ack-deadline', type=int,
-        help=('The number of seconds the system will wait for a subscriber to'
-              ' acknowledge receiving a message before re-attempting'
-              ' delivery.  If set to 0, the system default to be used.'))
-
-    parser.add_argument(
-        '--push-endpoint',
-        help=('A URL to use as the endpoint for this subscription.'
-              ' This will also automatically set the subscription'
-              ' type to PUSH.'))
-
-    parser.add_argument(
-        '--retain-acked-messages',
-        action='store_true',
-        default=None,
-        help=('Whether or not to retain acknowledged messages.  If true,'
-              ' messages are not expunged from the subscription\'s backlog'
-              ' until they fall out of the --message-retention-duration'
-              ' window.'))
-
-    parser.add_argument(
-        '--message-retention-duration',
-        type=_Duration(),
-        help=('How long to retain unacknowledged messages in the'
-              ' subscription\'s backlog, from the moment a message is'
-              ' published.  If --retain-acked-messages is true, this also'
-              ' configures the retention of acknowledged messages.  Specify'
-              ' "default" to use the default value.  Valid values are strings'
-              ' of the form INTEGER[UNIT] or "default", where UNIT is one of'
-              ' "s", "m", "h", and "d" for seconds, minutes, hours, and days,'
-              ' respectively.  If the unit is omitted, seconds is assumed.'))
-
+  @exceptions.CatchHTTPErrorRaiseHTTPException()
   def Run(self, args):
     """This is what gets called when the user runs this command.
 
@@ -113,43 +63,27 @@ class UpdateAlpha(base.UpdateCommand):
       An HttpException if there was a problem calling the
       API subscriptions.Patch command.
     """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
+    client = subscriptions.SubscriptionsClient()
+    subscription_ref = args.CONCEPTS.subscription.Parse()
 
-    name = util.SubscriptionFormat(args.subscription)
-
-    mask = []
-    subscription = msgs.Subscription(name=name)
-    if args.ack_deadline is not None:
-      mask.append('ackDeadlineSeconds')
-      subscription.ackDeadlineSeconds = args.ack_deadline
-    if args.push_endpoint is not None:
-      mask.append('pushConfig')
-      subscription.pushConfig = msgs.PushConfig(pushEndpoint=args.push_endpoint)
-    if args.retain_acked_messages is not None:
-      mask.append('retainAckedMessages')
-      subscription.retainAckedMessages = args.retain_acked_messages
-    if args.message_retention_duration is not None:
-      mask.append('messageRetentionDuration')
-      if args.message_retention_duration != DEFAULT_MESSAGE_RETENTION_VALUE:
-        subscription.messageRetentionDuration = args.message_retention_duration
-
-    patch_req = msgs.PubsubProjectsSubscriptionsPatchRequest(
-        updateSubscriptionRequest=msgs.UpdateSubscriptionRequest(
-            subscription=subscription,
-            updateMask=','.join(mask)),
-        name=name)
-
-    # TODO(b/32275310): Conform to gcloud error handling guidelines.  This is
-    # currently consistent with the rest of the gcloud pubsub commands.
+    labels_update = labels_util.ProcessUpdateArgsLazy(
+        args, client.messages.Subscription.LabelsValue,
+        orig_labels_thunk=lambda: client.Get(subscription_ref).labels)
     try:
-      result = pubsub.projects_subscriptions.Patch(patch_req)
-      failed = None
-    except api_ex.HttpError as error:
-      result = subscription
-      exc = exceptions.HttpException(error)
-      failed = exc.payload.status_message
-
-    result = util.SubscriptionDisplayDict(result, failed)
-    log.UpdatedResource(name, kind='subscription', failed=failed)
+      result = client.Patch(
+          subscription_ref,
+          ack_deadline=args.ack_deadline,
+          push_config=util.ParsePushConfig(args.push_endpoint),
+          retain_acked_messages=args.retain_acked_messages,
+          labels=labels_update.GetOrNone(),
+          message_retention_duration=args.message_retention_duration)
+    except subscriptions.NoFieldsSpecifiedError:
+      if not any(args.IsSpecified(arg) for arg in ('clear_labels',
+                                                   'update_labels',
+                                                   'remove_labels')):
+        raise
+      log.status.Print('No update to perform.')
+      result = None
+    else:
+      log.UpdatedResource(subscription_ref.RelativeName(), kind='subscription')
     return result

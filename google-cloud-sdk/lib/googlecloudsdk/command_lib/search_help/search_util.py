@@ -14,13 +14,19 @@
 
 """utils for search-help command resources."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import copy
+import io
 import re
-import StringIO
 
 from googlecloudsdk.command_lib.search_help import lookup
 from googlecloudsdk.core import log
 from googlecloudsdk.core.document_renderers import render_document
+
+import six
+from six.moves import filter
 
 DEFAULT_SNIPPET_LENGTH = 200
 DOT = '.'
@@ -218,27 +224,32 @@ def _AddFlagToSummary(command, summary, length_per_snippet, location, terms):
   # Add specific flag if given.
   if len(location) > 1:
     # Add flag name and description of flag if not added yet.
-    if _FormatItem(location[1]) not in summary:
-      lines.append(_FormatItem(location[1]))
-      desc_line = flags.get(location[1], {}).get(lookup.DESCRIPTION, '')
-      desc_line = _Snip(desc_line, length_per_snippet, terms)
-      if desc_line:
-        line = desc_line
-      else:
-        log.warn('Attempted to look up a location [{}] that was not '
-                 'found.'.format(location[1]))
+    flag = flags.get(location[1])
+    if flag and not flag[lookup.IS_HIDDEN]:
+      if _FormatItem(location[1]) not in summary:
+        lines.append(_FormatItem(location[1]))
+        desc_line = flag.get(lookup.DESCRIPTION, '')
+        desc_line = _Snip(desc_line, length_per_snippet, terms)
+        if desc_line:
+          line = desc_line
+        else:
+          log.warning('Attempted to look up a location [{}] that was not '
+                      'found.'.format(location[1]))
 
-    # Add subsections of flag if given.
-    if len(location) > 2:
-      if location[2] == lookup.DEFAULT:
-        default = flags.get(location[1]).get(lookup.DEFAULT)
-        if default:
-          lines.append(line)
-          line = 'Default: {}.'.format(
-              flags.get(location[1]).get(lookup.DEFAULT))
-      else:
-        log.warn('Attempted to look up a location [{}] that was not '
-                 'found.'.format(location[-1]))
+      # Add subsections of flag if given.
+      if len(location) > 2:
+        if location[2] == lookup.DEFAULT:
+          default = flags.get(location[1]).get(lookup.DEFAULT)
+          if default:
+            lines.append(line)
+            if isinstance(default, dict):
+              default = ', '.join([x for x in sorted(default.keys())])
+            elif isinstance(default, list):
+              default = ', '.join([x for x in default])
+            line = 'Default: {}.'.format(default)
+        else:
+          log.warning('Attempted to look up a location [{}] that was not '
+                      'found.'.format(location[-1]))
 
   # If no specific flag given, get list of all flags.
   else:
@@ -268,8 +279,8 @@ def _AddPositionalToSummary(command, summary, length_per_snippet,
       line = positional.get(lookup.DESCRIPTION, '')
       line = _Snip(line, length_per_snippet, terms)
     else:
-      log.warn('Attempted to look up a location [{}] that was not '
-               'found.'.format(location[1]))
+      log.warning('Attempted to look up a location [{}] that was not '
+                  'found.'.format(location[1]))
 
   # If no specific positional given, just add list of all available.
   else:
@@ -300,8 +311,8 @@ def _AddGenericSectionToSummary(command, summary, length_per_snippet,
     summary.append(
         _Snip(line, length_per_snippet, terms))
   else:
-    log.warn('Attempted to look up a location [{}] that was not '
-             'found.'.format(location[-1]))
+    log.warning('Attempted to look up a location [{}] that was not found.'
+                .format(location[-1]))
 
 
 def _Priority(x):
@@ -369,7 +380,7 @@ def GetSummary(command, found_terms, length_per_snippet=DEFAULT_SNIPPET_LENGTH):
                for location in sorted(set(found_terms.values()))]
 
   for location in sorted(locations, key=_Priority):
-    terms = {t for t, l in found_terms.iteritems()
+    terms = {t for t, l in six.iteritems(found_terms)
              if l == '.'.join(location) and t}
     if location[0] == lookup.FLAGS:
       _AddFlagToSummary(command, summary, length_per_snippet, location, terms)
@@ -396,17 +407,18 @@ def ProcessResult(command, found_terms):
         of subcommands replaced with just a list of available subcommands.
   """
   new_command = copy.deepcopy(command)
-  if lookup.COMMANDS in new_command.keys():
+  if lookup.COMMANDS in six.iterkeys(new_command):
     new_command[lookup.COMMANDS] = sorted([
-        c[lookup.NAME] for c in new_command[lookup.COMMANDS].values()])
-  summary = GetSummary(command, found_terms)
+        c[lookup.NAME]
+        for c in new_command[lookup.COMMANDS].values()
+        if not c[lookup.IS_HIDDEN]
+    ])
+  summary = GetSummary(new_command, found_terms)
   # Render the summary for console printing, but ignoring console width.
-  md = StringIO.StringIO(summary)
-  rendered_summary = StringIO.StringIO()
-  render_document.RenderDocument('text',
-                                 md,
-                                 out=rendered_summary,
-                                 width=len(summary))
+  md = io.StringIO(summary)
+  rendered_summary = io.StringIO()
+  render_document.RenderDocument(
+      'text', md, out=rendered_summary, width=len(summary))
   # Remove indents and blank lines so summary can be easily
   # printed in a table.
   new_command[lookup.SUMMARY] = '\n'.join([
@@ -430,6 +442,10 @@ def LocateTerm(command, term):
   Returns:
     str, lookup for where to find the term when building summary of command.
   """
+  # Skip hidden commands.
+  if command[lookup.IS_HIDDEN]:
+    return ''
+
   # Look in name/capsule
   regexp = re.compile(re.escape(term), re.IGNORECASE)
   if (regexp.search(command[lookup.NAME])
@@ -438,12 +454,15 @@ def LocateTerm(command, term):
 
   # Look in detailed help sections
   for section_name, section_desc in sorted(
-      command[lookup.SECTIONS].iteritems()):
+      six.iteritems(command[lookup.SECTIONS])):
     if regexp.search(section_desc):
       return DOT.join([lookup.SECTIONS, section_name])
 
   # Look in flags
-  for flag_name, flag in sorted(command[lookup.FLAGS].iteritems()):
+  for flag_name, flag in sorted(six.iteritems(command[lookup.FLAGS])):
+    if (flag[lookup.IS_HIDDEN] or
+        flag[lookup.IS_GLOBAL] and not command[lookup.IS_GLOBAL]):
+      continue
     if (regexp.search(flag[lookup.NAME])
         or regexp.search(flag[lookup.DESCRIPTION])):
       return DOT.join([lookup.FLAGS, flag_name])
@@ -459,7 +478,10 @@ def LocateTerm(command, term):
       return DOT.join([lookup.POSITIONALS, positional[lookup.NAME]])
 
   # Look in subcommands & path
-  if regexp.search(str(command[lookup.COMMANDS].keys())):
+  if regexp.search(str([n
+                        for n, c in six.iteritems(command[lookup.COMMANDS])
+                        if not c[lookup.IS_HIDDEN]
+                       ])):
     return lookup.COMMANDS
   if regexp.search(' '.join(command[lookup.PATH])):
     return lookup.PATH

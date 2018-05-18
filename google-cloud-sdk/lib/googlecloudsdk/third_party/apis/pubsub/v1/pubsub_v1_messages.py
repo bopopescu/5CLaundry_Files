@@ -12,7 +12,7 @@ package = 'pubsub'
 
 
 class AcknowledgeRequest(_messages.Message):
-  """Request for the Acknowledge method.
+  r"""Request for the Acknowledge method.
 
   Fields:
     ackIds: The acknowledgment ID for the messages being acknowledged that was
@@ -24,7 +24,7 @@ class AcknowledgeRequest(_messages.Message):
 
 
 class Binding(_messages.Message):
-  """Associates `members` with a `role`.
+  r"""Associates `members` with a `role`.
 
   Fields:
     members: Specifies the identities requesting access for a Cloud Platform
@@ -34,8 +34,8 @@ class Binding(_messages.Message):
       identifier that represents anyone    who is authenticated with a Google
       account or a service account.  * `user:{emailid}`: An email address that
       represents a specific Google    account. For example, `alice@gmail.com`
-      or `joe@example.com`.   * `serviceAccount:{emailid}`: An email address
-      that represents a service    account. For example, `my-other-
+      .   * `serviceAccount:{emailid}`: An email address that represents a
+      service    account. For example, `my-other-
       app@appspot.gserviceaccount.com`.  * `group:{emailid}`: An email address
       that represents a Google group.    For example, `admins@example.com`.
       * `domain:{domain}`: A Google Apps domain name that represents all the
@@ -49,9 +49,13 @@ class Binding(_messages.Message):
 
 
 class CreateSnapshotRequest(_messages.Message):
-  """Request for the `CreateSnapshot` method.
+  r"""Request for the `CreateSnapshot` method.
+
+  Messages:
+    LabelsValue: User labels.
 
   Fields:
+    labels: User labels.
     subscription: The subscription whose backlog the snapshot retains.
       Specifically, the created snapshot is guaranteed to retain:  (a) The
       existing backlog on the subscription. More precisely, this is
@@ -63,11 +67,36 @@ class CreateSnapshotRequest(_messages.Message):
       `projects/{project}/subscriptions/{sub}`.
   """
 
-  subscription = _messages.StringField(1)
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""User labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  labels = _messages.MessageField('LabelsValue', 1)
+  subscription = _messages.StringField(2)
 
 
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -77,7 +106,7 @@ class Empty(_messages.Message):
 
 
 class ListSnapshotsResponse(_messages.Message):
-  """Response for the `ListSnapshots` method.
+  r"""Response for the `ListSnapshots` method.
 
   Fields:
     nextPageToken: If not empty, indicates that there may be more snapshot
@@ -91,7 +120,7 @@ class ListSnapshotsResponse(_messages.Message):
 
 
 class ListSubscriptionsResponse(_messages.Message):
-  """Response for the `ListSubscriptions` method.
+  r"""Response for the `ListSubscriptions` method.
 
   Fields:
     nextPageToken: If not empty, indicates that there may be more
@@ -104,8 +133,23 @@ class ListSubscriptionsResponse(_messages.Message):
   subscriptions = _messages.MessageField('Subscription', 2, repeated=True)
 
 
+class ListTopicSnapshotsResponse(_messages.Message):
+  r"""Response for the `ListTopicSnapshots` method. [ALPHA] This method is a
+  part of a closed Alpha API.
+
+  Fields:
+    nextPageToken: If not empty, indicates that there may be more snapshots
+      that match the request; this value should be passed in a new
+      `ListTopicSnapshotsRequest` to get more snapshots.
+    snapshots: The names of the snapshots that match the request.
+  """
+
+  nextPageToken = _messages.StringField(1)
+  snapshots = _messages.StringField(2, repeated=True)
+
+
 class ListTopicSubscriptionsResponse(_messages.Message):
-  """Response for the `ListTopicSubscriptions` method.
+  r"""Response for the `ListTopicSubscriptions` method.
 
   Fields:
     nextPageToken: If not empty, indicates that there may be more
@@ -119,7 +163,7 @@ class ListTopicSubscriptionsResponse(_messages.Message):
 
 
 class ListTopicsResponse(_messages.Message):
-  """Response for the `ListTopics` method.
+  r"""Response for the `ListTopics` method.
 
   Fields:
     nextPageToken: If not empty, indicates that there may be more topics that
@@ -133,7 +177,7 @@ class ListTopicsResponse(_messages.Message):
 
 
 class ModifyAckDeadlineRequest(_messages.Message):
-  """Request for the ModifyAckDeadline method.
+  r"""Request for the ModifyAckDeadline method.
 
   Fields:
     ackDeadlineSeconds: The new ack deadline with respect to the time this
@@ -151,33 +195,38 @@ class ModifyAckDeadlineRequest(_messages.Message):
 
 
 class ModifyPushConfigRequest(_messages.Message):
-  """Request for the ModifyPushConfig method.
+  r"""Request for the ModifyPushConfig method.
 
   Fields:
     pushConfig: The push configuration for future deliveries.  An empty
       `pushConfig` indicates that the Pub/Sub system should stop pushing
       messages from the given subscription and allow messages to be pulled and
-      acknowledged - effectively pausing the subscription if `Pull` is not
-      called.
+      acknowledged - effectively pausing the subscription if `Pull` or
+      `StreamingPull` is not called.
   """
 
   pushConfig = _messages.MessageField('PushConfig', 1)
 
 
 class Policy(_messages.Message):
-  """Defines an Identity and Access Management (IAM) policy. It is used to
+  r"""Defines an Identity and Access Management (IAM) policy. It is used to
   specify access control policies for Cloud Platform resources.   A `Policy`
-  consists of a list of `bindings`. A `Binding` binds a list of `members` to a
+  consists of a list of `bindings`. A `binding` binds a list of `members` to a
   `role`, where the members can be user accounts, Google groups, Google
   domains, and service accounts. A `role` is a named list of permissions
-  defined by IAM.  **Example**      {       "bindings": [         {
+  defined by IAM.  **JSON Example**      {       "bindings": [         {
   "role": "roles/owner",           "members": [
   "user:mike@example.com",             "group:admins@example.com",
   "domain:google.com",             "serviceAccount:my-other-
-  app@appspot.gserviceaccount.com",           ]         },         {
+  app@appspot.gserviceaccount.com"           ]         },         {
   "role": "roles/viewer",           "members": ["user:sean@example.com"]
-  }       ]     }  For a description of IAM and its features, see the [IAM
-  developer's guide](https://cloud.google.com/iam).
+  }       ]     }  **YAML Example**      bindings:     - members:       -
+  user:mike@example.com       - group:admins@example.com       -
+  domain:google.com       - serviceAccount:my-other-
+  app@appspot.gserviceaccount.com       role: roles/owner     - members:
+  - user:sean@example.com       role: roles/viewer   For a description of IAM
+  and its features, see the [IAM developer's
+  guide](https://cloud.google.com/iam/docs).
 
   Fields:
     bindings: Associates a list of `members` to a `role`. `bindings` with no
@@ -191,7 +240,7 @@ class Policy(_messages.Message):
       to ensure that their change will be applied to the same version of the
       policy.  If no `etag` is provided in the call to `setIamPolicy`, then
       the existing policy is overwritten blindly.
-    version: Version of the `Policy`. The default version is 0.
+    version: Deprecated.
   """
 
   bindings = _messages.MessageField('Binding', 1, repeated=True)
@@ -200,7 +249,7 @@ class Policy(_messages.Message):
 
 
 class PublishRequest(_messages.Message):
-  """Request for the Publish method.
+  r"""Request for the Publish method.
 
   Fields:
     messages: The messages to publish.
@@ -210,7 +259,7 @@ class PublishRequest(_messages.Message):
 
 
 class PublishResponse(_messages.Message):
-  """Response for the `Publish` method.
+  r"""Response for the `Publish` method.
 
   Fields:
     messageIds: The server-assigned ID of each published message, in the same
@@ -222,8 +271,9 @@ class PublishResponse(_messages.Message):
 
 
 class PubsubMessage(_messages.Message):
-  """A message data and its attributes. The message payload must not be empty;
-  it must contain either a non-empty data field, or at least one attribute.
+  r"""A message data and its attributes. The message payload must not be
+  empty; it must contain either a non-empty data field, or at least one
+  attribute.
 
   Messages:
     AttributesValue: Optional attributes for this message.
@@ -243,7 +293,7 @@ class PubsubMessage(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class AttributesValue(_messages.Message):
-    """Optional attributes for this message.
+    r"""Optional attributes for this message.
 
     Messages:
       AdditionalProperty: An additional property for a AttributesValue object.
@@ -253,7 +303,7 @@ class PubsubMessage(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a AttributesValue object.
+      r"""An additional property for a AttributesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -272,7 +322,7 @@ class PubsubMessage(_messages.Message):
 
 
 class PubsubProjectsSnapshotsCreateRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsCreateRequest object.
+  r"""A PubsubProjectsSnapshotsCreateRequest object.
 
   Fields:
     createSnapshotRequest: A CreateSnapshotRequest resource to be passed as
@@ -289,7 +339,7 @@ class PubsubProjectsSnapshotsCreateRequest(_messages.Message):
 
 
 class PubsubProjectsSnapshotsDeleteRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsDeleteRequest object.
+  r"""A PubsubProjectsSnapshotsDeleteRequest object.
 
   Fields:
     snapshot: The name of the snapshot to delete. Format is
@@ -300,7 +350,7 @@ class PubsubProjectsSnapshotsDeleteRequest(_messages.Message):
 
 
 class PubsubProjectsSnapshotsGetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsGetIamPolicyRequest object.
+  r"""A PubsubProjectsSnapshotsGetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being requested.
@@ -311,8 +361,19 @@ class PubsubProjectsSnapshotsGetIamPolicyRequest(_messages.Message):
   resource = _messages.StringField(1, required=True)
 
 
+class PubsubProjectsSnapshotsGetRequest(_messages.Message):
+  r"""A PubsubProjectsSnapshotsGetRequest object.
+
+  Fields:
+    snapshot: The name of the snapshot to get. Format is
+      `projects/{project}/snapshots/{snap}`.
+  """
+
+  snapshot = _messages.StringField(1, required=True)
+
+
 class PubsubProjectsSnapshotsListRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsListRequest object.
+  r"""A PubsubProjectsSnapshotsListRequest object.
 
   Fields:
     pageSize: Maximum number of snapshots to return.
@@ -328,8 +389,21 @@ class PubsubProjectsSnapshotsListRequest(_messages.Message):
   project = _messages.StringField(3, required=True)
 
 
+class PubsubProjectsSnapshotsPatchRequest(_messages.Message):
+  r"""A PubsubProjectsSnapshotsPatchRequest object.
+
+  Fields:
+    name: The name of the snapshot.
+    updateSnapshotRequest: A UpdateSnapshotRequest resource to be passed as
+      the request body.
+  """
+
+  name = _messages.StringField(1, required=True)
+  updateSnapshotRequest = _messages.MessageField('UpdateSnapshotRequest', 2)
+
+
 class PubsubProjectsSnapshotsSetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsSetIamPolicyRequest object.
+  r"""A PubsubProjectsSnapshotsSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being specified.
@@ -344,7 +418,7 @@ class PubsubProjectsSnapshotsSetIamPolicyRequest(_messages.Message):
 
 
 class PubsubProjectsSnapshotsTestIamPermissionsRequest(_messages.Message):
-  """A PubsubProjectsSnapshotsTestIamPermissionsRequest object.
+  r"""A PubsubProjectsSnapshotsTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy detail is being
@@ -359,7 +433,7 @@ class PubsubProjectsSnapshotsTestIamPermissionsRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsAcknowledgeRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsAcknowledgeRequest object.
+  r"""A PubsubProjectsSubscriptionsAcknowledgeRequest object.
 
   Fields:
     acknowledgeRequest: A AcknowledgeRequest resource to be passed as the
@@ -373,7 +447,7 @@ class PubsubProjectsSubscriptionsAcknowledgeRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsDeleteRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsDeleteRequest object.
+  r"""A PubsubProjectsSubscriptionsDeleteRequest object.
 
   Fields:
     subscription: The subscription to delete. Format is
@@ -384,7 +458,7 @@ class PubsubProjectsSubscriptionsDeleteRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsGetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsGetIamPolicyRequest object.
+  r"""A PubsubProjectsSubscriptionsGetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being requested.
@@ -396,7 +470,7 @@ class PubsubProjectsSubscriptionsGetIamPolicyRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsGetRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsGetRequest object.
+  r"""A PubsubProjectsSubscriptionsGetRequest object.
 
   Fields:
     subscription: The name of the subscription to get. Format is
@@ -407,7 +481,7 @@ class PubsubProjectsSubscriptionsGetRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsListRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsListRequest object.
+  r"""A PubsubProjectsSubscriptionsListRequest object.
 
   Fields:
     pageSize: Maximum number of subscriptions to return.
@@ -424,7 +498,7 @@ class PubsubProjectsSubscriptionsListRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsModifyAckDeadlineRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsModifyAckDeadlineRequest object.
+  r"""A PubsubProjectsSubscriptionsModifyAckDeadlineRequest object.
 
   Fields:
     modifyAckDeadlineRequest: A ModifyAckDeadlineRequest resource to be passed
@@ -438,7 +512,7 @@ class PubsubProjectsSubscriptionsModifyAckDeadlineRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsModifyPushConfigRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsModifyPushConfigRequest object.
+  r"""A PubsubProjectsSubscriptionsModifyPushConfigRequest object.
 
   Fields:
     modifyPushConfigRequest: A ModifyPushConfigRequest resource to be passed
@@ -452,7 +526,7 @@ class PubsubProjectsSubscriptionsModifyPushConfigRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsPatchRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsPatchRequest object.
+  r"""A PubsubProjectsSubscriptionsPatchRequest object.
 
   Fields:
     name: The name of the subscription. It must have the format
@@ -470,7 +544,7 @@ class PubsubProjectsSubscriptionsPatchRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsPullRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsPullRequest object.
+  r"""A PubsubProjectsSubscriptionsPullRequest object.
 
   Fields:
     pullRequest: A PullRequest resource to be passed as the request body.
@@ -483,7 +557,7 @@ class PubsubProjectsSubscriptionsPullRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsSeekRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsSeekRequest object.
+  r"""A PubsubProjectsSubscriptionsSeekRequest object.
 
   Fields:
     seekRequest: A SeekRequest resource to be passed as the request body.
@@ -495,7 +569,7 @@ class PubsubProjectsSubscriptionsSeekRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsSetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsSetIamPolicyRequest object.
+  r"""A PubsubProjectsSubscriptionsSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being specified.
@@ -510,7 +584,7 @@ class PubsubProjectsSubscriptionsSetIamPolicyRequest(_messages.Message):
 
 
 class PubsubProjectsSubscriptionsTestIamPermissionsRequest(_messages.Message):
-  """A PubsubProjectsSubscriptionsTestIamPermissionsRequest object.
+  r"""A PubsubProjectsSubscriptionsTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy detail is being
@@ -525,7 +599,7 @@ class PubsubProjectsSubscriptionsTestIamPermissionsRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsDeleteRequest(_messages.Message):
-  """A PubsubProjectsTopicsDeleteRequest object.
+  r"""A PubsubProjectsTopicsDeleteRequest object.
 
   Fields:
     topic: Name of the topic to delete. Format is
@@ -536,7 +610,7 @@ class PubsubProjectsTopicsDeleteRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsGetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsTopicsGetIamPolicyRequest object.
+  r"""A PubsubProjectsTopicsGetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being requested.
@@ -548,7 +622,7 @@ class PubsubProjectsTopicsGetIamPolicyRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsGetRequest(_messages.Message):
-  """A PubsubProjectsTopicsGetRequest object.
+  r"""A PubsubProjectsTopicsGetRequest object.
 
   Fields:
     topic: The name of the topic to get. Format is
@@ -559,7 +633,7 @@ class PubsubProjectsTopicsGetRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsListRequest(_messages.Message):
-  """A PubsubProjectsTopicsListRequest object.
+  r"""A PubsubProjectsTopicsListRequest object.
 
   Fields:
     pageSize: Maximum number of topics to return.
@@ -575,8 +649,26 @@ class PubsubProjectsTopicsListRequest(_messages.Message):
   project = _messages.StringField(3, required=True)
 
 
+class PubsubProjectsTopicsPatchRequest(_messages.Message):
+  r"""A PubsubProjectsTopicsPatchRequest object.
+
+  Fields:
+    name: The name of the topic. It must have the format
+      `"projects/{project}/topics/{topic}"`. `{topic}` must start with a
+      letter, and contain only letters (`[A-Za-z]`), numbers (`[0-9]`), dashes
+      (`-`), underscores (`_`), periods (`.`), tildes (`~`), plus (`+`) or
+      percent signs (`%`). It must be between 3 and 255 characters in length,
+      and it must not start with `"goog"`.
+    updateTopicRequest: A UpdateTopicRequest resource to be passed as the
+      request body.
+  """
+
+  name = _messages.StringField(1, required=True)
+  updateTopicRequest = _messages.MessageField('UpdateTopicRequest', 2)
+
+
 class PubsubProjectsTopicsPublishRequest(_messages.Message):
-  """A PubsubProjectsTopicsPublishRequest object.
+  r"""A PubsubProjectsTopicsPublishRequest object.
 
   Fields:
     publishRequest: A PublishRequest resource to be passed as the request
@@ -590,7 +682,7 @@ class PubsubProjectsTopicsPublishRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsSetIamPolicyRequest(_messages.Message):
-  """A PubsubProjectsTopicsSetIamPolicyRequest object.
+  r"""A PubsubProjectsTopicsSetIamPolicyRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy is being specified.
@@ -604,8 +696,25 @@ class PubsubProjectsTopicsSetIamPolicyRequest(_messages.Message):
   setIamPolicyRequest = _messages.MessageField('SetIamPolicyRequest', 2)
 
 
+class PubsubProjectsTopicsSnapshotsListRequest(_messages.Message):
+  r"""A PubsubProjectsTopicsSnapshotsListRequest object.
+
+  Fields:
+    pageSize: Maximum number of snapshot names to return.
+    pageToken: The value returned by the last `ListTopicSnapshotsResponse`;
+      indicates that this is a continuation of a prior `ListTopicSnapshots`
+      call, and that the system should return the next page of data.
+    topic: The name of the topic that snapshots are attached to. Format is
+      `projects/{project}/topics/{topic}`.
+  """
+
+  pageSize = _messages.IntegerField(1, variant=_messages.Variant.INT32)
+  pageToken = _messages.StringField(2)
+  topic = _messages.StringField(3, required=True)
+
+
 class PubsubProjectsTopicsSubscriptionsListRequest(_messages.Message):
-  """A PubsubProjectsTopicsSubscriptionsListRequest object.
+  r"""A PubsubProjectsTopicsSubscriptionsListRequest object.
 
   Fields:
     pageSize: Maximum number of subscription names to return.
@@ -623,7 +732,7 @@ class PubsubProjectsTopicsSubscriptionsListRequest(_messages.Message):
 
 
 class PubsubProjectsTopicsTestIamPermissionsRequest(_messages.Message):
-  """A PubsubProjectsTopicsTestIamPermissionsRequest object.
+  r"""A PubsubProjectsTopicsTestIamPermissionsRequest object.
 
   Fields:
     resource: REQUIRED: The resource for which the policy detail is being
@@ -638,7 +747,7 @@ class PubsubProjectsTopicsTestIamPermissionsRequest(_messages.Message):
 
 
 class PullRequest(_messages.Message):
-  """Request for the `Pull` method.
+  r"""Request for the `Pull` method.
 
   Fields:
     maxMessages: The maximum number of messages returned for this request. The
@@ -656,7 +765,7 @@ class PullRequest(_messages.Message):
 
 
 class PullResponse(_messages.Message):
-  """Response for the `Pull` method.
+  r"""Response for the `Pull` method.
 
   Fields:
     receivedMessages: Received Pub/Sub messages. The Pub/Sub system will
@@ -669,7 +778,7 @@ class PullResponse(_messages.Message):
 
 
 class PushConfig(_messages.Message):
-  """Configuration for a push delivery endpoint.
+  r"""Configuration for a push delivery endpoint.
 
   Messages:
     AttributesValue: Endpoint configuration attributes.  Every endpoint has a
@@ -711,7 +820,7 @@ class PushConfig(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class AttributesValue(_messages.Message):
-    """Endpoint configuration attributes.  Every endpoint has a set of API
+    r"""Endpoint configuration attributes.  Every endpoint has a set of API
     supported attributes that can be used to control different aspects of the
     message delivery.  The currently supported attribute is `x-goog-version`,
     which you can use to change the format of the pushed message. This
@@ -735,7 +844,7 @@ class PushConfig(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a AttributesValue object.
+      r"""An additional property for a AttributesValue object.
 
       Fields:
         key: Name of the additional property.
@@ -752,7 +861,7 @@ class PushConfig(_messages.Message):
 
 
 class ReceivedMessage(_messages.Message):
-  """A message and its corresponding acknowledgment ID.
+  r"""A message and its corresponding acknowledgment ID.
 
   Fields:
     ackId: This ID can be used to acknowledge the received message.
@@ -764,7 +873,7 @@ class ReceivedMessage(_messages.Message):
 
 
 class SeekRequest(_messages.Message):
-  """Request for the `Seek` method.
+  r"""Request for the `Seek` method.
 
   Fields:
     snapshot: The snapshot to seek to. The snapshot's topic must be the same
@@ -787,11 +896,11 @@ class SeekRequest(_messages.Message):
 
 
 class SeekResponse(_messages.Message):
-  """A SeekResponse object."""
+  r"""A SeekResponse object."""
 
 
 class SetIamPolicyRequest(_messages.Message):
-  """Request message for `SetIamPolicy` method.
+  r"""Request message for `SetIamPolicy` method.
 
   Fields:
     policy: REQUIRED: The complete policy to be applied to the `resource`. The
@@ -804,7 +913,10 @@ class SetIamPolicyRequest(_messages.Message):
 
 
 class Snapshot(_messages.Message):
-  """A snapshot resource.
+  r"""A snapshot resource.
+
+  Messages:
+    LabelsValue: User labels.
 
   Fields:
     expireTime: The snapshot is guaranteed to exist up until this time. A
@@ -818,18 +930,44 @@ class Snapshot(_messages.Message):
       backlog as long as the snapshot exists -- will expire in 4 days. The
       service will refuse to create a snapshot that would expire in less than
       1 hour after creation.
+    labels: User labels.
     name: The name of the snapshot.
     topic: The name of the topic from which this snapshot is retaining
       messages.
   """
 
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""User labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
   expireTime = _messages.StringField(1)
-  name = _messages.StringField(2)
-  topic = _messages.StringField(3)
+  labels = _messages.MessageField('LabelsValue', 2)
+  name = _messages.StringField(3)
+  topic = _messages.StringField(4)
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -858,7 +996,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -870,7 +1008,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -896,7 +1034,10 @@ class StandardQueryParameters(_messages.Message):
 
 
 class Subscription(_messages.Message):
-  """A subscription resource.
+  r"""A subscription resource.
+
+  Messages:
+    LabelsValue: User labels.
 
   Fields:
     ackDeadlineSeconds: This value is the maximum time after a subscriber
@@ -906,19 +1047,23 @@ class Subscription(_messages.Message):
       be delivered again during that time (on a best-effort basis).  For pull
       subscriptions, this value is used as the initial value for the ack
       deadline. To override this value for a given message, call
-      `ModifyAckDeadline` with the corresponding `ack_id` if using pull. The
-      minimum custom deadline you can specify is 10 seconds. The maximum
-      custom deadline you can specify is 600 seconds (10 minutes). If this
-      parameter is 0, a default value of 10 seconds is used.  For push
-      delivery, this value is also used to set the request timeout for the
-      call to the push endpoint.  If the subscriber never acknowledges the
-      message, the Pub/Sub system will eventually redeliver the message.
+      `ModifyAckDeadline` with the corresponding `ack_id` if using non-
+      streaming pull or send the `ack_id` in a
+      `StreamingModifyAckDeadlineRequest` if using streaming pull. The minimum
+      custom deadline you can specify is 10 seconds. The maximum custom
+      deadline you can specify is 600 seconds (10 minutes). If this parameter
+      is 0, a default value of 10 seconds is used.  For push delivery, this
+      value is also used to set the request timeout for the call to the push
+      endpoint.  If the subscriber never acknowledges the message, the Pub/Sub
+      system will eventually redeliver the message.
+    labels: User labels.
     messageRetentionDuration: How long to retain unacknowledged messages in
       the subscription's backlog, from the moment a message is published. If
       `retain_acked_messages` is true, then this also configures the retention
       of acknowledged messages, and thus configures how far back in time a
       `Seek` can be done. Defaults to 7 days. Cannot be more than 7 days or
-      less than 10 minutes.
+      less than 10 minutes. [ALPHA] This field is a part of a closed Alpha
+      API.
     name: The name of the subscription. It must have the format
       `"projects/{project}/subscriptions/{subscription}"`. `{subscription}`
       must start with a letter, and contain only letters (`[A-Za-z]`), numbers
@@ -931,22 +1076,48 @@ class Subscription(_messages.Message):
     retainAckedMessages: Indicates whether to retain acknowledged messages. If
       true, then messages are not expunged from the subscription's backlog,
       even if they are acknowledged, until they fall out of the
-      `message_retention_duration` window.
+      `message_retention_duration` window. [ALPHA] This field is a part of a
+      closed Alpha API.
     topic: The name of the topic from which this subscription is receiving
       messages. Format is `projects/{project}/topics/{topic}`. The value of
       this field will be `_deleted-topic_` if the topic has been deleted.
   """
 
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""User labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
   ackDeadlineSeconds = _messages.IntegerField(1, variant=_messages.Variant.INT32)
-  messageRetentionDuration = _messages.StringField(2)
-  name = _messages.StringField(3)
-  pushConfig = _messages.MessageField('PushConfig', 4)
-  retainAckedMessages = _messages.BooleanField(5)
-  topic = _messages.StringField(6)
+  labels = _messages.MessageField('LabelsValue', 2)
+  messageRetentionDuration = _messages.StringField(3)
+  name = _messages.StringField(4)
+  pushConfig = _messages.MessageField('PushConfig', 5)
+  retainAckedMessages = _messages.BooleanField(6)
+  topic = _messages.StringField(7)
 
 
 class TestIamPermissionsRequest(_messages.Message):
-  """Request message for `TestIamPermissions` method.
+  r"""Request message for `TestIamPermissions` method.
 
   Fields:
     permissions: The set of permissions to check for the `resource`.
@@ -959,7 +1130,7 @@ class TestIamPermissionsRequest(_messages.Message):
 
 
 class TestIamPermissionsResponse(_messages.Message):
-  """Response message for `TestIamPermissions` method.
+  r"""Response message for `TestIamPermissions` method.
 
   Fields:
     permissions: A subset of `TestPermissionsRequest.permissions` that the
@@ -970,9 +1141,13 @@ class TestIamPermissionsResponse(_messages.Message):
 
 
 class Topic(_messages.Message):
-  """A topic resource.
+  r"""A topic resource.
+
+  Messages:
+    LabelsValue: User labels.
 
   Fields:
+    labels: User labels.
     name: The name of the topic. It must have the format
       `"projects/{project}/topics/{topic}"`. `{topic}` must start with a
       letter, and contain only letters (`[A-Za-z]`), numbers (`[0-9]`), dashes
@@ -981,11 +1156,49 @@ class Topic(_messages.Message):
       and it must not start with `"goog"`.
   """
 
-  name = _messages.StringField(1)
+  @encoding.MapUnrecognizedFields('additionalProperties')
+  class LabelsValue(_messages.Message):
+    r"""User labels.
+
+    Messages:
+      AdditionalProperty: An additional property for a LabelsValue object.
+
+    Fields:
+      additionalProperties: Additional properties of type LabelsValue
+    """
+
+    class AdditionalProperty(_messages.Message):
+      r"""An additional property for a LabelsValue object.
+
+      Fields:
+        key: Name of the additional property.
+        value: A string attribute.
+      """
+
+      key = _messages.StringField(1)
+      value = _messages.StringField(2)
+
+    additionalProperties = _messages.MessageField('AdditionalProperty', 1, repeated=True)
+
+  labels = _messages.MessageField('LabelsValue', 1)
+  name = _messages.StringField(2)
+
+
+class UpdateSnapshotRequest(_messages.Message):
+  r"""Request for the UpdateSnapshot method.
+
+  Fields:
+    snapshot: The updated snpashot object.
+    updateMask: Indicates which fields in the provided snapshot to update.
+      Must be specified and non-empty.
+  """
+
+  snapshot = _messages.MessageField('Snapshot', 1)
+  updateMask = _messages.StringField(2)
 
 
 class UpdateSubscriptionRequest(_messages.Message):
-  """Request for the UpdateSubscription method.
+  r"""Request for the UpdateSubscription method.
 
   Fields:
     subscription: The updated subscription object.
@@ -997,12 +1210,25 @@ class UpdateSubscriptionRequest(_messages.Message):
   updateMask = _messages.StringField(2)
 
 
+class UpdateTopicRequest(_messages.Message):
+  r"""Request for the UpdateTopic method.
+
+  Fields:
+    topic: The updated topic object.
+    updateMask: Indicates which fields in the provided topic to update. Must
+      be specified and non-empty. Note that if `update_mask` contains
+      "message_storage_policy" then the new value will be determined based on
+      the policy configured at the project or organization level. The
+      `message_storage_policy` must not be set in the `topic` provided above.
+  """
+
+  topic = _messages.MessageField('Topic', 1)
+  updateMask = _messages.StringField(2)
+
+
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'pubsub')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'pubsub')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'pubsub')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

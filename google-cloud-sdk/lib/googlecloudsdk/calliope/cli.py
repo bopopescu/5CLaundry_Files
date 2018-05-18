@@ -14,6 +14,8 @@
 
 """The calliope CLI/API is a framework for building library interfaces."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
 import os
 import re
@@ -34,7 +36,10 @@ from googlecloudsdk.core import metrics
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.configurations import named_configs
 from googlecloudsdk.core.console import console_attr
+from googlecloudsdk.core.resource import session_capturer
 from googlecloudsdk.core.util import pkg_resources
+
+import six
 
 
 _COMMAND_SUFFIX = '.py'
@@ -87,9 +92,9 @@ class CLILoader(object):
   PATH_RE = re.compile(r'(?:([\w\.]+)\.)?([^\.]+)')
 
   def __init__(self, name, command_root_directory,
-               allow_non_existing_modules=False,
-               logs_dir=config.Paths().logs_dir, version_func=None,
-               known_error_handler=None):
+               allow_non_existing_modules=False, logs_dir=None,
+               version_func=None, known_error_handler=None,
+               yaml_command_translator=None):
     """Initialize Calliope.
 
     Args:
@@ -105,6 +110,8 @@ class CLILoader(object):
         --version flag. If None, no flags will be available.
       known_error_handler: f(x)->None, A function to call when an known error is
         handled. It takes a single argument that is the exception.
+      yaml_command_translator: YamlCommandTranslator, An instance of a
+        translator that will be used to load commands written as a yaml spec.
 
     Raises:
       backend.LayoutException: If no command root directory is given.
@@ -117,9 +124,10 @@ class CLILoader(object):
 
     self.__allow_non_existing_modules = allow_non_existing_modules
 
-    self.__logs_dir = logs_dir
+    self.__logs_dir = logs_dir or config.Paths().logs_dir
     self.__version_func = version_func
-    self.__known_errror_handler = known_error_handler
+    self.__known_error_handler = known_error_handler
+    self.__yaml_command_translator = yaml_command_translator
 
     self.__pre_run_hooks = []
     self.__post_run_hooks = []
@@ -127,6 +135,10 @@ class CLILoader(object):
     self.__modules = []
     self.__missing_components = {}
     self.__release_tracks = {}
+
+  @property
+  def yaml_command_translator(self):
+    return self.__yaml_command_translator
 
   def AddReleaseTrack(self, release_track, path, component=None):
     """Adds a release track to this CLI tool.
@@ -205,7 +217,7 @@ class CLILoader(object):
     """
     path_string = '.'.join(command_path)
     return [component
-            for path, component in self.__missing_components.iteritems()
+            for path, component in six.iteritems(self.__missing_components)
             if path_string.startswith(self.__name + '.' + path)]
 
   def ReplicateCommandPathForAllOtherTracks(self, command_path):
@@ -262,25 +274,28 @@ class CLILoader(object):
       CLI, The generated CLI tool.
     """
     # The root group of the CLI.
-    top_group = self.__LoadTopGroup(
-        self.__GetCommandOrGroupInfo(
-            module_dir_path=self.__command_root_directory, name=self.__name,
-            release_track=calliope_base.ReleaseTrack.GA,
-            allow_non_existing_modules=False, exception_if_present=None))
+    impl_path = self.__ValidateCommandOrGroupInfo(
+        self.__command_root_directory, allow_non_existing_modules=False)
+    top_group = backend.CommandGroup(
+        [impl_path], [self.__name], calliope_base.ReleaseTrack.GA,
+        uuid.uuid4().hex, self, None)
     self.__AddBuiltinGlobalFlags(top_group)
 
     # Sub groups for each alternate release track.
     loaded_release_tracks = dict([(calliope_base.ReleaseTrack.GA, top_group)])
     track_names = set(track.prefix for track in self.__release_tracks.keys())
-    for track, (module_dir, component) in self.__release_tracks.iteritems():
-      group_info = self.__GetCommandOrGroupInfo(
-          module_dir_path=module_dir, name=track.prefix, release_track=track,
-          allow_non_existing_modules=self.__allow_non_existing_modules,
-          exception_if_present=None)
-      if group_info:
+    for track, (module_dir, component) in six.iteritems(self.__release_tracks):
+      impl_path = self.__ValidateCommandOrGroupInfo(
+          module_dir,
+          allow_non_existing_modules=self.__allow_non_existing_modules)
+      if impl_path:
         # Add the release track sub group into the top group.
-        top_group.AddSubGroup(group_info)
-        track_group = top_group.LoadSubElement(track.prefix, allow_empty=True)
+        # pylint: disable=protected-access
+        top_group._groups_to_load[track.prefix] = [impl_path]
+        # Override the release track because this is specifically a top level
+        # release track group.
+        track_group = top_group.LoadSubElement(
+            track.prefix, allow_empty=True, release_track_override=track)
         # Copy all the root elements of the top group into the release group.
         top_group.CopyAllSubElementsTo(track_group, ignore=track_names)
         loaded_release_tracks[track] = track_group
@@ -296,8 +311,10 @@ class CLILoader(object):
       root, name = match.group(1, 2)
       try:
         # Mount each registered sub group under each release track that exists.
-        for track, track_root_group in loaded_release_tracks.iteritems():
-          parent_group = self.__FindParentGroup(track_root_group, root)
+        for track, track_root_group in six.iteritems(loaded_release_tracks):
+          # pylint: disable=line-too-long
+          parent_group = self.__FindParentGroup(track_root_group, root)  # type: backend.CommandGroup
+          # pylint: enable=line-too-long
           exception_if_present = None
           if not parent_group:
             if track != calliope_base.ReleaseTrack.GA:
@@ -312,19 +329,17 @@ class CLILoader(object):
                 .format(root=root, group=name))
 
           cmd_or_grp_name = module_dot_path.split('.')[-1]
-          cmd_or_grp_info = self.__GetCommandOrGroupInfo(
-              module_dir_path=module_dir_path,
-              name=cmd_or_grp_name,
-              release_track=(parent_group.ReleaseTrack()
-                             if parent_group else None),
+          impl_path = self.__ValidateCommandOrGroupInfo(
+              module_dir_path,
               allow_non_existing_modules=self.__allow_non_existing_modules,
               exception_if_present=exception_if_present)
 
-          if cmd_or_grp_info:
+          if impl_path:
+            # pylint: disable=protected-access
             if is_command:
-              parent_group.AddSubCommand(cmd_or_grp_info)
+              parent_group._commands_to_load[cmd_or_grp_name] = [impl_path]
             else:
-              parent_group.AddSubGroup(cmd_or_grp_info)
+              parent_group._groups_to_load[cmd_or_grp_name] = [impl_path]
           elif component:
             prefix = track.prefix + '.' if track.prefix else ''
             self.__missing_components[prefix + module_dot_path] = component
@@ -357,20 +372,17 @@ class CLILoader(object):
         return None
     return group
 
-  def __GetCommandOrGroupInfo(self, module_dir_path, name, release_track,
-                              allow_non_existing_modules=False,
-                              exception_if_present=None):
+  def __ValidateCommandOrGroupInfo(
+      self, impl_path, allow_non_existing_modules=False,
+      exception_if_present=None):
     """Generates the information necessary to be able to load a command group.
 
     The group might actually be loaded now if it is the root of the SDK, or the
     information might be saved for later if it is to be lazy loaded.
 
     Args:
-      module_dir_path: str, The path to the location of the module.
-      name: str, The name that this group will appear as in the CLI.
-      release_track: base.ReleaseTrack, The release track (ga, beta, alpha,
-        preview) that this command group is in.  This will apply to all commands
-        under it.
+      impl_path: str, The file path to the command implementation for this
+        command or group.
       allow_non_existing_modules: True to allow this module directory to not
         exist, False to raise an exception if this module does not exist.
       exception_if_present: Exception, An exception to throw if the module
@@ -381,43 +393,20 @@ class CLILoader(object):
       allow_non_existing is False.
 
     Returns:
-      A tuple of (module_dir, module_path, name, release_track) or None if the
-      module directory does not exist and allow_non_existing is True.  This
-      tuple can be passed to self.__LoadTopGroup() or
-      backend.CommandGroup.AddSubGroup().  The module_dir is the directory the
-      group is found under.  The module_path is the relative path of the root
-      of the command group from the module_dir. name is the user facing name
-      this group will appear under wherever this command group is mounted.  The
-      release_track is the release track (ga, beta, alpha, preview) that this
-      command group is in.
+      impl_path or None if the module directory does not exist and
+      allow_non_existing is True.
     """
-    module_root, module = os.path.split(module_dir_path)
+    module_root, module = os.path.split(impl_path)
     if not pkg_resources.IsImportable(module, module_root):
       if allow_non_existing_modules:
         return None
       raise command_loading.LayoutException(
           'The given module directory does not exist: {0}'.format(
-              module_dir_path))
+              impl_path))
     elif exception_if_present:
       # pylint: disable=raising-bad-type, This will be an actual exception.
       raise exception_if_present
-
-    return (module_root, [module], name, release_track)
-
-  def __LoadTopGroup(self, group_info):
-    """Actually loads the top group of the CLI based on the given group_info.
-
-    Args:
-      group_info: A tuple of (module_dir, module_path, name) generated by
-        self.__GetGroupInfo()
-
-    Returns:
-      The backend.CommandGroup object.
-    """
-    (module_root, module, name, release_track) = group_info
-    return backend.CommandGroup(
-        module_root, module, [name], release_track, uuid.uuid4().hex, self,
-        None)
+    return impl_path
 
   def __AddBuiltinGlobalFlags(self, top_element):
     """Adds in calliope builtin global flags.
@@ -457,7 +446,9 @@ class CLILoader(object):
         choices=log.OrderedVerbosityNames(),
         default=log.DEFAULT_VERBOSITY_STRING,
         category=calliope_base.COMMONLY_USED_FLAGS,
-        help='Override the default verbosity for this command.',
+        help='Override the default verbosity for this command with any of the '
+        'supported standard verbosity levels: `debug`, `info`, `warning`, '
+        '`error`, and `none`.',
         action=actions.StoreProperty(properties.VALUES.core.verbosity))
 
     # This should be a pure Boolean flag, but the alternate true/false explicit
@@ -485,27 +476,31 @@ class CLILoader(object):
         '--authority-selector',
         default=None,
         action=actions.StoreProperty(properties.VALUES.auth.authority_selector),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
     top_element.ai.add_argument(
         '--authorization-token-file',
         default=None,
         action=actions.StoreProperty(
             properties.VALUES.auth.authorization_token_file),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
     top_element.ai.add_argument(
         '--credential-file-override',
         action=actions.StoreProperty(
             properties.VALUES.auth.credential_file_override),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
     # Timeout value for HTTP requests.
     top_element.ai.add_argument(
         '--http-timeout',
         default=None,
         action=actions.StoreProperty(properties.VALUES.core.http_timeout),
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
 
   def __MakeCLI(self, top_element):
     """Generate a CLI object from the given data.
@@ -530,7 +525,7 @@ class CLILoader(object):
       top_element.LoadAllSubElements(recursive=True)
 
     cli = CLI(self.__name, top_element, self.__pre_run_hooks,
-              self.__post_run_hooks, self.__known_errror_handler)
+              self.__post_run_hooks, self.__known_error_handler)
     return cli
 
 
@@ -550,7 +545,7 @@ class _CompletionFinder(argcomplete.CompletionFinder):
     return active_parsers
 
   def _get_completions(self, comp_words, cword_prefix, cword_prequote,
-                       first_colon_pos):
+                       last_wordbreak_pos):
     active_parsers = self._patch_argument_parser()
 
     parsed_args = parser_extensions.Namespace()
@@ -566,7 +561,79 @@ class _CompletionFinder(argcomplete.CompletionFinder):
     completions = self.collect_completions(
         active_parsers, parsed_args, cword_prefix, lambda *_: None)
     completions = self.filter_completions(completions)
-    return self.quote_completions(completions, cword_prequote, first_colon_pos)
+    return self.quote_completions(
+        completions, cword_prequote, last_wordbreak_pos)
+
+  def quote_completions(self, completions, cword_prequote, last_wordbreak_pos):
+    """Returns the completion (less aggressively) quoted for the shell.
+
+    If the word under the cursor started with a quote (as indicated by a
+    nonempty ``cword_prequote``), escapes occurrences of that quote character
+    in the completions, and adds the quote to the beginning of each completion.
+    Otherwise, escapes *most* characters that bash splits words on
+    (``COMP_WORDBREAKS``), and removes portions of completions before the first
+    colon if (``COMP_WORDBREAKS``) contains a colon.
+
+    If there is only one completion, and it doesn't end with a
+    **continuation character** (``/``, ``:``, or ``=``), adds a space after
+    the completion.
+
+    Args:
+      completions: The current completion strings.
+      cword_prequote: The current quote character in progress, '' if none.
+      last_wordbreak_pos: The index of the last wordbreak.
+
+    Returns:
+      The completions quoted for the shell.
+    """
+    # The *_special character sets are the only non-cosmetic changes from the
+    # argcomplete original. We drop { '!', ' ', '\n' } from _NO_QUOTE_SPECIAL
+    # and { '!' } from _DOUBLE_QUOTE_SPECIAL. argcomplete should make these
+    # settable properties.
+    no_quote_special = '\\();<>|&$*\t`"\''
+    double_quote_special = '\\`"$'
+    single_quote_special = '\\'
+    continuation_special = '=/:'
+
+    # If the word under the cursor was quoted, escape the quote char.
+    # Otherwise, escape most special characters and specially handle most
+    # COMP_WORDBREAKS chars.
+    if not cword_prequote:
+      # Bash mangles completions which contain characters in COMP_WORDBREAKS.
+      # This workaround has the same effect as __ltrim_colon_completions in
+      # bash_completion (extended to characters other than the colon).
+      if last_wordbreak_pos:
+        completions = [c[last_wordbreak_pos + 1:] for c in completions]
+      special_chars = no_quote_special
+    elif cword_prequote == '"':
+      special_chars = double_quote_special
+    else:
+      special_chars = single_quote_special
+
+    if os.environ.get('_ARGCOMPLETE_SHELL') == 'tcsh':
+      # tcsh escapes special characters itself.
+      special_chars = ''
+    elif cword_prequote == "'":
+      # Nothing can be escaped in single quotes, so we need to close
+      # the string, escape the single quote, then open a new string.
+      special_chars = ''
+      completions = [c.replace("'", r"'\''") for c in completions]
+
+    for char in special_chars:
+      completions = [c.replace(char, '\\' + char) for c in completions]
+
+    if getattr(self, 'append_space', False):
+      # Similar functionality in bash was previously turned off by supplying
+      # the "-o nospace" option to complete. Now it is conditionally disabled
+      # using "compopt -o nospace" if the match ends in a continuation
+      # character. This code is retained for environments where this isn't
+      # done natively.
+      continuation_chars = continuation_special
+      if len(completions) == 1 and completions[0][-1] not in continuation_chars:
+        if not cword_prequote:
+          completions[0] += ' '
+
+    return completions
 
 
 def _ArgComplete(ai, **kwargs):
@@ -608,6 +675,40 @@ def _ArgComplete(ai, **kwargs):
       argcomplete.mute_stderr = mute_stderr
 
 
+def _SubParsersActionCall(self, parser, namespace, values, option_string=None):
+  """argparse._SubParsersAction.__call__ version 1.2.1 MonkeyPatch."""
+  del option_string
+
+  # pylint: disable=protected-access
+  # pytype: disable=module-attr
+
+  parser_name = values[0]
+  arg_strings = values[1:]
+
+  # set the parser name if requested
+  if self.dest is not argparse.SUPPRESS:
+    setattr(namespace, self.dest, parser_name)
+
+  # select the parser
+  try:
+    parser = self._name_parser_map[parser_name]
+  except KeyError:
+    tup = parser_name, ', '.join(self._name_parser_map)
+    msg = argparse._('unknown parser %r (choices: %s)' % tup)
+    raise argparse.ArgumentError(self, msg)
+
+  # parse all the remaining options into the namespace
+  # store any unrecognized options on the object, so that the top
+  # level parser can decide what to do with them
+  namespace, arg_strings = parser.parse_known_args(arg_strings, namespace)
+  if arg_strings:
+    vars(namespace).setdefault(argparse._UNRECOGNIZED_ARGS_ATTR, [])
+    getattr(namespace, argparse._UNRECOGNIZED_ARGS_ATTR).extend(arg_strings)
+
+  # pytype: enable=module-attr
+  # pylint: enable=protected-access
+
+
 class CLI(object):
   """A generated command line tool."""
 
@@ -623,76 +724,6 @@ class CLI(object):
 
   def _TopElement(self):
     return self.__top_element
-
-  def _ConvertNonAsciiArgsToUnicode(self, args):
-    """Converts non-ascii args to unicode.
-
-    The args most likely came from sys.argv, and Python 2.7 passes them in as
-    bytestrings instead of unicode.
-
-    Args:
-      args: [str], The list of args to convert.
-
-    Raises:
-      InvalidCharacterInArgException if a non-ascii arg cannot be converted to
-      unicode.
-
-    Returns:
-      A new list of args with non-ascii args converted to unicode.
-    """
-    console_encoding = console_attr.GetConsoleAttr().GetEncoding()
-    filesystem_encoding = sys.getfilesystemencoding()
-    argv = []
-    for arg in args:
-
-      try:
-        arg.encode('ascii')
-        # Already ascii.
-        argv.append(arg)
-        continue
-      except UnicodeError:
-        pass
-
-      try:
-        # Convert bytestring to unicode using the console encoding.
-        argv.append(unicode(arg, console_encoding))
-        continue
-      except TypeError:
-        # Already unicode.
-        argv.append(arg)
-        continue
-      except UnicodeError:
-        pass
-
-      try:
-        # Convert bytestring to unicode using the filesystem encoding.
-        # A pathname could have been passed in rather than typed, and
-        # might not match the user terminal encoding, but still be a valid
-        # path. For example: $ foo $(grep -l bar *)
-        argv.append(unicode(arg, filesystem_encoding))
-        continue
-      except UnicodeError:
-        pass
-
-      # Can't convert to unicode -- bail out.
-      raise exceptions.InvalidCharacterInArgException([self.name] + args, arg)
-
-    return argv
-
-  def _EnforceAsciiArgs(self, argv):
-    """Fail if any arg in argv is not ascii.
-
-    Args:
-      argv: [str], The list of args to check.
-
-    Raises:
-      InvalidCharacterInArgException if there is a non-ascii arg.
-    """
-    for arg in argv:
-      try:
-        arg.decode('ascii')
-      except UnicodeError:
-        raise exceptions.InvalidCharacterInArgException([self.name] + argv, arg)
 
   @property
   def name(self):
@@ -727,7 +758,7 @@ class CLI(object):
     Raises:
       ValueError: for ill-typed arguments.
     """
-    if isinstance(args, basestring):
+    if isinstance(args, six.string_types):
       raise ValueError('Execute expects an iterable of strings, not a string.')
 
     # The argparse module does not handle unicode args when run in Python 2
@@ -738,7 +769,11 @@ class CLI(object):
     # statement coaxes the Python 3 behavior out of argparse running in
     # Python 2. Doing it here ensures that the workaround is in place for
     # calliope argparse use cases.
-    argparse.str = unicode
+    argparse.str = six.text_type
+    # We need the argparse 1.2.1 patch in _SubParsersActionCall.
+    # TODO(b/77288697) delete after py3 tests use non-hermetic python
+    if argparse.__version__ == '1.1':  # pytype: disable=module-attr
+      argparse._SubParsersAction.__call__ = _SubParsersActionCall  # pylint: disable=protected-access
 
     if call_arg_complete:
       _ArgComplete(self.__top_element.ai)
@@ -765,15 +800,19 @@ class CLI(object):
     command_path_string = self.__name
     specified_arg_names = None
 
-    argv = self._ConvertNonAsciiArgsToUnicode(args)
+    # Convert py2 args to text.
+    argv = [console_attr.Decode(arg) for arg in args] if six.PY2 else args
     old_user_output_enabled = None
     old_verbosity = None
     try:
       args = self.__parser.parse_args(argv)
-      command_path_string = '.'.join(args.command_path)
-      if not args.calliope_command.IsUnicodeSupported():
-        self._EnforceAsciiArgs(argv)
+      calliope_command = args._GetCommand()  # pylint: disable=protected-access
+      command_path_string = '.'.join(calliope_command.GetPath())
       specified_arg_names = args.GetSpecifiedArgNames()
+      # If the CLI has not been reloaded since the last command execution (e.g.
+      # in test runs), args.CONCEPTS may contain cached values.
+      if args.CONCEPTS is not None:
+        args.CONCEPTS.Reset()
 
       # -h|--help|--document are dispatched by parse_args and never get here.
 
@@ -792,10 +831,17 @@ class CLI(object):
       properties.VALUES.SetInvocationValue(
           properties.VALUES.metrics.command_name, command_path_string, None)
 
+      if properties.VALUES.core.capture_session_file.Get() is not None:
+        capturer = session_capturer.SessionCapturer()
+        capturer.CaptureArgs(args)
+        capturer.CaptureState()
+        capturer.CaptureProperties(properties.VALUES.AllValues())
+        session_capturer.SessionCapturer.capturer = capturer
+
       for hook in self.__pre_run_hooks:
         hook.Run(command_path_string)
 
-      resources = args.calliope_command.Run(cli=self, args=args)
+      resources = calliope_command.Run(cli=self, args=args)
 
       for hook in self.__post_run_hooks:
         hook.Run(command_path_string)
@@ -824,6 +870,9 @@ class CLI(object):
       self._HandleAllErrors(exc, command_path_string, specified_arg_names)
 
     finally:
+      if session_capturer.SessionCapturer.capturer is not None:
+        with open(properties.VALUES.core.capture_session_file.Get(), 'w') as f:
+          session_capturer.SessionCapturer.capturer.Print(f)
       properties.VALUES.PopInvocationValues()
       named_configs.FLAG_OVERRIDE_STACK.Pop()
       # Reset these values to their previous state now that we popped the flag
@@ -844,7 +893,8 @@ class CLI(object):
     Raises:
       exc or a core.exceptions variant that does not produce a stack trace.
     """
-    known_exc, print_error = exceptions.ConvertKnownError(exc)
+    if session_capturer.SessionCapturer.capturer:
+      session_capturer.SessionCapturer.capturer.CaptureException(exc)
     error_extra_info = {'error_code': getattr(exc, 'exit_code', 1)}
     if isinstance(exc, exceptions.HttpException):
       error_extra_info['http_status_code'] = exc.payload.status_code
@@ -855,23 +905,7 @@ class CLI(object):
     metrics.Error(command_path_string, exc.__class__, specified_arg_names,
                   error_extra_info=error_extra_info)
 
-    if known_exc:
-      msg = u'({0}) {1}'.format(
-          console_attr.EncodeForConsole(command_path_string),
-          console_attr.EncodeForConsole(known_exc))
-      log.debug(msg, exc_info=sys.exc_info())
-      if print_error:
-        log.error(msg)
-      # Uncaught errors will be handled in gcloud_main.
-      if self.__known_error_handler:
-        self.__known_error_handler(exc)
-      if properties.VALUES.core.print_handled_tracebacks.GetBool():
-        raise
-      self._Exit(known_exc)
-    else:
-      # Make sure any uncaught exceptions still make it into the log file.
-      log.debug(console_attr.EncodeForConsole(exc), exc_info=sys.exc_info())
-      raise
+    exceptions.HandleError(exc, command_path_string, self.__known_error_handler)
 
   def _Exit(self, exc):
     """This method exists so we can mock this out during testing to not exit."""

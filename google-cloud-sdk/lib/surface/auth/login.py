@@ -14,7 +14,9 @@
 
 """The auth command gets tokens via oauth2."""
 
-import argparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import textwrap
 
 from googlecloudsdk.api_lib.auth import exceptions as auth_exceptions
@@ -31,7 +33,7 @@ from googlecloudsdk.core.credentials import store as c_store
 
 
 class Login(base.Command):
-  """Authorize gcloud to access Google Cloud Platform.
+  """Authorize gcloud to access the Cloud Platform with Google user credentials.
 
   Obtains access credentials for your user account via a web-based authorization
   flow. When this command completes successfully, it sets the active account
@@ -42,6 +44,16 @@ class Login(base.Command):
   authorization, the account is set to active without rerunning the flow.
 
   Use `gcloud auth list` to view credentialed accounts.
+
+  If you'd rather authorize without a web browser but still interact with
+  the command line, use the `--no-launch-browser` flag. To authorize without
+  a web browser and non-interactively, create a service account with the
+  appropriate scopes using the
+  [Google Cloud Platform Console](https://console.cloud.google.com) and use
+  `gcloud auth activate-service-account` with the corresponding JSON key file.
+
+  For more information on authorization and credential types, see:
+  [](https://cloud.google.com/sdk/docs/authorizing).
   """
 
   @staticmethod
@@ -59,7 +71,8 @@ class Login(base.Command):
     # --do-not-activate for (hidden) backwards compatibility.
     parser.add_argument(
         '--do-not-activate', action='store_false', dest='activate',
-        help=argparse.SUPPRESS)
+        hidden=True,
+        help='THIS ARGUMENT NEEDS HELP TEXT.')
     parser.add_argument(
         '--brief', action='store_true',
         help='Minimal user output.')
@@ -86,16 +99,15 @@ class Login(base.Command):
       scopes += (auth_util.GOOGLE_DRIVE_SCOPE,)
 
     if c_devshell.IsDevshellEnvironment():
-      message = """
-          You are already authenticated with gcloud when running
-          inside the Cloud Shell and so do not need to run this
-          command.
-
-          Do you wish to proceed anyway?
-        """
-      answer = console_io.PromptContinue(message=message)
-      if not answer:
-        return None
+      if c_devshell.HasDevshellAuth():
+        message = textwrap.dedent("""
+            You are already authenticated with gcloud when running
+            inside the Cloud Shell and so do not need to run this
+            command. Do you wish to proceed anyway?
+            """)
+        answer = console_io.PromptContinue(message=message)
+        if not answer:
+          return None
     elif c_gce.Metadata().connected:
       message = textwrap.dedent("""
           You are running on a Google Compute Engine virtual machine.

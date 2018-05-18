@@ -11,43 +11,46 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-"""Clone Google Cloud Platform git repository.
-"""
-
+"""Clone Google Cloud Platform git repository."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.source import git
-from googlecloudsdk.api_lib.sourcerepo import sourcerepo
+from googlecloudsdk.api_lib.source.repos import sourcerepo
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
 from googlecloudsdk.core import log
-from googlecloudsdk.core import properties
-from googlecloudsdk.core import resources
 from googlecloudsdk.core.credentials import store as c_store
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA)
 class CloneGA(base.Command):
-  """Clone a cloud source repository.
+  """Clone a cloud source repository."""
 
-  This command clones a git repository for the currently active
-  Google Cloud Platform project into the specified directory or into
-  the current directory if no target directory is specified.  This command
-  gives a warning if the cloud source repository is a mirror.
+  detailed_help = {
+      'DESCRIPTION': """\
+        This command clones a git repository from the currently active
+        Google Cloud project into the specified directory or into the current
+        directory if no target directory is specified.
 
-  The clone operation configures the local clone to use your gcloud
-  credentials to authenticate future git operations.
+        Each Google Cloud project can have zero or more git repositories
+        associated with it. To see the available repositories, run:
 
-  ## EXAMPLES
+          $ {parent_command} list
 
-  The example commands below show a sample workflow.
+        The clone operation configures the local clone to use your gcloud
+        credentials to authenticate future git operations. This command emits a
+        warning if the cloud source repository is a mirror.
+      """,
+      'EXAMPLES': """\
+        The example commands below show a sample workflow.
 
-    $ gcloud init
-    $ {command} REPOSITORY_NAME DIRECTORY_NAME
-    $ cd DIRECTORY_NAME
-    ... create/edit files and create one or more commits ...
-    $ git push origin master
-
-  """
+          $ gcloud init
+          $ {command} REPOSITORY_NAME DIRECTORY_NAME
+          $ cd DIRECTORY_NAME
+          ... create/edit files and create one or more commits ...
+          $ git push origin master
+      """,
+  }
 
   @staticmethod
   def Args(parser):
@@ -75,7 +78,7 @@ class CloneGA(base.Command):
                'this clone will have no effect.  Instead, directly clone the '
                'mirrored repository directly with \n$ git clone '
                '{url}'.format(repo=repo, prj=project, url=mirror_url))
-    log.warn(message)
+    log.warning(message)
 
   def Run(self, args):
     """Clone a GCP repository to the current directory.
@@ -83,34 +86,20 @@ class CloneGA(base.Command):
     Args:
       args: argparse.Namespace, the arguments this command is run with.
 
-    Raises:
-      ToolException: on project initialization errors.
-      RepoCreationError: on repo creation errors.
-
     Returns:
       The path to the new git repository.
     """
     # Ensure that we're logged in.
     c_store.Load()
 
-    res = resources.REGISTRY.Parse(
-        args.src,
-        params={'projectsId': properties.VALUES.core.project.GetOrFail},
-        collection='sourcerepo.projects.repos')
+    res = sourcerepo.ParseRepo(args.src)
     source_handler = sourcerepo.Source()
 
     repo = source_handler.GetRepo(res)
-    if not repo:
-      message = ('Repository "{src}" in project "{prj}" does not '
-                 'exist.\nList current repos with\n'
-                 '$ gcloud beta source repos list\n'
-                 'or create with\n'
-                 '$ gcloud beta source repos create {src}'.format(
-                     src=args.src, prj=res.projectsId))
-      raise c_exc.InvalidArgumentException('REPOSITORY_NAME', message)
     if hasattr(repo, 'mirrorConfig') and repo.mirrorConfig:
       mirror_url = repo.mirrorConfig.url
-      self.ActionIfMirror(args.src, res.projectsId, mirror_url)
+      self.ActionIfMirror(
+          project=res.projectsId, repo=args.src, mirror_url=mirror_url)
     # do the actual clone
     git_helper = git.Git(res.projectsId, args.src, uri=repo.url)
     path = git_helper.Clone(

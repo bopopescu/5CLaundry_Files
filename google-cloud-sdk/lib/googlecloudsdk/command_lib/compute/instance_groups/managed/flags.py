@@ -13,6 +13,8 @@
 # limitations under the License.
 """Flags for the compute instance groups managed commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 
@@ -34,7 +36,8 @@ def AddTypeArg(parser):
   parser.add_argument(
       '--type',
       choices={
-          'opportunistic': 'Replace instances when needed.',
+          'opportunistic': 'Do not proactively replace instances. Create new '
+                           'instances and delete old on resizes of the group.',
           'proactive': 'Replace instances proactively.',
       },
       default='proactive',
@@ -69,7 +72,9 @@ def AddMinReadyArg(parser):
       '--min-ready',
       type=arg_parsers.Duration(lower_bound='0s'),
       help=('Minimum time for which a newly created instance '
-            'should be ready to be considered available.'))
+            'should be ready to be considered available. For example `10s` '
+            'for 10 seconds. See $ gcloud topic datetimes for information '
+            'on duration formats.'))
 
 
 def AddForceArg(parser):

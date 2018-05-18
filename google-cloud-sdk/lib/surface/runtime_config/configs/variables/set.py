@@ -14,13 +14,18 @@
 
 """The configs variables set command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import sys
+
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.runtime_config import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.runtime_config import flags
 from googlecloudsdk.core import log
+from googlecloudsdk.core.util import http_encoding
 
 
 class Set(base.CreateCommand):
@@ -134,14 +139,13 @@ class Set(base.CreateCommand):
       # Either create or create-or-update
       try:
         return self._Create(args, var_resource, value)
-      except apitools_exceptions.HttpError as error:
+      except apitools_exceptions.HttpConflictError:
         # If --fail-if-present was not specified, and we got an
         # Already Exists error, try updating instead.
-        if not args.fail_if_present and util.IsAlreadyExistsError(error):
+        if not args.fail_if_present:
           return self._Update(args, var_resource, value)
 
-        # If --fail-if-present was specified, or some other error
-        # occurred, re-raise the error.
+        # If --fail-if-present was specified re-raise the error.
         raise
 
   def _Create(self, args, var_resource, value):
@@ -156,7 +160,7 @@ class Set(base.CreateCommand):
             parent=util.ConfigPath(project, config),
             variable=messages.Variable(
                 name=var_resource.RelativeName(),
-                value=value if not args.is_text else None,
+                value=http_encoding.Encode(value) if not args.is_text else None,
                 text=value if args.is_text else None,
             )
         )
@@ -172,7 +176,7 @@ class Set(base.CreateCommand):
     result = variable_client.Update(
         messages.Variable(
             name=var_resource.RelativeName(),
-            value=value if not args.is_text else None,
+            value=http_encoding.Encode(value) if not args.is_text else None,
             text=value if args.is_text else None,
         )
     )

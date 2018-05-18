@@ -14,10 +14,12 @@
 
 """Library for obtaining API clients and messages."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import re
 from apitools.base.py import exceptions as apitools_exceptions
 from apitools.base.py import http_wrapper
-from googlecloudsdk.api_lib.service_management import enable_api
+from googlecloudsdk.api_lib.services import enable_api
 from googlecloudsdk.api_lib.util import apis_internal
 from googlecloudsdk.api_lib.util import apis_util
 from googlecloudsdk.api_lib.util import exceptions as api_exceptions
@@ -154,7 +156,7 @@ API_ENABLEMENT_REGEX = re.compile(
 API_ENABLEMENT_ERROR_EXPECTED_STATUS_CODE = 403  # retry status code
 
 
-def GetApiEnablementInfo(exc):
+def _GetApiEnablementInfo(exc):
   """This is a handler for apitools errors allowing more specific errors.
 
   While HttpException is great for generally parsing apitools exceptions,
@@ -176,11 +178,62 @@ def GetApiEnablementInfo(exc):
   return (None, None)
 
 
-_PROJECTS_NOT_TO_ENABLE = set('google.com:cloudsdktool')
+_PROJECTS_NOT_TO_ENABLE = {'google.com:cloudsdktool'}
 
 
 def ShouldAttemptProjectEnable(project):
   return project not in _PROJECTS_NOT_TO_ENABLE
+
+
+def GetApiEnablementInfo(exception):
+  """Returns the API Enablement info or None if prompting is not necessary.
+
+  Args:
+    exception (apitools_exceptions.HttpError): Exception if an error occurred.
+
+  Returns:
+    tuple[str]: The project, service token, exception tuple to be used for
+      prompting to enable the API.
+
+  Raises:
+    api_exceptions.HttpException: If gcloud should not prompt to enable the API.
+  """
+  parsed_error = api_exceptions.HttpException(exception)
+  (project, service_token) = _GetApiEnablementInfo(parsed_error)
+  if (project is not None and ShouldAttemptProjectEnable(project)
+      and service_token is not None):
+    return (project, service_token, parsed_error)
+
+
+def PromptToEnableApi(project, service_token, exception,
+                      is_batch_request=False):
+  """Prompts to enable the API and throws if the answer is no.
+
+  Args:
+    project (str): The project that the API is not enabled on.
+    service_token (str): The service token of the API to prompt for.
+    exception (api_Exceptions.HttpException): Exception to throw if the prompt
+      is denied.
+    is_batch_request: If the request is a batch request. This determines how to
+      get apitools to retry the request.
+
+  Raises:
+    api_exceptions.HttpException: API not enabled error if the user chooses to
+      not enable the API.
+  """
+  if console_io.PromptContinue(
+      default=False,
+      prompt_string=('API [{}] not enabled on project [{}]. '
+                     'Would you like to enable and retry? ')
+      .format(service_token, project)):
+    enable_api.EnableServiceIfDisabled(project, service_token)
+    # In the case of a batch request, as long as the error's retryable code
+    # (in this case 403) was set, after this runs it should retry. This
+    # error code should be consistent with apis.GetApiEnablementInfo
+    if not is_batch_request:
+      raise apitools_exceptions.RequestError('Retry')
+  else:
+    raise exception
 
 
 def _CheckResponse(response):
@@ -192,32 +245,21 @@ def _CheckResponse(response):
   Raises:
     apitools_exceptions.RequestError: error which should signal apitools to
       retry.
-    api_Exceptions.HttpException: the parsed error.
+    api_exceptions.HttpException: the parsed error.
   """
   # This will throw if there was a specific type of error. If not, then we can
   # parse and deal with our own class of errors.
   http_wrapper.CheckResponse(response)
-  if not properties.VALUES.core.should_prompt_to_enable_api.Get():
+  if not properties.VALUES.core.should_prompt_to_enable_api.GetBool():
     return
   # Once we get here, we check if it was an API enablement error and if so,
   # prompt the user to enable the API. If yes, we make that call and then
   # raise a RequestError, which will prompt the caller to retry. If not, we
   # raise the actual HTTP error.
   response_as_error = apitools_exceptions.HttpError.FromResponse(response)
-  parsed_error = api_exceptions.HttpException(response_as_error)
-  (project, service_token) = GetApiEnablementInfo(parsed_error)
-  if (project is not None and ShouldAttemptProjectEnable(project)
-      and service_token is not None):
-    if console_io.PromptContinue(
-        message=None,
-        prompt_string=('API [{}] not enabled on project [{}]. '
-                       'Would you like to enable and retry? ')
-        .format(service_token, project)):
-      enable_api.EnableServiceIfDisabled(project, service_token)
-      # An error here will invoke apitools retry logic
-      raise apitools_exceptions.RequestError('Retry')
-    else:
-      raise parsed_error
+  enablement_info = GetApiEnablementInfo(response_as_error)
+  if enablement_info:
+    PromptToEnableApi(*enablement_info)
 
 
 def GetClientClass(api_name, api_version):
@@ -235,24 +277,24 @@ def GetClientClass(api_name, api_version):
 
 
 def GetClientInstance(api_name, api_version, no_http=False,
-                      disable_resource_quota=False):
+                      enable_resource_quota=True):
   """Returns an instance of the API client specified in the args.
 
   Args:
     api_name: str, The API name (or the command surface name, if different).
     api_version: str, The version of the API.
     no_http: bool, True to not create an http object for this client.
-    disable_resource_quota: bool, By default, we are going to tell APIs to use
+    enable_resource_quota: bool, By default, we are going to tell APIs to use
       the quota of the project being operated on. For some APIs we want to use
       gcloud's quota, so you can explicitly disable that behavior by passing
-      True here.
+      False here.
 
   Returns:
     base_api.BaseApiClient, An instance of the specified API client.
   """
   # pylint:disable=protected-access
   return apis_internal._GetClientInstance(
-      api_name, api_version, no_http, _CheckResponse, disable_resource_quota)
+      api_name, api_version, no_http, _CheckResponse, enable_resource_quota)
 
 
 def GetEffectiveApiEndpoint(api_name, api_version, client_class=None):

@@ -13,7 +13,9 @@
 # limitations under the License.
 """`gcloud app versions list` command."""
 
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.app import appengine_api_client
+from googlecloudsdk.api_lib.app import version_util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
@@ -43,6 +45,14 @@ class List(base.ListCommand):
           To list only versions that are receiving traffic, run:
 
             $ {command} --hide-no-traffic
+
+          To list all version information in JSON, run:
+
+            $ {command} --format="json"
+
+          To list versions created after a specific date, run:
+
+            $ {command} --filter="version.createTime.date('%Y-%m-%d', Z)>'2017-11-03'"
           """,
   }
 
@@ -62,6 +72,7 @@ class List(base.ListCommand):
             version.servingStatus:label=SERVING_STATUS
           )
     """)
+    parser.display_info.AddUriFunc(version_util.GetUri)
 
   def Run(self, args):
     api_client = appengine_api_client.GetApiClientForTrack(self.ReleaseTrack())

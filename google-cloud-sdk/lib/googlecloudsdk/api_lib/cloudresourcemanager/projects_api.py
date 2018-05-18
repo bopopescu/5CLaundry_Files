@@ -13,22 +13,23 @@
 # limitations under the License.
 """Useful commands for interacting with the Cloud Resource Management API."""
 
-from apitools.base.py import exceptions
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import list_pager
 
 from googlecloudsdk.api_lib.cloudresourcemanager import projects_util
 from googlecloudsdk.api_lib.resource_manager import folders
 from googlecloudsdk.command_lib.iam import iam_util
-from googlecloudsdk.command_lib.util import labels_util
 
 
-def List(limit=None, filter=None):  # pylint: disable=redefined-builtin
+def List(limit=None, filter=None, batch_size=500):  # pylint: disable=redefined-builtin
   """Make API calls to List active projects.
 
   Args:
     limit: The number of projects to limit the resutls to. This limit is passed
            to the server and the server does the limiting.
     filter: The client side filter expression.
+    batch_size: the number of projects to get with each request.
 
   Returns:
     Generator that yields projects
@@ -37,33 +38,36 @@ def List(limit=None, filter=None):  # pylint: disable=redefined-builtin
   messages = projects_util.GetMessages()
   return list_pager.YieldFromList(
       client.projects,
-      messages.CloudresourcemanagerProjectsListRequest(filter=filter),
+      messages.CloudresourcemanagerProjectsListRequest(
+          filter=_AddActiveProjectFilter(filter)),
+      batch_size=batch_size,
       limit=limit,
       field='projects',
-      predicate=
-      projects_util.IsActive,
       batch_size_attribute='pageSize')
+
+
+def _AddActiveProjectFilter(filter_expr):
+  if not filter_expr:
+    return 'lifecycleState:ACTIVE'
+  return 'lifecycleState:ACTIVE AND ({})'.format(filter_expr)
 
 
 def Get(project_ref):
   """Get project information."""
   client = projects_util.GetClient()
-  try:
-    return client.projects.Get(
-        client.MESSAGES_MODULE.CloudresourcemanagerProjectsGetRequest(
-            projectId=project_ref.projectId))
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return client.projects.Get(
+      client.MESSAGES_MODULE.CloudresourcemanagerProjectsGetRequest(
+          projectId=project_ref.projectId))
 
 
-def Create(project_ref, display_name=None, parent=None, update_labels=None):
+def Create(project_ref, display_name=None, parent=None, labels=None):
   """Create a new project.
 
   Args:
     project_ref: The identifier for the project
     display_name: Optional display name for the project
     parent: Optional for the project (ex. folders/123 or organizations/5231)
-    update_labels: Optional labels to apply to the project
+    labels: Optional labels to apply to the project
 
   Returns:
     An Operation object which can be used to check on the progress of the
@@ -76,8 +80,7 @@ def Create(project_ref, display_name=None, parent=None, update_labels=None):
           projectId=project_ref.Name(),
           name=display_name if display_name else project_ref.Name(),
           parent=parent,
-          labels=labels_util.UpdateLabels(
-              None, messages.Project.LabelsValue, update_labels=update_labels)))
+          labels=labels))
 
 
 def Delete(project_ref):
@@ -85,12 +88,9 @@ def Delete(project_ref):
   client = projects_util.GetClient()
   messages = projects_util.GetMessages()
 
-  try:
-    client.projects.Delete(
-        messages.CloudresourcemanagerProjectsDeleteRequest(
-            projectId=project_ref.Name()))
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  client.projects.Delete(
+      messages.CloudresourcemanagerProjectsDeleteRequest(
+          projectId=project_ref.Name()))
   return projects_util.DeletedResource(project_ref.Name())
 
 
@@ -99,30 +99,23 @@ def Undelete(project_ref):
   client = projects_util.GetClient()
   messages = projects_util.GetMessages()
 
-  try:
-    client.projects.Undelete(
-        messages.CloudresourcemanagerProjectsUndeleteRequest(
-            projectId=project_ref.Name()))
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  client.projects.Undelete(
+      messages.CloudresourcemanagerProjectsUndeleteRequest(
+          projectId=project_ref.Name()))
   return projects_util.DeletedResource(project_ref.Name())
 
 
 def Update(project_ref,
            name=None,
            parent=None,
-           update_labels=None,
-           remove_labels=None):
+           labels_diff=None):
   """Update project information."""
   client = projects_util.GetClient()
   messages = projects_util.GetMessages()
 
-  try:
-    project = client.projects.Get(
-        client.MESSAGES_MODULE.CloudresourcemanagerProjectsGetRequest(
-            projectId=project_ref.projectId))
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  project = client.projects.Get(
+      client.MESSAGES_MODULE.CloudresourcemanagerProjectsGetRequest(
+          projectId=project_ref.projectId))
 
   if name:
     project.name = name
@@ -130,14 +123,13 @@ def Update(project_ref,
   if parent:
     project.parent = parent
 
-  project.labels = labels_util.UpdateLabels(project.labels,
-                                            messages.Project.LabelsValue,
-                                            update_labels=update_labels,
-                                            remove_labels=remove_labels)
-  try:
-    return client.projects.Update(project)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  if labels_diff:
+    labels_update = labels_diff.Apply(messages.Project.LabelsValue,
+                                      project.labels)
+    if labels_update.needs_update:
+      project.labels = labels_update.labels
+
+  return client.projects.Update(project)
 
 
 def GetIamPolicy(project_ref):
@@ -147,12 +139,8 @@ def GetIamPolicy(project_ref):
 
   policy_request = messages.CloudresourcemanagerProjectsGetIamPolicyRequest(
       resource=project_ref.Name(),
-      getIamPolicyRequest=messages.GetIamPolicyRequest(),
   )
-  try:
-    return client.projects.GetIamPolicy(policy_request)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return client.projects.GetIamPolicy(policy_request)
 
 
 def SetIamPolicy(project_ref, policy, update_mask=None):
@@ -168,10 +156,7 @@ def SetIamPolicy(project_ref, policy, update_mask=None):
   policy_request = messages.CloudresourcemanagerProjectsSetIamPolicyRequest(
       resource=project_ref.Name(),
       setIamPolicyRequest=set_iam_policy_request)
-  try:
-    return client.projects.SetIamPolicy(policy_request)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return client.projects.SetIamPolicy(policy_request)
 
 
 def SetIamPolicyFromFile(project_ref, policy_file):
@@ -187,36 +172,21 @@ def SetIamPolicyFromFile(project_ref, policy_file):
   if 'etag' not in update_mask:
     update_mask += ',etag'
 
-  try:
-    return SetIamPolicy(project_ref, policy, update_mask)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return SetIamPolicy(project_ref, policy, update_mask)
 
 
 def AddIamPolicyBinding(project_ref, member, role):
   messages = projects_util.GetMessages()
 
-  try:
-    policy = GetIamPolicy(project_ref)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  policy = GetIamPolicy(project_ref)
   iam_util.AddBindingToIamPolicy(messages.Binding, policy, member, role)
-  try:
-    return SetIamPolicy(project_ref, policy)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return SetIamPolicy(project_ref, policy)
 
 
 def RemoveIamPolicyBinding(project_ref, member, role):
-  try:
-    policy = GetIamPolicy(project_ref)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  policy = GetIamPolicy(project_ref)
   iam_util.RemoveBindingFromIamPolicy(policy, member, role)
-  try:
-    return SetIamPolicy(project_ref, policy)
-  except exceptions.HttpError as error:
-    raise projects_util.ConvertHttpError(error)
+  return SetIamPolicy(project_ref, policy)
 
 
 def ParentNameToResourceId(parent_name):

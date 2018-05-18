@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""'functions describe' command."""
+"""Displays details of a Google Cloud Function."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.functions import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.functions import flags
@@ -22,7 +24,7 @@ from googlecloudsdk.core import resources
 
 
 class Describe(base.DescribeCommand):
-  """Show description of a function."""
+  """Display details of a Google Cloud Function."""
 
   @staticmethod
   def Args(parser):
@@ -30,7 +32,10 @@ class Describe(base.DescribeCommand):
     parser.add_argument(
         'name', help='The name of the function to describe.',
         type=util.ValidateFunctionNameOrRaise)
-    flags.AddRegionFlag(parser)
+    flags.AddRegionFlag(
+        parser,
+        help_text='The region of the function to describe.',
+    )
 
   @util.CatchHTTPErrorRaiseHTTPException
   def Run(self, args):

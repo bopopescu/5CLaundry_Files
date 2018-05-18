@@ -14,8 +14,14 @@
 
 """Cloud SDK markdown document text renderer."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 from googlecloudsdk.core.console import console_attr
 from googlecloudsdk.core.document_renderers import renderer
+
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 class TextRenderer(renderer.Renderer):
@@ -46,11 +52,7 @@ class TextRenderer(renderer.Renderer):
 
   def __init__(self, *args, **kwargs):
     super(TextRenderer, self).__init__(*args, **kwargs)
-    # We want the rendering to match the default console encoding. self._out
-    # could be a file or pipe to a pager, either way we still want to see rich
-    # encoding if the console supports it.
-    encoding = console_attr.GetConsoleAttr().GetEncoding()
-    self._attr = console_attr.GetConsoleAttr(out=self._out, encoding=encoding)
+    self._attr = console_attr.GetConsoleAttr()
     self._blank = True
     self._bullet = self._attr.GetBullets()
     self._csi_char = self._attr.GetControlSequenceIndicator()
@@ -92,7 +94,7 @@ class TextRenderer(renderer.Renderer):
         if self._level >= len(self._indent):
           self._indent.append(self.Indent())
         self._indent[self._level].indent = (
-            self._indent[prev_level].indent + indent)
+            self._indent[prev_level].indent + indent)  # pytype: disable=wrong-arg-types
         if (self._level > 1 and
             self._indent[prev_level].hanging_indent ==
             self._indent[prev_level].indent):

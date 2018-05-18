@@ -14,7 +14,8 @@
 
 """Backend service."""
 
-import urlparse
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from apitools.base.py import batch
 from apitools.base.py import exceptions as apitools_exceptions
@@ -23,6 +24,9 @@ from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.api_lib.util import apis as core_apis
 from googlecloudsdk.api_lib.util import exceptions as api_exceptions
 from googlecloudsdk.core import exceptions as core_exceptions
+
+from six.moves.urllib import parse
+
 
 # Upper bound on batch size
 # https://cloud.google.com/compute/docs/api/how-tos/batch
@@ -33,12 +37,12 @@ class Error(core_exceptions.Error):
   """Errors raised by this module."""
 
 
-def GetBatchUrl(endpoint_url):
+def _GetBatchUrl(endpoint_url, api_version):
   """Return a batch URL for the given endpoint URL."""
-  parsed_endpoint = urlparse.urlparse(endpoint_url)
-  return urlparse.urljoin(
+  parsed_endpoint = parse.urlparse(endpoint_url)
+  return parse.urljoin(
       '{0}://{1}'.format(parsed_endpoint.scheme, parsed_endpoint.netloc),
-      'batch/compute')
+      'batch/compute/' + api_version)
 
 
 class ClientAdapter(object):
@@ -55,7 +59,7 @@ class ClientAdapter(object):
     # eg. https://www.googleapis.com/compute/v1 -> https://www.googleapis.com
     endpoint_url = core_apis.GetEffectiveApiEndpoint(
         self._API_NAME, self._api_version)
-    self._batch_url = GetBatchUrl(endpoint_url)
+    self._batch_url = _GetBatchUrl(endpoint_url, self._api_version)
 
   @property
   def api_version(self):

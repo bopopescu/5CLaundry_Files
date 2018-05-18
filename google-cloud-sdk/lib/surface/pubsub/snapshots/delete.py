@@ -11,10 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """Cloud Pub/Sub snapshots delete command."""
+
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 from apitools.base.py import exceptions as api_ex
 
+from googlecloudsdk.api_lib.pubsub import snapshots
 from googlecloudsdk.api_lib.util import exceptions
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.pubsub import util
@@ -50,23 +55,29 @@ class Delete(base.DeleteCommand):
       A serialized object (dict) describing the results of the operation.
       This description fits the Resource described in the ResourceRegistry under
       'pubsub.projects.snapshots'.
-    """
-    msgs = self.context['pubsub_msgs']
-    pubsub = self.context['pubsub']
 
+    Raises:
+      util.RequestFailedError: if any of the requests to the API failed.
+    """
+    client = snapshots.SnapshotsClient()
+
+    failed = []
     for snapshot_name in args.snapshot:
-      snapshot_path = util.SnapshotFormat(snapshot_name)
-      delete_req = msgs.PubsubProjectsSnapshotsDeleteRequest(
-          snapshot=snapshot_path)
+      snapshot_ref = util.ParseSnapshot(snapshot_name)
 
       try:
-        pubsub.projects_snapshots.Delete(delete_req)
-        failed = None
+        client.Delete(snapshot_ref)
       except api_ex.HttpError as error:
         exc = exceptions.HttpException(error)
-        failed = exc.payload.status_message
+        log.DeletedResource(snapshot_ref.RelativeName(), kind='snapshot',
+                            failed=exc.payload.status_message)
+        failed.append(snapshot_name)
+        continue
 
       result = util.SnapshotDisplayDict(
-          msgs.Snapshot(name=snapshot_path), failed)
-      log.DeletedResource(snapshot_path, kind='snapshot', failed=failed)
+          client.messages.Snapshot(name=snapshot_ref.RelativeName()))
+      log.DeletedResource(snapshot_ref.RelativeName(), kind='snapshot')
       yield result
+
+    if failed:
+      raise util.RequestsFailedError(failed, 'delete')

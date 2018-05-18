@@ -27,20 +27,17 @@ class ListUserVerified(base.Command):
           """\
           To list domains that have been verified by the current user, run:
 
-            $ {command} list-user-verified
+            $ {command}
 
           Use the {parent_command} verify command to verify additional
           domains.
           """,
   }
 
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat('table(id:sort=1)')
+
   def Run(self, args):
     client = api_client.GetApiClientForTrack(self.ReleaseTrack())
     return client.ListVerifiedDomains()
-
-  def DeprecatedFormat(self, args):
-    return """
-            table(
-              id:sort=1
-            )
-          """

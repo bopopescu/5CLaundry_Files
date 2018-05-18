@@ -14,6 +14,8 @@
 
 """The gcloud resources command group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
 
 
@@ -22,5 +24,10 @@ class Resources(base.Group):
   """List and search resources accessible from your account.
 
   The {command} group allows you to list and search the Google Cloud resources
-  that you have access to.
+  that you have access to. Currently, only a limited subset of Cloud resource
+  types are supported.
   """
+
+  def Filter(self, context, args):
+    del context, args
+    base.DisableUserProjectQuota()

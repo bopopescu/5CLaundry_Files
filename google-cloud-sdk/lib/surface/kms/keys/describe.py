@@ -13,8 +13,11 @@
 # limitations under the License.
 """Describe a key."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.calliope import base
+from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.command_lib.kms import flags
 
 
@@ -40,6 +43,9 @@ class Describe(base.DescribeCommand):
     messages = cloudkms_base.GetMessagesModule()
 
     crypto_key_ref = flags.ParseCryptoKeyName(args)
+    if not crypto_key_ref.Name():
+      raise exceptions.InvalidArgumentException('key',
+                                                'key id must be non-empty.')
     return client.projects_locations_keyRings_cryptoKeys.Get(
         messages.CloudkmsProjectsLocationsKeyRingsCryptoKeysGetRequest(
             name=crypto_key_ref.RelativeName()))

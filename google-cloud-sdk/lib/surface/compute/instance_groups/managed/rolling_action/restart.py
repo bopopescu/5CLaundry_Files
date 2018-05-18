@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for restarting instances of managed instance group."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.compute.instance_groups import flags as instance_groups_flags
@@ -20,7 +22,7 @@ from googlecloudsdk.command_lib.compute.instance_groups.managed import flags as 
 from googlecloudsdk.command_lib.compute.instance_groups.managed import rolling_action
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class StartUpdate(base.Command):
   """Start restart instances of managed instance group."""
 

@@ -30,6 +30,8 @@ To use in Run(args) methods:
   )
 """
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import re
 
 from googlecloudsdk.core.resource import resource_expr_rewrite
@@ -41,11 +43,12 @@ class ListRewriter(resource_expr_rewrite.Backend):
   def Quote(self, value):
     """Returns value double quoted if it contains special characters."""
     return super(ListRewriter, self).Quote(
-        value, always=re.search(r'[^-.\w\d]', value))
+        value, always=re.search(r'[^-@.\w]', value))
 
-  def RewriteTerm(self, key, op, operand):
+  def RewriteTerm(self, key, op, operand, key_type):
     """Rewrites <key op operand>."""
 
+    del key_type  # unused in RewriteTerm
     for prefix in ('project', '_'):
       if key.startswith(prefix):
         key = key[len(prefix):]

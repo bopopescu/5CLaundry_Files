@@ -16,11 +16,11 @@
 
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.calliope import base
-from googlecloudsdk.core import properties
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
                     base.ReleaseTrack.GA)
+@base.Hidden
 class ServiceManagement(base.Group):
   """Create, enable and manage API services.
 
@@ -44,7 +44,9 @@ class ServiceManagement(base.Group):
     Returns:
       The updated context.
     """
-
+    # Don't ever take this off. Use gcloud quota so that you can enable APIs
+    # on your own project before you have API access on that project.
+    base.DisableUserProjectQuota()
     context['servicemanagement-v1'] = apis.GetClientInstance(
         'servicemanagement', 'v1')
     context['servicemanagement-v1-messages'] = apis.GetMessagesModule(

@@ -16,6 +16,9 @@
 
 """gcloud command line tool."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import os
 import sys
 
@@ -27,21 +30,35 @@ if os.path.isdir(_THIRD_PARTY_DIR):
 
 
 def _import_gcloud_main():
+  """Returns reference to gcloud_main module."""
+
+  if 'google' in sys.modules:
+    # By this time 'google' should NOT be in sys.modules, but some releases of
+    # protobuf preload google package via .pth file setting its __path__. This
+    # prevents loading of other packages in the same namespace.
+    # Below add our vendored 'google' packages to its path if this is the case.
+    google_paths = getattr(sys.modules['google'], '__path__', [])
+    vendored_google_path = os.path.join(_THIRD_PARTY_DIR, 'google')
+    if vendored_google_path not in google_paths:
+      google_paths.append(vendored_google_path)
+
   # pylint:disable=g-import-not-at-top
   import googlecloudsdk.gcloud_main
   return googlecloudsdk.gcloud_main
 
 
 def main():
+  # pylint:disable=g-import-not-at-top
+  from googlecloudsdk.core.util import encoding
 
-  if '_ARGCOMPLETE' in os.environ:
+  if encoding.GetEncodedValue(os.environ, '_ARGCOMPLETE'):
     try:
       # pylint:disable=g-import-not-at-top
       import googlecloudsdk.command_lib.static_completion.lookup as lookup
-      lookup.Complete(_GCLOUD_PY_DIR)
+      lookup.Complete()
       return
     except Exception:  # pylint:disable=broad-except, hide completion errors
-      if os.environ.get('_ARGCOMPLETE_TRACE') == 'static':
+      if encoding.GetEncodedValue(os.environ, '_ARGCOMPLETE_TRACE') == 'static':
         raise
 
   try:

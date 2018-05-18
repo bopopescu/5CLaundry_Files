@@ -14,16 +14,19 @@
 
 """manifests describe command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import exceptions as apitools_exceptions
 
 from googlecloudsdk.api_lib.deployment_manager import dm_api_util
 from googlecloudsdk.api_lib.deployment_manager import dm_base
+from googlecloudsdk.api_lib.deployment_manager import exceptions as dm_exceptions
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.deployment_manager import dm_v2_base
 
 
-class Describe(base.DescribeCommand):
+@dm_base.UseDmApi(dm_base.DmApiVersion.V2)
+class Describe(base.DescribeCommand, dm_base.DmCommand):
   """Provide information about a manifest.
 
   This command prints out all available details about a manifest.
@@ -67,10 +70,11 @@ class Describe(base.DescribeCommand):
       HttpException: An http error response was received while executing api
           request.
     """
-    if not args.manifest:
+    manifest = args.manifest
+    if not manifest:
       try:
-        deployment = dm_v2_base.GetClient().deployments.Get(
-            dm_v2_base.GetMessages().DeploymentmanagerDeploymentsGetRequest(
+        deployment = self.client.deployments.Get(
+            self.messages.DeploymentmanagerDeploymentsGetRequest(
                 project=dm_base.GetProject(),
                 deployment=args.deployment
             )
@@ -79,15 +83,17 @@ class Describe(base.DescribeCommand):
         raise exceptions.HttpException(error)
 
       manifest = dm_api_util.ExtractManifestName(deployment)
-      if manifest:
-        args.manifest = manifest
+      if not manifest:
+        raise dm_exceptions.ManifestError(
+            'The deployment [%s] does not have a current manifest. '
+            'Please specify the manifest name.' % args.deployment)
 
     try:
-      return dm_v2_base.GetClient().manifests.Get(
-          dm_v2_base.GetMessages().DeploymentmanagerManifestsGetRequest(
+      return self.client.manifests.Get(
+          self.messages.DeploymentmanagerManifestsGetRequest(
               project=dm_base.GetProject(),
               deployment=args.deployment,
-              manifest=args.manifest,
+              manifest=manifest,
           )
       )
     except apitools_exceptions.HttpError as error:

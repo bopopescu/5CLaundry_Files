@@ -11,13 +11,11 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """The main command group for cloud source command group."""
 
-from googlecloudsdk.api_lib.source import source
-from googlecloudsdk.api_lib.sourcerepo import sourcerepo
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import base
-from googlecloudsdk.core import resources
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA,
@@ -39,7 +37,4 @@ class Source(base.Group):
     Returns:
       The updated context.
     """
-    source.Source.SetResourceParser(resources.REGISTRY)
-    source.Source.SetApiEndpoint()
-    sourcerepo.Source.SetResourceParser(resources.REGISTRY)
-    sourcerepo.Source.SetApiEndpoint()
+    base.DisableUserProjectQuota()

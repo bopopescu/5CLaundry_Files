@@ -14,10 +14,13 @@
 
 """Command to delete a project."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudresourcemanager import projects_api
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.projects import flags
 from googlecloudsdk.command_lib.projects import util as command_lib_util
+from googlecloudsdk.command_lib.resource_manager import completers
 from googlecloudsdk.core import log
 from googlecloudsdk.core.console import console_io
 
@@ -36,11 +39,18 @@ class Delete(base.DeleteCommand):
   The following command deletes the project with the ID `example-foo-bar-1`:
 
     $ {command} example-foo-bar-1
+
+  ## SEE ALSO
+
+  {see_also}
   """
+
+  detailed_help = {'see_also': flags.CREATE_DELETE_IN_CONSOLE_SEE_ALSO}
 
   @staticmethod
   def Args(parser):
     flags.GetProjectFlag('delete').AddToParser(parser)
+    parser.display_info.AddCacheUpdater(completers.ProjectCompleter)
 
   def Run(self, args):
     project_ref = command_lib_util.ParseProject(args.id)

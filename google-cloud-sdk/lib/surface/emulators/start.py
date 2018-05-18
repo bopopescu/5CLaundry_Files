@@ -42,7 +42,7 @@ class Start(base.Command):
     parser.add_argument(
         '--emulators',
         required=False,
-        type=arg_parsers.ArgList(element_type=str.lower),
+        type=arg_parsers.ArgList(element_type=lambda val: val.lower()),
         metavar='EMULATORS',
         help='list of local emulators to start. \'all\' will attempt to start '
         'all of the emulators. Valid options: ' + emulator_options)
@@ -82,7 +82,7 @@ class Start(base.Command):
       component = emulator.emulator_component
       if (args.emulators is not None and
           (flag in args.emulators or 'all' in args.emulators)):
-        java.CheckIfJavaIsInstalled(title)
+        java.RequireJavaInstalled(title)
         util.EnsureComponentIsInstalled(component, title)
 
     local_emulator_ports = {}

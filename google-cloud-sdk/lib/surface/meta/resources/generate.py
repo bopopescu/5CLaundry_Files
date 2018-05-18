@@ -48,13 +48,20 @@ class Parse(base.Command):
     collection_info = resources.REGISTRY.GetCollectionInfo(
         args.collection, api_version=args.api_version)
     templates = {}
-    for param in collection_info.GetParams(''):
+    params = collection_info.GetParams('')
+    if not params:
+      # There are some collections that don't operate on resources but are
+      # manually created in regen_apis_config.yaml. If there are no template
+      # params, don't try to generate resources for them.
+      return []
+    for param in params:
       templates[param] = 'my-' + param.lower() + '-{}'
     uris = []
     for i in range(1, args.count + 1):
       params = {}
       for param, template in templates.iteritems():
         params[param] = template.format(i)
-      uri = resources.Resource(collection_info, '', params, None).SelfLink()
+      uri = resources.Resource(
+          None, collection_info, '', params, None).SelfLink()
       uris.append(uri)
     return uris

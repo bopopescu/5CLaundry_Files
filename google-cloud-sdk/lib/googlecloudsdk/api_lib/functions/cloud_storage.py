@@ -14,15 +14,13 @@
 
 """Utilities for interacting with Google Cloud Storage."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os
 
 from googlecloudsdk.core import config
 from googlecloudsdk.core import execution_utils
 from googlecloudsdk.core.util import platforms
-
-
-def BuildRemoteDestination(bucket, path):
-  return '{0}{1}'.format(bucket, path)
 
 
 def _GetGsutilPath():

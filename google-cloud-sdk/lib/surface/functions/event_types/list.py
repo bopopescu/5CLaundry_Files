@@ -11,34 +11,29 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""The event-types command subgroup for Google Cloud Functions.
-
-'functions event-types list' command.
-"""
-from googlecloudsdk.api_lib.functions import util
+"""List types of events that can be a trigger for a Google Cloud Function."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from googlecloudsdk.api_lib.functions import triggers
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.functions import flags
 
 
 class List(base.Command):
-  """Describes the allowed values and meanings of --trigger-* flags.
+  """List types of events that can be a trigger for a Google Cloud Function.
 
-  Prints the table with list of all ways to deploy an event trigger. When using
-  `gcloud functions deploy` Event Providers are specified as
-  --trigger-provider and Event Types are specified as --trigger-event.
-  The table includes the type of resource expected in --trigger-resource.
+  `{command}` displays types of events that can be a trigger for a Google Cloud
+  Function.
 
-  * For an event type, EVENT_TYPE_DEFAULT marks whether the given event type is
-    the default for its provider (in which case the --event-type flag may be
-    omitted).
-  * For a resource, RESOURCE_OPTIONAL marks whether the resource has a
-    corresponding default value (in which case the --trigger-resource flag
+  * For an event type, `EVENT_TYPE_DEFAULT` marks whether the given event type
+    is the default for its provider (in which case the `--event-type` flag may
+    be omitted).
+  * For a resource, `RESOURCE_OPTIONAL` marks whether the resource has a
+    corresponding default value (in which case the `--trigger-resource` flag
     may be omitted).
   """
 
   @staticmethod
   def Args(parser):
-    flags.AddRegionFlag(parser)
     parser.display_info.AddFormat('''
         table(provider.label:label="EVENT_PROVIDER":sort=1,
               label:label="EVENT_TYPE":sort=2,
@@ -49,6 +44,6 @@ class List(base.Command):
      ''')
 
   def Run(self, args):
-    for provider in util.output_trigger_provider_registry.providers:
+    for provider in triggers.OUTPUT_TRIGGER_PROVIDER_REGISTRY.providers:
       for event in provider.events:
         yield event

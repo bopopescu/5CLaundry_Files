@@ -12,27 +12,74 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Command for listing addresses."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
+from googlecloudsdk.api_lib.compute import lister
+from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute.addresses import flags
 
 
-class List(base_classes.GlobalRegionalLister):
+def _TransformAddressRange(resource):
+  prefix_length = resource.get('prefixLength')
+  address = resource.get('address')
+  if prefix_length:
+    return address + '/' + str(prefix_length)
+  return address
+
+
+@base.ReleaseTracks(base.ReleaseTrack.GA, base.ReleaseTrack.BETA)
+class List(base.ListCommand):
   """List addresses."""
 
-  @property
-  def global_service(self):
-    return self.compute.globalAddresses
+  @staticmethod
+  def Args(parser):
+    parser.display_info.AddFormat("""\
+        table(
+          name,
+          region.basename(),
+          address,
+          status
+        )""")
+    lister.AddMultiScopeListerFlags(parser, regional=True, global_=True)
+    parser.display_info.AddCacheUpdater(flags.AddressesCompleter)
 
-  @property
-  def regional_service(self):
-    return self.compute.addresses
+  def Run(self, args):
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
 
-  @property
-  def resource_type(self):
-    return 'addresses'
+    request_data = lister.ParseMultiScopeFlags(args, holder.resources)
 
-  @property
-  def allowed_filtering_types(self):
-    return ['globalAddresses', 'addresses']
+    list_implementation = lister.MultiScopeLister(
+        client,
+        regional_service=client.apitools_client.addresses,
+        global_service=client.apitools_client.globalAddresses,
+        aggregation_service=client.apitools_client.addresses)
+
+    return lister.Invoke(request_data, list_implementation)
+
+
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+class ListAlpha(List):
+  """List addresses."""
+
+  @staticmethod
+  def Args(parser):
+    """Override."""
+    parser.display_info.AddFormat("""\
+        table(
+          name,
+          address_range():label=ADDRESS/RANGE,
+          address_type:label=TYPE,
+          purpose,
+          network.basename(),
+          region.basename(),
+          subnetwork.basename():label=SUBNET,
+          status
+        )""")
+    lister.AddMultiScopeListerFlags(parser, regional=True, global_=True)
+    parser.display_info.AddCacheUpdater(flags.AddressesCompleter)
+    parser.display_info.AddTransforms({'address_range': _TransformAddressRange})
 
 
 List.detailed_help = {

@@ -1,18 +1,194 @@
 
+Revision 0.4.2, released 23-11-2017
+-----------------------------------
+
+- Fixed explicit tag splitting in chunked encoding mode at
+  OctetString and BitString encoders
+
+Revision 0.4.1, released 23-11-2017
+-----------------------------------
+
+- ANY DEFINED BY clause support implemented
+- Encoders refactored to take either a value (as ASN.1 object)
+  or a Python value plus ASN.1 schema
+- BitString decoder optimised for better performance when running on
+  constructed encoding
+- Constructed types' .getComponentBy*() methods accept the `default`
+  parameter to return instead if schema object is to be returned
+- Constructed types' .getComponentBy*() methods accept the `instantiate`
+  parameter to disable automatic inner component instantiation
+- The ASN.1 types' `__repr__` implementation reworked for better readability
+  at the cost of not being `eval`-compliant
+- Most ASN.1 types' `__str__` magic methods (except for OctetString and
+  character types) reworked to call `.prettyPrint()` rather than
+  `.prettyPrint` calling `__str__` as it was before. The intention is
+  to eventually deprecate `.prettyPrint()` in favor of `str()`.
+  The other related change is that `str()` of enumerations and boolean
+  types will return string label instead of number.
+- Fixed Choice.clear() to fully reset internal state of the object
+- Sphinx documentation rearranged, simplified and reworded
+- The `isValue` singleton is now the only way to indicate ASN.1 schema
+  as opposed to ASN.1 schema instance. The legacy `None` initializer
+  support has been removed.
+- Changed `Null` object initialization behaviour: previous default
+  value (`''`) is not set anymore. Thus `Null()` call produces a
+  ASN.1 schema object, while `Null('')` - value object.
+- Migrated all docs and references from SourceForge
+- Imports PEP8'ed
+- Fixed ASN.1 encoder not to omit empty substrate produced for inner
+  component if the inner component belongs to the simple class (as
+  opposed to constructed class)
+- Fixed CER/DER encoders to respect tagged CHOICE when ordering
+  SET components
+- Fixed ASN.1 types not to interfere with the Pickle protocol
+- Fixed Sequence/SequenceOf types decoding heuristics in schema-less
+  decoding mode
+
+Revision 0.3.7, released 04-10-2017
+-----------------------------------
+
+- Fixed ASN.1 time types pickling/deepcopy'ing
+
+Revision 0.3.6, released 21-09-2017
+-----------------------------------
+
+- End-of-octets encoding optimized at ASN.1 encoders
+- The __getitem__/__setitem__ behavior of Set/Sequence and SetOf/SequenceOf
+  objects aligned with the canonical Mapping and Sequence protocols in part
+- Fixed crash in ASN.1 encoder when encoding an explicitly tagged
+  component of a Sequence
+
+Revision 0.3.5, released 16-09-2017
+-----------------------------------
+
+- Codecs signatures unified and pass the options kwargs through the
+  call chain
+- Explicit tag encoding optimized to avoid unnecessary copying
+- End-of-octets sentinel encoding optimized
+- Refactored ASN.1 codecs properties to silently enforce proper
+  length and chunk size encoding modes
+- Fixed DER encoder to always produce primitive encoding
+- Fixed crash at SequenceOf native decoder
+- Fixed Real.prettyPrint() to fail gracefully on overflow
+- Fixed a couple of crashes when debug mode is enabled
+
+Revision 0.3.4, released 07-09-2017
+-----------------------------------
+
+- Fixed Native encoder to handle SEQUENCE/SET objects without
+  the componentType property
+- Added missing component-less SEQUENCE/SET objects dict duck-typing support
+- Fixed unnecessary duplicate tags detection at NamesType.tagMap
+- Fixed crash at SEQUENCE and SEQUENCE OF CER encoder when running
+  in schemaless mode
+- Fixed Character types instantiation from OctetString type -- double
+  unicode decoding may have scrambled the data
+
+Revision 0.3.3, released 27-08-2017
+-----------------------------------
+
+- Improved ASN.1 types instantiation performance
+- Improved BER/CER/DER decoder performance by not unconditionally casting
+  substrate into str/bytes.
+- Fixed exponential index size growth bug when building ambiguous
+  NamedTypes tree
+- Fixed constructed types decoding failure at BER codec if running
+  in schema-less mode
+- Fixed crash on prettyPrint'ing a SEQUENCE with no defined components
+- Fixed SetOf ordering at CER/DER encoder
+- Fixed crash on conditional binascii module import
+- Fix to TagSet hash value build
+
+Revision 0.3.2, released 04-08-2017
+-----------------------------------
+
+- Fixed SequenceOf/SetOf types initialization syntax to remain
+  backward compatible with pyasn1 0.2.*
+- Rectified thread safety issues by moving lazy, run-time computation
+  into object initializer.
+- Fixed .isValue property to return True for empty SetOf/SequenceOf
+  objects
+- Fixed GeneralizedTime/UTCTime CER/DER codecs to actually get invoked
+- Fixed DER/CER encoders handling optional SEQUENCE/SET fields containing
+  nested SEQUENCE/SET with optional fields.
+- Fixed crash in SequenceOf/SetOf pretty printing and decoding (in some
+  cases)
+- Fixed documentation markup issues.
+
+Revision 0.3.1, released 26-07-2017
+-----------------------------------
+
+- ASN.1 types __init__(), .clone() and .subtype() signatures
+  refactored into keyword arguments to simplify their signatures.
+- ASN.1 types initialization refactored to minimize the use of
+  relatively expensive isNoValue() call
+- Lazily pre-populate list of values of Sequence/Set/Choice types
+- NamedTypes comparison made more efficient
+- More efficient constraints computation and code clean up
+- The __getitem__() implementation of some ASN.1 types & tag object
+  refactored for better performance
+- BER/CER/DER value encoders refactored to produce either tuple of
+  bytes or octet-stream depending on what is more optimal
+- Reduced the frequency of expensive isinstance() calls
+- Tag-related classes optimized, refactored into properties and
+  documented.
+- The NamedValues implementation refactored to mimic Python dict, its use
+  in ASN.1 types refactored into properties and better documented.
+  WARNING: this change introduces a deviation from original API.
+- NamedType family of classes overhauled, optimized and documented.
+- The `componentType` attribute of constructed ASN.1 types turned
+  read-only on instances.
+- Sequence/Set DER/CER/DER decoder optimized to skip the case of
+  reordered components handling when not necessary.
+- Tags and constraints-related getter methods refactored into read-only
+  instance attributes.
+- The .hasValue() method refactored into .isValue property. All ASN.1
+  objects now support them, not just scalars.
+- The Real.{isInfinity, isPlusInfinity, isMinusInfinity} methods
+  refactored into properties and renamed into IsInf, IsPlusInf and isMinusInf
+- The end-of-octets type refactored to ensure it is a singleton. Codecs
+  changed to rely on that for better performance.
+- Codecs lookup made more efficient at BER/CER/DER decoder main loop by
+  assigning `typeId` to every ASN.1 type, not just ambiguous ones.
+- The .getComponent*() methods of constructed ASN.1 types changed
+  to lazily instantiate underlying type rather than return `None`.
+  This should simplify its API as initialization like `X[0][1] = 2` becomes
+  possible.
+  WARNING: this change introduces a deviation from the original API.
+- The .setComponent*() methods of SetOf/SequenceOf types changed not
+  to allow uninitialized "holes" inside the sequences of their components.
+  They now behave similarly to Python lists.
+  WARNING: this change introduces a deviation from the original API.
+- Default and optional components en/decoding of Constructed type
+  refactored towards better efficiency and more control.
+- OctetsString and Any decoder optimized to avoid creating ASN.1
+  objects for chunks of substrate. Instead they now join substrate
+  chunks together and create ASN.1 object from it just once.
+- The GeneralizedTime and UTCTime types now support to/from Python
+  datetime object conversion.
+- Unit tests added for the `compat` sub-package.
+- Fixed BitString named bits initialization bug.
+- Fixed non-functional tag cache (when running Python 2) at DER decoder.
+- Fixed chunked encoding restriction on DER encoder.
+- Fixed SET components ordering at DER encoder.
+- Fixed BIT STRING & OCTET STRING encoding to be always non-chunked (e.g.
+  primitive) at DER encoder
+- Fixed `compat.integer.from_bytes()` behaviour on empty input.
+
 Revision 0.2.3, released 25-02-2017
 -----------------------------------
 
 - Improved SEQUENCE/SET/CHOICE decoding performance by maintaining a single shared
   NamedType object for all instances of SEQUENCE/SET object.
 - Improved INTEGER encoding/decoding by switching to Python's built-in
-  integer serialization functions.
+  integer serialisation functions.
 - Improved BitString performance by rebasing it onto Python int type and leveraging
-  fast Integer serialization functions.
+  fast Integer serialisation functions.
 - BitString type usability improved in many ways: for example bitshifting and
   numeric operation on BitString is now possible.
 - Minor ObjectIdentifier type performance optimization.
 - ASN.1 character types refactored to keep unicode contents internally
-  (rather than serialized octet stream) and duck-type it directly.
+  (rather than serialised octet stream) and duck-type it directly.
 - ASN.1 OctetString initialized from a Python object performs bytes()
   on it when running on Python 3 (used to do str() which is probably
   less logical).
@@ -34,9 +210,9 @@ Revision 0.2.2, released 07-02-2017
 -----------------------------------
 
 - FIX TO A SECURITY WEAKNESS: define length only decoders could have successfully
-  processed indefinite length serialization.
+  processed indefinite length serialisation.
 - FIX TO A SECURITY WEAKNESS: canonical decoders (CER/DER) may have successfully
-  consumed non-canonical variations of (otherwise valid) serialization.
+  consumed non-canonical variations of (otherwise valid) serialisation.
 - Broken Enumerated subtyping fixed.
 
 Revision 0.2.1, released 05-02-2017
@@ -288,7 +464,8 @@ Revision 0.0.13b
 - Objects of Constructed types now support __setitem__()
 - Set/Sequence objects can now be addressed by their field names (string index)
   and position (integer index).
-- Typo fix to ber.SetDecoder code that prevented guided decoding operation.
+- Typo fix to ber.SetDecoder code that prevented with schema decoding
+  operation.
 - Fix to explicitly tagged items decoding support.
 - Fix to OctetString.prettyPrint() to better handle non-printable content.
 - Fix to repr() workings of Choice objects.
@@ -312,7 +489,8 @@ Revision 0.0.13a
   + tag and tagset caches introduced to decoder
   + decoder code improved to prevent unnecessary pyasn1 objects creation
   + allow disabling components verification when setting components to
-    structured types, this is used by decoder whilst running in guided mode.
+    structured types, this is used by decoder whilst running with schema
+    mode.
   + BER decoder for integer values now looks up a small set of pre-computed
     substrate values to save on decoding.
   + a few pre-computed values configured to ObjectIdentifier BER encoder.

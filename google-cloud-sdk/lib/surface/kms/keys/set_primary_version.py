@@ -13,6 +13,8 @@
 # limitations under the License.
 """Set the primary version of a key."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.cloudkms import base as cloudkms_base
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.kms import flags
@@ -43,9 +45,10 @@ class SetPrimaryVersion(base.Command):
     messages = cloudkms_base.GetMessagesModule()
 
     version_ref = flags.ParseCryptoKeyVersionName(args)
+    key_ref = flags.ParseCryptoKeyName(args)
 
     req = messages.CloudkmsProjectsLocationsKeyRingsCryptoKeysUpdatePrimaryVersionRequest(
-        name=version_ref.RelativeName(),
+        name=key_ref.RelativeName(),
         updateCryptoKeyPrimaryVersionRequest=(
             messages.UpdateCryptoKeyPrimaryVersionRequest(
                 cryptoKeyVersionId=version_ref.cryptoKeyVersionsId)))

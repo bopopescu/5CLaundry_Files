@@ -14,6 +14,7 @@
 
 """The Delete command."""
 
+from __future__ import absolute_import
 import copy
 
 from googlecloudsdk.api_lib.app import appengine_api_client
@@ -77,9 +78,17 @@ class Delete(base.DeleteCommand):
 
     services_to_delete = []
     for service in sorted(services):
-      if (len([v for v in all_versions if v.service == service.id]) ==
-          len([v for v in versions if v.service == service.id])):
-        services_to_delete.append(service)
+      service_versions = len(
+          [v for v in all_versions if v.service == service.id])
+      versions_to_delete = len([v for v in versions if v.service == service.id])
+      if service_versions == versions_to_delete and service_versions > 0:
+        if service.id == 'default':
+          raise VersionsDeleteError(
+              'The default service (module) may not be deleted, and must '
+              'comprise at least one version.'
+          )
+        else:
+          services_to_delete.append(service)
         for version in copy.copy(versions):
           if version.service == service.id:
             versions.remove(version)
@@ -100,8 +109,9 @@ class Delete(base.DeleteCommand):
 
     if services_to_delete:
       word = text.Pluralize(len(services_to_delete), 'service')
-      log.warn('Requested deletion of all existing versions for the following '
-               '{0}:'.format(word))
+      log.warning(
+          'Requested deletion of all existing versions for the following {0}:'
+          .format(word))
       resource_printer.Print(services_to_delete, 'list', out=log.status)
       console_io.PromptContinue(prompt_string=(
           '\nYou cannot delete all versions of a service. Would you like to '
@@ -114,6 +124,6 @@ class Delete(base.DeleteCommand):
       console_io.PromptContinue(cancel_on_no=True)
     else:
       if not services_to_delete:
-        log.warn('No matching versions found.')
+        log.warning('No matching versions found.')
 
     version_util.DeleteVersions(client, versions)

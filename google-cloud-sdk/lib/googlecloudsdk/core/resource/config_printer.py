@@ -14,11 +14,16 @@
 
 """config format resource printer."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+import io
 import pipes
-import StringIO
 
 from googlecloudsdk.core.resource import resource_printer_base
 from googlecloudsdk.core.util import platforms
+
+import six
 
 
 class ConfigPrinter(resource_printer_base.ResourcePrinter):
@@ -39,20 +44,20 @@ class ConfigPrinter(resource_printer_base.ResourcePrinter):
     if 'export' in self.attributes:
       self._add_items = self._PrintEnvExport
       if platforms.OperatingSystem.IsWindows():
-        self._env_command_format = u'set {name}={value}\n'
+        self._env_command_format = 'set {name}={value}\n'
       else:
-        self._env_command_format = u'export {name}={value}\n'
+        self._env_command_format = 'export {name}={value}\n'
     elif 'unset' in self.attributes:
       self._add_items = self._PrintEnvUnset
       if platforms.OperatingSystem.IsWindows():
-        self._env_command_format = u'set {name}=\n'
+        self._env_command_format = 'set {name}=\n'
       else:
-        self._env_command_format = u'unset {name}\n'
+        self._env_command_format = 'unset {name}\n'
     else:
       self._add_items = self._PrintConfig
     # Print the title if specified.
     if 'title' in self.attributes:
-      self._out.write(self.attributes['title'] + u'\n')
+      self._out.write(self.attributes['title'] + '\n')
 
   def _PrintCategory(self, out, label, items):
     """Prints config items in the label category.
@@ -63,27 +68,27 @@ class ConfigPrinter(resource_printer_base.ResourcePrinter):
       items: The items to list for label, either dict iteritems, an enumerated
         list, or a scalar value.
     """
-    top = StringIO.StringIO()
-    sub = StringIO.StringIO()
+    top = io.StringIO()
+    sub = io.StringIO()
     for name, value in sorted(items):
-      name = unicode(name)
+      name = six.text_type(name)
       try:
-        values = value.iteritems()
+        values = six.iteritems(value)
         self._PrintCategory(sub, label + [name], values)
         continue
       except AttributeError:
         pass
       if value is None:
-        top.write(u'{name} (unset)\n'.format(name=name))
+        top.write('{name} (unset)\n'.format(name=name))
       elif isinstance(value, list):
         self._PrintCategory(sub, label + [name], enumerate(value))
       else:
-        top.write(u'{name} = {value}\n'.format(name=name, value=value))
+        top.write('{name} = {value}\n'.format(name=name, value=value))
     top_content = top.getvalue()
     sub_content = sub.getvalue()
     if label and (top_content or
                   sub_content and not sub_content.startswith('[')):
-      out.write(u'[{0}]\n'.format('.'.join(label)))
+      out.write('[{0}]\n'.format('.'.join(label)))
     if top_content:
       out.write(top_content)
     if sub_content:
@@ -97,24 +102,61 @@ class ConfigPrinter(resource_printer_base.ResourcePrinter):
     """
     self._PrintCategory(self._out, [], items)
 
-  def _PrintEnvExport(self, items):
+  @staticmethod
+  def _Prefix(prefix, name):
+    """Returns a new prefix based on prefix and name."""
+    if isinstance(name, int):
+      name = 'I' + str(name)
+    return prefix + name + '_'
+
+  def _PrintEnvExport(self, items, prefix=''):
     """Prints the environment export commands for items.
+
+    Environment variable names have '_' instead of '.'.  Array values have
+    subscripts expanded as names *_I0, *_I1, ...
 
     Args:
       items: The current record dict iteritems from _AddRecord().
+      prefix: Parent name prefix, prepended to each item name.
     """
     for name, value in sorted(items):
-      self._out.write(self._env_command_format.format(
-          name=name, value=pipes.quote(value)))
+      name = six.text_type(name)
+      if isinstance(value, dict):
+        self._PrintEnvExport(six.iteritems(value),
+                             prefix=self._Prefix(prefix, name))
+      elif value is None:
+        self._out.write('{name} (unset)\n'.format(name=prefix + name))
+      elif isinstance(value, list):
+        for i, v in enumerate(value):
+          if not isinstance(v, dict):
+            v = {'I' + str(i): v}
+          self._PrintEnvExport(six.iteritems(v),
+                               prefix=self._Prefix(prefix, name))
+      else:
+        value = pipes.quote(six.text_type(value))  # pytype: disable=wrong-arg-types
+        self._out.write(self._env_command_format.format(
+            name=prefix + name, value=value))
 
-  def _PrintEnvUnset(self, items):
+  def _PrintEnvUnset(self, items, prefix=''):
     """Prints the environment unset commands for items.
 
     Args:
       items: The current record dict iteritems from _AddRecord().
+      prefix: Parent name prefix, prepended to each item name.
     """
-    for name, _ in sorted(items):
-      self._out.write(self._env_command_format.format(name=name))
+    for name, value in sorted(items):
+      name = six.text_type(name)
+      if isinstance(value, dict):
+        self._PrintEnvUnset(six.iteritems(value),
+                            prefix=self._Prefix(prefix, name))
+      elif isinstance(value, list):
+        for i, v in enumerate(value):
+          if not isinstance(v, dict):
+            v = {'I' + str(i): v}
+          self._PrintEnvUnset(six.iteritems(v),
+                              prefix=self._Prefix(prefix, name))
+      else:
+        self._out.write(self._env_command_format.format(name=prefix + name))
 
   def _AddRecord(self, record, delimit=False):
     """Dispatches to the specific config printer.
@@ -126,6 +168,6 @@ class ConfigPrinter(resource_printer_base.ResourcePrinter):
       delimit: Ignored.
     """
     try:
-      self._add_items(record.iteritems())
+      self._add_items(six.iteritems(record))
     except AttributeError:
       pass

@@ -14,15 +14,15 @@
 
 """The Migrate command."""
 
+from __future__ import absolute_import
 from googlecloudsdk.api_lib.app import appengine_api_client
 from googlecloudsdk.api_lib.app import operations_util
 from googlecloudsdk.api_lib.app import service_util
-from googlecloudsdk.api_lib.app import util
-from googlecloudsdk.api_lib.util import exceptions as api_exceptions
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core.console import console_io
+import six.moves
 
 
 class VersionsMigrateError(exceptions.Error):
@@ -81,7 +81,7 @@ class Migrate(base.Command):
               v.traffic_split > 0 and v.id != args.version)
 
     # All versions that will stop receiving traffic.
-    versions_to_migrate = filter(WillBeMigrated, all_versions)
+    versions_to_migrate = list(six.moves.filter(WillBeMigrated, all_versions))
 
     for version in versions_to_migrate:
       short_name = '{0}/{1}'.format(version.service, version.id)
@@ -96,12 +96,11 @@ class Migrate(base.Command):
     for service in sorted(set([v.service for v in versions_to_migrate])):
       allocations = {args.version: 1.0}
       try:
-        client.SetTrafficSplit(service, allocations,
-                               shard_by='ip', migrate=True)
-      except (api_exceptions.HttpException,
-              operations_util.OperationError,
-              operations_util.OperationTimeoutError, util.RPCError) as e:
-        errors[service] = str(e)
+        operations_util.CallAndCollectOpErrors(
+            client.SetTrafficSplit, service, allocations, shard_by='ip',
+            migrate=True)
+      except (operations_util.MiscOperationError) as err:
+        errors[service] = str(err)
 
     if errors:
       error_string = ('Issues migrating all traffic of '

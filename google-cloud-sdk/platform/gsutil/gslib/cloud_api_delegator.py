@@ -43,7 +43,7 @@ class CloudApiDelegator(CloudApi):
 
   def __init__(self, bucket_storage_uri_class, gsutil_api_map, logger,
                status_queue, provider=None, debug=0, trace_token=None,
-               perf_trace_token=None):
+               perf_trace_token=None, user_project=None):
     """Performs necessary setup for delegating cloud storage requests.
 
     This function has different arguments than the gsutil Cloud API __init__
@@ -61,12 +61,14 @@ class CloudApiDelegator(CloudApi):
       debug: Debug level for the API implementation (0..3).
       trace_token: Apiary trace token to pass to API.
       perf_trace_token: Performance trace token to use when making API calls.
+      user_project: Project to be billed for this project.
     """
     super(CloudApiDelegator, self).__init__(bucket_storage_uri_class, logger,
                                             status_queue,
                                             provider=provider, debug=debug,
                                             trace_token=trace_token,
-                                            perf_trace_token=perf_trace_token)
+                                            perf_trace_token=perf_trace_token,
+                                            user_project=user_project)
     self.api_map = gsutil_api_map
     self.prefer_api = boto.config.get('GSUtil', 'prefer_api', '').upper()
     self.loaded_apis = {}
@@ -127,7 +129,8 @@ class CloudApiDelegator(CloudApi):
             provider=provider,
             debug=self.debug,
             trace_token=self.trace_token,
-            perf_trace_token=self.perf_trace_token))
+            perf_trace_token=self.perf_trace_token,
+            user_project=self.user_project))
 
   def GetApiSelector(self, provider=None):
     """Returns a cs_api_map.ApiSelector based on input and configuration.
@@ -172,7 +175,8 @@ class CloudApiDelegator(CloudApi):
     if using_gs_hmac and configured_encryption:
       raise CommandException(
           'gsutil does not support HMAC credentials with customer-supplied '
-          'encryption keys. Please generate and include non-HMAC credentials '
+          'encryption keys (CSEK) or customer-managed KMS encryption keys '
+          '(CMEK). Please generate and include non-HMAC credentials '
           'in your .boto configuration file, or to access public encrypted '
           'objects, remove your HMAC credentials.')
     # If we have only HMAC credentials for Google Cloud Storage, we must use
@@ -184,7 +188,7 @@ class CloudApiDelegator(CloudApi):
     # every HTTP call.
     elif using_gs_hmac:
       api = ApiSelector.XML
-    # Customer-supplied encryption keys are currently only supported in the
+    # CSEK and CMEK encryption keys are currently only supported in the
     # JSON API implementation (GcsJsonApi). We can't stop XML API users from
     # interacting with encrypted objects, since we don't know the object is
     # encrypted until after the API call is made, but if they specify
@@ -274,32 +278,36 @@ class CloudApiDelegator(CloudApi):
 
   def UploadObject(self, upload_stream, object_metadata, size=None,
                    canned_acl=None, preconditions=None, progress_callback=None,
-                   encryption_tuple=None, provider=None, fields=None):
+                   encryption_tuple=None, provider=None, fields=None,
+                   gzip_encoded=False):
     return self._GetApi(provider).UploadObject(
         upload_stream, object_metadata, size=size, canned_acl=canned_acl,
         preconditions=preconditions, progress_callback=progress_callback,
-        encryption_tuple=encryption_tuple, fields=fields)
+        encryption_tuple=encryption_tuple, fields=fields,
+        gzip_encoded=gzip_encoded)
 
   def UploadObjectStreaming(self, upload_stream, object_metadata,
                             canned_acl=None, preconditions=None,
                             progress_callback=None, encryption_tuple=None,
-                            provider=None, fields=None):
+                            provider=None, fields=None, gzip_encoded=False):
     return self._GetApi(provider).UploadObjectStreaming(
         upload_stream, object_metadata, canned_acl=canned_acl,
         preconditions=preconditions, progress_callback=progress_callback,
-        encryption_tuple=encryption_tuple, fields=fields)
+        encryption_tuple=encryption_tuple, fields=fields,
+        gzip_encoded=gzip_encoded)
 
   def UploadObjectResumable(
       self, upload_stream, object_metadata, canned_acl=None, preconditions=None,
       size=None, serialization_data=None, tracker_callback=None,
       progress_callback=None, encryption_tuple=None, provider=None,
-      fields=None):
+      fields=None, gzip_encoded=False):
     return self._GetApi(provider).UploadObjectResumable(
         upload_stream, object_metadata, canned_acl=canned_acl,
         preconditions=preconditions, size=size,
         serialization_data=serialization_data,
         tracker_callback=tracker_callback, progress_callback=progress_callback,
-        encryption_tuple=encryption_tuple, fields=fields)
+        encryption_tuple=encryption_tuple, fields=fields,
+        gzip_encoded=gzip_encoded)
 
   def CopyObject(self, src_obj_metadata, dst_obj_metadata, src_generation=None,
                  canned_acl=None, preconditions=None, progress_callback=None,

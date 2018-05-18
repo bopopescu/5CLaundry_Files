@@ -13,18 +13,32 @@
 # limitations under the License.
 """Command for list subnetworks which the current user has permission to use."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import list_pager
-from googlecloudsdk.api_lib.util import apis
+from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
+from googlecloudsdk.core import properties
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA)
+@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class ListUsableSubnets(base.ListCommand):
   """List subnetworks which the current user has permission to use."""
 
   @staticmethod
+  def _EnableComputeApi():
+    return properties.VALUES.compute.use_new_list_usable_subnets_api.GetBool()
+
+  @staticmethod
   def Args(parser):
-    pass
+    display_format = 'table({fields})'.format(fields=','.join([
+        'subnetwork.segment(-5):label=PROJECT',
+        'subnetwork.segment(-3):label=REGION',
+        'network.segment(-1):label=NETWORK',
+        'subnetwork.segment(-1):label=SUBNET',
+        'ipCidrRange:label=RANGE',
+    ]))
+    parser.display_info.AddFormat(display_format)
 
   def Collection(self):
     return 'compute.subnetworks'
@@ -39,35 +53,47 @@ class ListUsableSubnets(base.ListCommand):
     return _GetUri
 
   def Run(self, args):
-    messages = apis.GetMessagesModule('cloudresourcesearch', 'v1')
-    client = apis.GetClientInstance('cloudresourcesearch', 'v1')
-    request = messages.CloudresourcesearchResourcesSearchRequest(
-        query='@type="type.googleapis.com/compute.Subnetwork"'
-              ' withPermission(compute.subnetworks.use)')
+    holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    client = holder.client
+    messages = holder.client.messages
+    request = messages.ComputeSubnetworksListUsableRequest(
+        project=properties.VALUES.core.project.Get(required=True))
     return list_pager.YieldFromList(
-        client.resources,
+        client.apitools_client.subnetworks,
         request,
-        method='Search',
-        batch_size_attribute='pageSize',
-        batch_size=100,
-        field='results')
+        method='ListUsable',
+        batch_size_attribute='maxResults',
+        batch_size=500,
+        field='items')
 
-  def DeprecatedFormat(self, args):
-    return 'table({fields})'.format(
-        fields=','.join([
-            'resource.selfLink.segment(-5):label=PROJECT',
-            'resource.region.segment(-1):label=REGION',
-            'resource.network.segment(-1):label=NETWORK',
-            'resource.selfLink.segment(-1):label=SUBNET',
-            'resource.ipCidrRange:label=RANGE',
-        ]))
 
 ListUsableSubnets.detailed_help = {
-    'brief': 'List subnetworks which the current user has permission to use.',
-    'DESCRIPTION': """\
-        *{command}* is used to list subnetworks which the current user has permission to use.
+    'brief':
+        """\
+        List Google Compute Engine subnetworks in a project that the user has
+        permission to use.
         """,
-    'EXAMPLES': """\
-          $ {command}
+    'DESCRIPTION':
+        """\
+        *{command}* is used to list Google Compute Engine subnetworks in a
+        project that the user has permission to use.
+
+        By default, usable subnetworks are listed for the default Google Cloud
+        Platform project and user account. These values can be overridden by
+        setting the global flags: `--project=PROJECT_ID` and/or
+        `--account=ACCOUNT`.
+        """,
+    'EXAMPLES':
+        """\
+          To list all subnetworks in the default project that are usable by the
+          default user:
+
+            $ {command}
+
+          To list all subnetworks in a specific project that are usable by a
+          specific user:
+
+            $ {command} \
+                --project=PROJECT_ID --account=ACCOUNT
         """,
 }

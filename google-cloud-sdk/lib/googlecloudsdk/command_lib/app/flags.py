@@ -13,10 +13,10 @@
 # limitations under the License.
 
 """This module holds common flags used by the gcloud app commands."""
+from __future__ import absolute_import
 import argparse
 
 from googlecloudsdk.api_lib.app import logs_util
-from googlecloudsdk.api_lib.app.appinfo import appinfo
 from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
@@ -24,6 +24,7 @@ from googlecloudsdk.command_lib.app import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core.docker import constants
 from googlecloudsdk.core.docker import docker
+from googlecloudsdk.third_party.appengine.api import appinfo
 
 DOMAIN_FLAG = base.Argument(
     'domain',
@@ -45,7 +46,15 @@ IGNORE_CERTS_FLAG = base.Argument(
     '--ignore-bad-certs',
     action='store_true',
     default=False,
-    help=argparse.SUPPRESS)
+    hidden=True,
+    help='THIS ARGUMENT NEEDS HELP TEXT.')
+
+FIREWALL_PRIORITY_FLAG = base.Argument(
+    'priority',
+    help=('An integer between 1 and 2^32-1 which indicates the evaluation order'
+          ' of rules. Lowest priority rules are evaluated first. The handle '
+          '`default` may also be used to refer to the final rule at priority'
+          ' 2^32-1 which is always present in a set of rules.'))
 
 LEVEL = base.Argument(
     '--level',
@@ -64,7 +73,8 @@ LOGS = base.Argument(
     metavar='APP_LOG',
     type=arg_parsers.ArgList(min_length=1))
 
-SERVER_FLAG = base.Argument('--server', help=argparse.SUPPRESS)
+SERVER_FLAG = base.Argument(
+    '--server', hidden=True, help='THIS ARGUMENT NEEDS HELP TEXT.')
 
 SERVICE = base.Argument(
     '--service', '-s', help='Limit to specific service.', required=False)
@@ -84,11 +94,11 @@ def AddServiceVersionSelectArgs(parser, short_flags=False):
 
   parser.add_argument(
       '--service', *['-s'] if short_flags else [],
-      required=True,
+      required=False,
       help='The service ID.')
   parser.add_argument(
       '--version', *['-v'] if short_flags else [],
-      required=True,
+      required=False,
       help='The version ID.')
 
 
@@ -97,9 +107,10 @@ def AddCertificateIdFlag(parser, include_no_cert):
 
   certificate_id = base.Argument(
       '--certificate-id',
-      help=('A certificate id to use for this domain. Use the '
-            ' `gcloud app ssl-certificates list` to see available certificates'
-            ' for this app.'))
+      help=('A certificate id to use for this domain. May not be used on a '
+            'domain mapping with automatically managed certificates. Use the '
+            '`gcloud app ssl-certificates list` to see available certificates '
+            'for this app.'))
 
   if include_no_cert:
     group = parser.add_mutually_exclusive_group()
@@ -112,13 +123,15 @@ def AddCertificateIdFlag(parser, include_no_cert):
     certificate_id.AddToParser(parser)
 
 
-def AddNoManagedCertificateFlag(parser):
-  parser.add_argument(
-      '--no-managed-certificate',
-      action='store_true',
-      help=('Do not automatically provision a certificate for the domain. '
-            'This flag may not be used in combination with a user provided '
-            'certificate-id'))
+def AddCertificateManagementFlag(parser):
+  """Adds common flags to a domain-mappings command."""
+  certificate_argument = base.ChoiceArgument(
+      '--certificate-management',
+      choices=['automatic', 'manual'],
+      help_str=('Type of certificate management. \'automatic\' will provision '
+                'an SSL certificate automatically while \'manual\' requires '
+                'the user to provide a certificate id to provision.'))
+  certificate_argument.AddToParser(parser)
 
 
 def AddSslCertificateFlags(parser, required):
@@ -147,6 +160,22 @@ def AddSslCertificateFlags(parser, required):
         """)
 
 
+def AddFirewallRulesFlags(parser, required):
+  """Add the common flags to a firewall-rules command."""
+
+  parser.add_argument('--source-range',
+                      required=required,
+                      help=('An IP address or range in CIDR notation or'
+                            ' the ```*``` wildcard to match all traffic.'))
+  parser.add_argument('--action',
+                      required=required,
+                      choices=['ALLOW', 'DENY'],
+                      type=lambda x: x.upper(),
+                      help='Allow or deny matched traffic.')
+  parser.add_argument(
+      '--description', help='A text description of the rule.')
+
+
 def ValidateDockerBuildFlag(unused_value):
   raise argparse.ArgumentTypeError("""\
 The --docker-build flag no longer exists.
@@ -164,7 +193,8 @@ first to get one.
 
 DOCKER_BUILD_FLAG = base.Argument(
     '--docker-build',
-    help=argparse.SUPPRESS,
+    hidden=True,
+    help='THIS ARGUMENT NEEDS HELP TEXT.',
     type=ValidateDockerBuildFlag)
 
 

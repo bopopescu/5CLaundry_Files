@@ -13,7 +13,7 @@ package = 'clouddebugger'
 
 
 class AliasContext(_messages.Message):
-  """An alias to a repo revision.
+  r"""An alias to a repo revision.
 
   Enums:
     KindValueValuesEnum: The alias kind.
@@ -24,7 +24,7 @@ class AliasContext(_messages.Message):
   """
 
   class KindValueValuesEnum(_messages.Enum):
-    """The alias kind.
+    r"""The alias kind.
 
     Values:
       ANY: Do not use.
@@ -44,7 +44,7 @@ class AliasContext(_messages.Message):
 
 
 class Breakpoint(_messages.Message):
-  """Represents the breakpoint specification, status and results.
+  r"""Represents the breakpoint specification, status and results.
 
   Enums:
     ActionValueValuesEnum: Action that the agent should perform when the code
@@ -115,7 +115,7 @@ class Breakpoint(_messages.Message):
   """
 
   class ActionValueValuesEnum(_messages.Enum):
-    """Action that the agent should perform when the code at the breakpoint
+    r"""Action that the agent should perform when the code at the breakpoint
     location is hit.
 
     Values:
@@ -129,7 +129,7 @@ class Breakpoint(_messages.Message):
     LOG = 1
 
   class LogLevelValueValuesEnum(_messages.Enum):
-    """Indicates the severity of the log. Only relevant when action is `LOG`.
+    r"""Indicates the severity of the log. Only relevant when action is `LOG`.
 
     Values:
       INFO: Information log message.
@@ -142,7 +142,7 @@ class Breakpoint(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """A set of custom breakpoint properties, populated by the agent, to be
+    r"""A set of custom breakpoint properties, populated by the agent, to be
     displayed to the user.
 
     Messages:
@@ -153,7 +153,7 @@ class Breakpoint(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -184,8 +184,8 @@ class Breakpoint(_messages.Message):
 
 
 class CloudRepoSourceContext(_messages.Message):
-  """A CloudRepoSourceContext denotes a particular revision in a cloud repo (a
-  repo hosted by the Google Cloud Platform).
+  r"""A CloudRepoSourceContext denotes a particular revision in a cloud repo
+  (a repo hosted by the Google Cloud Platform).
 
   Fields:
     aliasContext: An alias, which may be a branch or tag.
@@ -201,7 +201,7 @@ class CloudRepoSourceContext(_messages.Message):
 
 
 class CloudWorkspaceId(_messages.Message):
-  """A CloudWorkspaceId is a unique identifier for a cloud workspace. A cloud
+  r"""A CloudWorkspaceId is a unique identifier for a cloud workspace. A cloud
   workspace is a place associated with a repo where modified files can be
   stored before they are committed.
 
@@ -216,7 +216,7 @@ class CloudWorkspaceId(_messages.Message):
 
 
 class CloudWorkspaceSourceContext(_messages.Message):
-  """A CloudWorkspaceSourceContext denotes a workspace at a particular
+  r"""A CloudWorkspaceSourceContext denotes a workspace at a particular
   snapshot.
 
   Fields:
@@ -230,18 +230,19 @@ class CloudWorkspaceSourceContext(_messages.Message):
 
 
 class ClouddebuggerControllerDebuggeesBreakpointsListRequest(_messages.Message):
-  """A ClouddebuggerControllerDebuggeesBreakpointsListRequest object.
+  r"""A ClouddebuggerControllerDebuggeesBreakpointsListRequest object.
 
   Fields:
     debuggeeId: Identifies the debuggee.
-    successOnTimeout: If set to `true`, returns `google.rpc.Code.OK` status
-      and sets the `wait_expired` response field to `true` when the server-
-      selected timeout has expired (recommended).  If set to `false`, returns
-      `google.rpc.Code.ABORTED` status when the server-selected timeout has
-      expired (deprecated).
-    waitToken: A wait token that, if specified, blocks the method call until
-      the list of active breakpoints has changed, or a server selected timeout
-      has expired.  The value should be set from the last returned response.
+    successOnTimeout: If set to `true` (recommended), returns
+      `google.rpc.Code.OK` status and sets the `wait_expired` response field
+      to `true` when the server-selected timeout has expired.  If set to
+      `false` (deprecated), returns `google.rpc.Code.ABORTED` status when the
+      server-selected timeout has expired.
+    waitToken: A token that, if specified, blocks the method call until the
+      list of active breakpoints has changed, or a server-selected timeout has
+      expired. The value should be set from the `next_wait_token` field in the
+      last response. The initial value should be set to `"init"`.
   """
 
   debuggeeId = _messages.StringField(1, required=True)
@@ -250,7 +251,7 @@ class ClouddebuggerControllerDebuggeesBreakpointsListRequest(_messages.Message):
 
 
 class ClouddebuggerControllerDebuggeesBreakpointsUpdateRequest(_messages.Message):
-  """A ClouddebuggerControllerDebuggeesBreakpointsUpdateRequest object.
+  r"""A ClouddebuggerControllerDebuggeesBreakpointsUpdateRequest object.
 
   Fields:
     debuggeeId: Identifies the debuggee being debugged.
@@ -265,11 +266,11 @@ class ClouddebuggerControllerDebuggeesBreakpointsUpdateRequest(_messages.Message
 
 
 class ClouddebuggerDebuggerDebuggeesBreakpointsDeleteRequest(_messages.Message):
-  """A ClouddebuggerDebuggerDebuggeesBreakpointsDeleteRequest object.
+  r"""A ClouddebuggerDebuggerDebuggeesBreakpointsDeleteRequest object.
 
   Fields:
     breakpointId: ID of the breakpoint to delete.
-    clientVersion: The client version making the call. Following:
+    clientVersion: The client version making the call. Schema:
       `domain/type/version` (e.g., `google.com/intellij/v1`).
     debuggeeId: ID of the debuggee whose breakpoint to delete.
   """
@@ -280,11 +281,11 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsDeleteRequest(_messages.Message):
 
 
 class ClouddebuggerDebuggerDebuggeesBreakpointsGetRequest(_messages.Message):
-  """A ClouddebuggerDebuggerDebuggeesBreakpointsGetRequest object.
+  r"""A ClouddebuggerDebuggerDebuggeesBreakpointsGetRequest object.
 
   Fields:
     breakpointId: ID of the breakpoint to get.
-    clientVersion: The client version making the call. Following:
+    clientVersion: The client version making the call. Schema:
       `domain/type/version` (e.g., `google.com/intellij/v1`).
     debuggeeId: ID of the debuggee whose breakpoint to get.
   """
@@ -295,7 +296,7 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsGetRequest(_messages.Message):
 
 
 class ClouddebuggerDebuggerDebuggeesBreakpointsListRequest(_messages.Message):
-  """A ClouddebuggerDebuggerDebuggeesBreakpointsListRequest object.
+  r"""A ClouddebuggerDebuggerDebuggeesBreakpointsListRequest object.
 
   Enums:
     ActionValueValueValuesEnum: Only breakpoints with the specified action
@@ -304,7 +305,7 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsListRequest(_messages.Message):
   Fields:
     action_value: Only breakpoints with the specified action will pass the
       filter.
-    clientVersion: The client version making the call. Following:
+    clientVersion: The client version making the call. Schema:
       `domain/type/version` (e.g., `google.com/intellij/v1`).
     debuggeeId: ID of the debuggee whose breakpoints to list.
     includeAllUsers: When set to `true`, the response includes the list of
@@ -323,7 +324,7 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsListRequest(_messages.Message):
   """
 
   class ActionValueValueValuesEnum(_messages.Enum):
-    """Only breakpoints with the specified action will pass the filter.
+    r"""Only breakpoints with the specified action will pass the filter.
 
     Values:
       CAPTURE: <no description>
@@ -342,11 +343,11 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsListRequest(_messages.Message):
 
 
 class ClouddebuggerDebuggerDebuggeesBreakpointsSetRequest(_messages.Message):
-  """A ClouddebuggerDebuggerDebuggeesBreakpointsSetRequest object.
+  r"""A ClouddebuggerDebuggerDebuggeesBreakpointsSetRequest object.
 
   Fields:
     breakpoint: A Breakpoint resource to be passed as the request body.
-    clientVersion: The client version making the call. Following:
+    clientVersion: The client version making the call. Schema:
       `domain/type/version` (e.g., `google.com/intellij/v1`).
     debuggeeId: ID of the debuggee where the breakpoint is to be set.
   """
@@ -357,10 +358,10 @@ class ClouddebuggerDebuggerDebuggeesBreakpointsSetRequest(_messages.Message):
 
 
 class ClouddebuggerDebuggerDebuggeesListRequest(_messages.Message):
-  """A ClouddebuggerDebuggerDebuggeesListRequest object.
+  r"""A ClouddebuggerDebuggerDebuggeesListRequest object.
 
   Fields:
-    clientVersion: The client version making the call. Following:
+    clientVersion: The client version making the call. Schema:
       `domain/type/version` (e.g., `google.com/intellij/v1`).
     includeInactive: When set to `true`, the result includes all debuggees.
       Otherwise, the result includes only debuggees that are active.
@@ -373,53 +374,51 @@ class ClouddebuggerDebuggerDebuggeesListRequest(_messages.Message):
 
 
 class Debuggee(_messages.Message):
-  """Represents the application to debug. The application may include one or
+  r"""Represents the debugged application. The application may include one or
   more replicated processes executing the same code. Each of these processes
-  is attached with a debugger agent, carrying out the debugging commands. The
-  agents attached to the same debuggee are identified by using exactly the
-  same field values when registering.
+  is attached with a debugger agent, carrying out the debugging commands.
+  Agents attached to the same debuggee identify themselves as such by using
+  exactly the same Debuggee message value when registering.
 
   Messages:
     LabelsValue: A set of custom debuggee properties, populated by the agent,
       to be displayed to the user.
 
   Fields:
-    agentVersion: Version ID of the agent release. The version ID is
-      structured as following: `domain/language-platform/vmajor.minor` (for
-      example `google.com/java-gcp/v1.1`).
+    agentVersion: Version ID of the agent. Schema: `domain/language-
+      platform/vmajor.minor` (for example `google.com/java-gcp/v1.1`).
     description: Human readable description of the debuggee. Including a
       human-readable project name, environment name and version information is
       recommended.
     extSourceContexts: References to the locations and revisions of the source
-      code used in the deployed application.  Contexts describing a remote
-      repo related to the source code have a `category` label of
-      `remote_repo`. Source snapshot source contexts have a `category` of
-      `snapshot`.
+      code used in the deployed application.
     id: Unique identifier for the debuggee generated by the controller
       service.
     isDisabled: If set to `true`, indicates that the agent should disable
       itself and detach from the debuggee.
-    isInactive: If set to `true`, indicates that the debuggee is considered as
-      inactive by the Controller service.
+    isInactive: If set to `true`, indicates that Controller service does not
+      detect any activity from the debuggee agents and the application is
+      possibly stopped.
     labels: A set of custom debuggee properties, populated by the agent, to be
       displayed to the user.
-    project: Project the debuggee is associated with. Use the project number
+    project: Project the debuggee is associated with. Use project number or id
       when registering a Google Cloud Platform project.
     sourceContexts: References to the locations and revisions of the source
-      code used in the deployed application.  NOTE: This field is deprecated.
-      Consumers should use `ext_source_contexts` if it is not empty. Debug
-      agents should populate both this field and `ext_source_contexts`.
+      code used in the deployed application.
     status: Human readable message to be displayed to the user about this
       debuggee. Absence of this field indicates no status. The message can be
       either informational or an error status.
-    uniquifier: Debuggee uniquifier within the project. Any string that
-      identifies the application within the project can be used. Including
-      environment and version or build IDs is recommended.
+    uniquifier: Uniquifier to further distiguish the application. It is
+      possible that different applications might have identical values in the
+      debuggee message, thus, incorrectly identified as a single application
+      by the Controller service. This field adds salt to further distiguish
+      the application. Agents should consider seeding this field with value
+      that identifies the code, binary, configuration and environment.
   """
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """A set of custom debuggee properties, populated by the agent, to be
+    r"""A set of custom debuggee properties, populated by the agent, to be
     displayed to the user.
 
     Messages:
@@ -430,7 +429,7 @@ class Debuggee(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -456,7 +455,7 @@ class Debuggee(_messages.Message):
 
 
 class Empty(_messages.Message):
-  """A generic empty message that you can re-use to avoid defining duplicated
+  r"""A generic empty message that you can re-use to avoid defining duplicated
   empty messages in your APIs. A typical example is to use it as the request
   or the response type of an API method. For instance:      service Foo {
   rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);     }  The
@@ -466,7 +465,7 @@ class Empty(_messages.Message):
 
 
 class ExtendedSourceContext(_messages.Message):
-  """An ExtendedSourceContext is a SourceContext combined with additional
+  r"""An ExtendedSourceContext is a SourceContext combined with additional
   details describing the context.
 
   Messages:
@@ -479,7 +478,7 @@ class ExtendedSourceContext(_messages.Message):
 
   @encoding.MapUnrecognizedFields('additionalProperties')
   class LabelsValue(_messages.Message):
-    """Labels with user defined metadata.
+    r"""Labels with user defined metadata.
 
     Messages:
       AdditionalProperty: An additional property for a LabelsValue object.
@@ -489,7 +488,7 @@ class ExtendedSourceContext(_messages.Message):
     """
 
     class AdditionalProperty(_messages.Message):
-      """An additional property for a LabelsValue object.
+      r"""An additional property for a LabelsValue object.
 
       Fields:
         key: Name of the additional property.
@@ -506,7 +505,7 @@ class ExtendedSourceContext(_messages.Message):
 
 
 class FormatMessage(_messages.Message):
-  """Represents a message with parameters.
+  r"""Represents a message with parameters.
 
   Fields:
     format: Format template for the message. The `format` uses placeholders
@@ -522,7 +521,7 @@ class FormatMessage(_messages.Message):
 
 
 class GerritSourceContext(_messages.Message):
-  """A SourceContext referring to a Gerrit project.
+  r"""A SourceContext referring to a Gerrit project.
 
   Fields:
     aliasContext: An alias, which may be a branch or tag.
@@ -542,7 +541,7 @@ class GerritSourceContext(_messages.Message):
 
 
 class GetBreakpointResponse(_messages.Message):
-  """Response for getting breakpoint information.
+  r"""Response for getting breakpoint information.
 
   Fields:
     breakpoint: Complete breakpoint state. The fields `id` and `location` are
@@ -553,7 +552,7 @@ class GetBreakpointResponse(_messages.Message):
 
 
 class GitSourceContext(_messages.Message):
-  """A GitSourceContext denotes a particular revision in a third party Git
+  r"""A GitSourceContext denotes a particular revision in a third party Git
   repository (e.g. GitHub).
 
   Fields:
@@ -566,15 +565,16 @@ class GitSourceContext(_messages.Message):
 
 
 class ListActiveBreakpointsResponse(_messages.Message):
-  """Response for listing active breakpoints.
+  r"""Response for listing active breakpoints.
 
   Fields:
     breakpoints: List of all active breakpoints. The fields `id` and
       `location` are guaranteed to be set on each breakpoint.
-    nextWaitToken: A wait token that can be used in the next method call to
-      block until the list of breakpoints changes.
-    waitExpired: The `wait_expired` field is set to true by the server when
-      the request times out and the field `success_on_timeout` is set to true.
+    nextWaitToken: A token that can be used in the next method call to block
+      until the list of breakpoints changes.
+    waitExpired: If set to `true`, indicates that there is no change to the
+      list of active breakpoints and the server-selected timeout has expired.
+      The `breakpoints` field would be empty and should be ignored.
   """
 
   breakpoints = _messages.MessageField('Breakpoint', 1, repeated=True)
@@ -583,7 +583,7 @@ class ListActiveBreakpointsResponse(_messages.Message):
 
 
 class ListBreakpointsResponse(_messages.Message):
-  """Response for listing breakpoints.
+  r"""Response for listing breakpoints.
 
   Fields:
     breakpoints: List of breakpoints matching the request. The fields `id` and
@@ -600,20 +600,20 @@ class ListBreakpointsResponse(_messages.Message):
 
 
 class ListDebuggeesResponse(_messages.Message):
-  """Response for listing debuggees.
+  r"""Response for listing debuggees.
 
   Fields:
-    debuggees: List of debuggees accessible to the calling user. Note that the
-      `description` field is the only human readable field that should be
-      displayed to the user. The fields `debuggee.id` and  `description`
-      fields are guaranteed to be set on each debuggee.
+    debuggees: List of debuggees accessible to the calling user. The fields
+      `debuggee.id` and `description` are guaranteed to be set. The
+      `description` field is a human readable field provided by agents and can
+      be displayed to users.
   """
 
   debuggees = _messages.MessageField('Debuggee', 1, repeated=True)
 
 
 class ProjectRepoId(_messages.Message):
-  """Selects a repo using a Google Cloud Platform project ID (e.g. winged-
+  r"""Selects a repo using a Google Cloud Platform project ID (e.g. winged-
   cargo-31) and a repo name within that project.
 
   Fields:
@@ -626,7 +626,7 @@ class ProjectRepoId(_messages.Message):
 
 
 class RegisterDebuggeeRequest(_messages.Message):
-  """Request to register a debuggee.
+  r"""Request to register a debuggee.
 
   Fields:
     debuggee: Debuggee information to register. The fields `project`,
@@ -638,18 +638,21 @@ class RegisterDebuggeeRequest(_messages.Message):
 
 
 class RegisterDebuggeeResponse(_messages.Message):
-  """Response for registering a debuggee.
+  r"""Response for registering a debuggee.
 
   Fields:
     debuggee: Debuggee resource. The field `id` is guranteed to be set (in
-      addition to the echoed fields).
+      addition to the echoed fields). If the field `is_disabled` is set to
+      `true`, the agent should disable itself by removing all breakpoints and
+      detaching from the application. It should however continue to poll
+      `RegisterDebuggee` until reenabled.
   """
 
   debuggee = _messages.MessageField('Debuggee', 1)
 
 
 class RepoId(_messages.Message):
-  """A unique identifier for a cloud repo.
+  r"""A unique identifier for a cloud repo.
 
   Fields:
     projectRepoId: A combination of a project ID and a repo name.
@@ -661,7 +664,7 @@ class RepoId(_messages.Message):
 
 
 class SetBreakpointResponse(_messages.Message):
-  """Response for setting a breakpoint.
+  r"""Response for setting a breakpoint.
 
   Fields:
     breakpoint: Breakpoint resource. The field `id` is guaranteed to be set
@@ -672,7 +675,7 @@ class SetBreakpointResponse(_messages.Message):
 
 
 class SourceContext(_messages.Message):
-  """A SourceContext is a reference to a tree of files. A SourceContext
+  r"""A SourceContext is a reference to a tree of files. A SourceContext
   together with a path point to a unique revision of a single file or
   directory.
 
@@ -691,7 +694,7 @@ class SourceContext(_messages.Message):
 
 
 class SourceLocation(_messages.Message):
-  """Represents a location in the source code.
+  r"""Represents a location in the source code.
 
   Fields:
     line: Line inside the file. The first line in the file has the value `1`.
@@ -704,7 +707,7 @@ class SourceLocation(_messages.Message):
 
 
 class StackFrame(_messages.Message):
-  """Represents a stack frame context.
+  r"""Represents a stack frame context.
 
   Fields:
     arguments: Set of arguments passed to this function. Note that this might
@@ -722,7 +725,7 @@ class StackFrame(_messages.Message):
 
 
 class StandardQueryParameters(_messages.Message):
-  """Query parameters accepted by all methods.
+  r"""Query parameters accepted by all methods.
 
   Enums:
     FXgafvValueValuesEnum: V1 error format.
@@ -751,7 +754,7 @@ class StandardQueryParameters(_messages.Message):
   """
 
   class AltValueValuesEnum(_messages.Enum):
-    """Data format for response.
+    r"""Data format for response.
 
     Values:
       json: Responses with Content-Type of application/json
@@ -763,7 +766,7 @@ class StandardQueryParameters(_messages.Message):
     proto = 2
 
   class FXgafvValueValuesEnum(_messages.Enum):
-    """V1 error format.
+    r"""V1 error format.
 
     Values:
       _1: v1 error format
@@ -789,8 +792,8 @@ class StandardQueryParameters(_messages.Message):
 
 
 class StatusMessage(_messages.Message):
-  """Represents a contextual status message. The message can indicate an error
-  or informational status, and refer to specific parts of the containing
+  r"""Represents a contextual status message. The message can indicate an
+  error or informational status, and refer to specific parts of the containing
   object. For example, the `Breakpoint.status` field can indicate an error
   referring to the `BREAKPOINT_SOURCE_LOCATION` with the message `Location not
   found`.
@@ -805,7 +808,7 @@ class StatusMessage(_messages.Message):
   """
 
   class RefersToValueValuesEnum(_messages.Enum):
-    """Reference to which the message applies.
+    r"""Reference to which the message applies.
 
     Values:
       UNSPECIFIED: Status doesn't refer to any particular input.
@@ -835,24 +838,25 @@ class StatusMessage(_messages.Message):
 
 
 class UpdateActiveBreakpointRequest(_messages.Message):
-  """Request to update an active breakpoint.
+  r"""Request to update an active breakpoint.
 
   Fields:
     breakpoint: Updated breakpoint information. The field `id` must be set.
+      The agent must echo all Breakpoint specification fields in the update.
   """
 
   breakpoint = _messages.MessageField('Breakpoint', 1)
 
 
 class UpdateActiveBreakpointResponse(_messages.Message):
-  """Response for updating an active breakpoint. The message is defined to
+  r"""Response for updating an active breakpoint. The message is defined to
   allow future extensions.
   """
 
 
 
 class Variable(_messages.Message):
-  """Represents a variable or an argument possibly of a compound object type.
+  r"""Represents a variable or an argument possibly of a compound object type.
   Note how the following variables are represented:  1) A simple variable:
   int x = 5      { name: "x", value: "5", type: "int" }  // Captured variable
   2) A compound object:      struct T {         int m1;         int m2;     };
@@ -928,11 +932,8 @@ class Variable(_messages.Message):
 
 
 encoding.AddCustomJsonFieldMapping(
-    StandardQueryParameters, 'f__xgafv', '$.xgafv',
-    package=u'clouddebugger')
+    StandardQueryParameters, 'f__xgafv', '$.xgafv')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1',
-    package=u'clouddebugger')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_1', '1')
 encoding.AddCustomJsonEnumMapping(
-    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2',
-    package=u'clouddebugger')
+    StandardQueryParameters.FXgafvValueValuesEnum, '_2', '2')

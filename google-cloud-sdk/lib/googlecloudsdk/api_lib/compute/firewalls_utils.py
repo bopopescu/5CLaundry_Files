@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Common classes and functions for firewall rules."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import re
 
 import enum
@@ -49,7 +51,8 @@ class ActionType(enum.Enum):
 def AddCommonArgs(parser,
                   for_update=False,
                   with_egress_support=False,
-                  with_service_account=False):
+                  with_service_account=False,
+                  with_disabled=False):
   """Adds common arguments for firewall create or update subcommands."""
 
   min_length = 0 if for_update else 1
@@ -82,8 +85,7 @@ def AddCommonArgs(parser,
       For port-based protocols - `tcp`, `udp`, and `sctp` - a list of
       destination ports or port ranges to which the rule applies may optionally
       be specified. If no port or port range is specified, the rule applies to
-      all destination ports. TCP and UDP rules must include a port or port
-      range.
+      all destination ports.
 
       The ICMP protocol is supported, but there is no support for configuring
       ICMP packet filtering by ICMP code.
@@ -96,6 +98,11 @@ def AddCommonArgs(parser,
       To create a rule that allows TCP traffic from port 20000 to 25000:
 
         $ {command} MY-RULE --allow tcp:20000-25000
+
+      To create a rule that allows all TCP traffic:
+
+        $ {command} MY-RULE --allow tcp
+
       """ + ("""
       Setting this will override the current values.
       """ if for_update else ''))
@@ -205,6 +212,21 @@ def AddCommonArgs(parser,
       type=arg_parsers.ArgList(min_length=min_length),
       help=target_tags_help)
 
+  disabled_help = """\
+      Use this flag to disable a firewall rule and stop it from being enforced
+      in the network. In the case of disabled firewall rules, the associated
+      network behaves as if the firewall rule did not exist. To enable a
+      disabled rule instead, use:
+
+       $ {parent_command} update MY-RULE --no-disabled
+
+      """
+  if not for_update:
+    disabled_help += """If omitted firewall rule is considered enabled."""
+  if with_disabled:
+    parser.add_argument(
+        '--disabled', action='store_true', default=None, help=disabled_help)
+
   # Add egress deny firewall cli support.
   if with_egress_support:
     AddArgsForEgress(parser, ruleset_parser, for_update)
@@ -236,11 +258,6 @@ def AddArgsForEgress(parser, ruleset_parser, for_update=False):
       A port or port range can be specified after PROTOCOL to which the
       firewall rule apply on traffic through specific ports. If no port
       or port range is specified, connections through all ranges are applied.
-      For example, the following will create a rule that blocks TCP
-      traffic through port 80 and ICMP traffic:
-
-        $ {command} MY-RULE --action deny --rules tcp:80,icmp
-
       TCP and UDP rules must include a port or port range.
       """
   if for_update:
@@ -250,6 +267,11 @@ def AddArgsForEgress(parser, ruleset_parser, for_update=False):
   else:
     rules_help += """
       If specified, the flag --action must also be specified.
+
+      For example, the following will create a rule that blocks TCP
+      traffic through port 80 and ICMP traffic:
+
+        $ {command} MY-RULE --action deny --rules tcp:80,icmp
       """
   parser.add_argument(
       '--rules',

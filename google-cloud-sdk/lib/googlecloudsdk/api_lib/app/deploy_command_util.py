@@ -1,4 +1,3 @@
-
 # Copyright 2013 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,39 +14,43 @@
 
 """Utility methods used by the deploy command."""
 
+from __future__ import absolute_import
 import json
 import os
-import posixpath
 import re
-import enum
 
+from apitools.base.py import exceptions as apitools_exceptions
 from gae_ext_runtime import ext_runtime
 
 from googlecloudsdk.api_lib.app import appengine_api_client
+from googlecloudsdk.api_lib.app import build as app_build
 from googlecloudsdk.api_lib.app import cloud_build
 from googlecloudsdk.api_lib.app import docker_image
 from googlecloudsdk.api_lib.app import metric_names
 from googlecloudsdk.api_lib.app import runtime_builders
 from googlecloudsdk.api_lib.app import util
-from googlecloudsdk.api_lib.app.appinfo import appinfo
 from googlecloudsdk.api_lib.app.images import config
 from googlecloudsdk.api_lib.app.runtimes import fingerprinter
 from googlecloudsdk.api_lib.cloudbuild import build as cloudbuild_build
-from googlecloudsdk.api_lib.service_management import enable_api
-from googlecloudsdk.api_lib.service_management import exceptions as sm_exceptions
+from googlecloudsdk.api_lib.services import enable_api
+from googlecloudsdk.api_lib.services import exceptions as s_exceptions
 from googlecloudsdk.api_lib.storage import storage_util
 from googlecloudsdk.api_lib.util import exceptions as api_lib_exceptions
 from googlecloudsdk.command_lib.app import exceptions as app_exc
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import metrics
+from googlecloudsdk.core import properties
 from googlecloudsdk.core.console import console_io
 from googlecloudsdk.core.console import progress_tracker
 from googlecloudsdk.core.credentials import creds
 from googlecloudsdk.core.credentials import store as c_store
 from googlecloudsdk.core.util import files
 from googlecloudsdk.core.util import platforms
+from googlecloudsdk.third_party.appengine.api import appinfo
 from googlecloudsdk.third_party.appengine.tools import context_util
+from six.moves import filter  # pylint: disable=redefined-builtin
+from six.moves import zip  # pylint: disable=redefined-builtin
 
 DEFAULT_DOMAIN = 'appspot.com'
 DEFAULT_SERVICE = 'default'
@@ -59,6 +62,10 @@ MAX_DNS_LABEL_LENGTH = 63  # http://tools.ietf.org/html/rfc2181#section-11
 # terminator, but any time we're getting close we're in dangerous territory.
 _WINDOWS_MAX_PATH = 256
 
+# The admin API has a timeout for individual tasks; if the build is greater
+# than 10 minutes, it might trigger that timeout, so it's not a candidate for
+# parallelized builds.
+MAX_PARALLEL_BUILD_TIME = 600
 
 FLEXIBLE_SERVICE_VERIFY_WARNING = (
     'Unable to verify that the Appengine Flexible API is enabled for project '
@@ -131,36 +138,6 @@ class NoDockerfileError(exceptions.Error):
 
 class UnsatisfiedRequirementsError(exceptions.Error):
   """Raised if we are unable to detect the runtime."""
-
-
-class BuildArtifact(object):
-  """Represents a build of a flex container, either in-progress or completed.
-
-  A build artifact is either a build_id for an in-progress build, or the image
-  name for a completed container build. If a build_id is used in a depoloyment,
-  Flex serving infrastructure is brought up in parallel with the container
-  build. When an image name is used instead, flex serving infrastructure is
-  brought up in serial after the build has completed.
-  """
-
-  class BuildType(enum.Enum):
-    IMAGE = 1
-    BUILD_ID = 2
-
-  def __init__(self, build_type, identifier):
-    self.build_type = build_type
-    self.identifier = identifier
-
-  def IsImage(self):
-    return self.build_type == self.BuildType.IMAGE
-
-  @classmethod
-  def MakeBuildIdArtifact(cls, build_id):
-    return cls(cls.BuildType.BUILD_ID, build_id)
-
-  @classmethod
-  def MakeImageArtifact(cls, image_name):
-    return cls(cls.BuildType.IMAGE, image_name)
 
 
 def _NeedsDockerfile(info, source_dir):
@@ -242,6 +219,34 @@ def _NeedsDockerfile(info, source_dir):
     return True
 
 
+def ShouldUseRuntimeBuilders(service, strategy, needs_dockerfile):
+  """Returns whether we whould use runtime builders for this application build.
+
+  If there is no image that needs to be built (service.RequiresImage() ==
+  False), runtime builders are irrelevant, so they do not need to be built.
+
+  If there is an image that needs to be built, whether to use runtime builders
+  is determined by the RuntimeBuilderStrategy, based on the service runtime and
+  whether the service being deployed has a Dockerfile already made, or whether
+  it needs one built.
+
+  Args:
+    service: ServiceYamlInfo, The parsed service config.
+    strategy: runtime_builders.RuntimeBuilderStrategy, the strategy for
+      determining whether a runtime should use runtime builders.
+    needs_dockerfile: bool, whether the Dockerfile in the source directory is
+      absent.
+
+  Returns:
+    bool, whether to use the runtime builders.
+
+  Raises:
+    ValueError: if an unrecognized runtime_builder_strategy is given
+  """
+  return (service.RequiresImage() and
+          strategy.ShouldUseRuntimeBuilders(service.runtime, needs_dockerfile))
+
+
 def _GetDockerfiles(info, dockerfile_dir):
   """Returns map of in-memory Docker-related files to be packaged.
 
@@ -290,11 +295,10 @@ def _GetSourceContextsForUpload(source_dir):
        'information.')
   try:
     contexts = context_util.CalculateExtendedSourceContexts(source_dir)
-    source_contexts[context_util.EXT_CONTEXT_FILENAME] = json.dumps(contexts)
   except context_util.GenerateSourceContextError as e:
-    log.info(m.format(name=context_util.EXT_CONTEXT_FILENAME, error=e))
-    # It's OK if source contexts can't be found, we just stop looking.
+    log.info(m.format(name=context_util.CONTEXT_FILENAME, error=e))
     return source_contexts
+
   try:
     context = context_util.BestSourceContext(contexts)
     source_contexts[context_util.CONTEXT_FILENAME] = json.dumps(context)
@@ -323,9 +327,42 @@ def _GetImageName(project, service, version, gcr_domain):
               version=version)
 
 
+def _GetYamlPath(source_dir, service_path, skip_files, gen_files):
+  """Returns the yaml path, optionally updating gen_files.
+
+  Args:
+    source_dir: str, the absolute path to the root of the application directory.
+    service_path: str, the absolute path to the service YAML file
+    skip_files: appengine.api.Validation._RegexStr, the validated regex object
+      from the service info file.
+    gen_files: dict, the dict of files to generate. May be updated if a file
+      needs to be generated.
+
+  Returns:
+    str, the relative path to the service YAML file that should be used for
+      build.
+  """
+  if files.IsDirAncestorOf(source_dir, service_path):
+    rel_path = os.path.relpath(service_path, start=source_dir)
+    if not util.ShouldSkip(skip_files, rel_path):
+      return rel_path
+  yaml_contents = files.GetFileContents(service_path)
+  # Use a checksum to ensure file uniqueness, not for security reasons.
+  checksum = files.Checksum().AddContents(yaml_contents).HexDigest()
+  generated_path = '_app_{}.yaml'.format(checksum)
+  gen_files[generated_path] = yaml_contents
+  return generated_path
+
+
 def BuildAndPushDockerImage(
-    project, service, source_dir, version_id, code_bucket_ref, gcr_domain,
-    runtime_builder_strategy=runtime_builders.RuntimeBuilderStrategy.NEVER):
+    project,
+    service,
+    source_dir,
+    version_id,
+    code_bucket_ref,
+    gcr_domain,
+    runtime_builder_strategy=runtime_builders.RuntimeBuilderStrategy.NEVER,
+    parallel_build=False):
   """Builds and pushes a set of docker images.
 
   Args:
@@ -340,9 +377,10 @@ def BuildAndPushDockerImage(
     runtime_builder_strategy: runtime_builders.RuntimeBuilderStrategy, whether
       to use the new CloudBuild-based runtime builders (alternative is old
       externalized runtimes).
+    parallel_build: bool, if True, enable parallel build and deploy.
 
   Returns:
-    str, The name of the pushed container image.
+    BuildArtifact, Representing the pushed container image or in-progress build.
 
   Raises:
     DockerfileError: if a Dockerfile is present, but the runtime is not
@@ -351,10 +389,12 @@ def BuildAndPushDockerImage(
       custom runtime.
     UnsatisfiedRequirementsError: Raised if the code in the directory doesn't
       satisfy the requirements of the specified runtime type.
+    ValueError: if an unrecognized runtime_builder_strategy is given
   """
   needs_dockerfile = _NeedsDockerfile(service, source_dir)
-  use_runtime_builders = runtime_builder_strategy.ShouldUseRuntimeBuilders(
-      service.runtime, needs_dockerfile)
+  use_runtime_builders = ShouldUseRuntimeBuilders(service,
+                                                  runtime_builder_strategy,
+                                                  needs_dockerfile)
 
   # Nothing to do if this is not an image-based deployment.
   if not service.RequiresImage():
@@ -377,14 +417,8 @@ def BuildAndPushDockerImage(
 
   metrics.CustomTimedEvent(metric_names.CLOUDBUILD_UPLOAD_START)
   object_ref = storage_util.ObjectReference(code_bucket_ref, image.tagged_repo)
-
-  if files.IsDirAncestorOf(source_dir, service.file):
-    relative_yaml_path = os.path.relpath(service.file, source_dir)
-  else:
-    yaml_contents = files.GetFileContents(service.file)
-    checksum = files.Checksum().AddContents(yaml_contents).HexDigest()
-    relative_yaml_path = checksum + '.yaml'
-    gen_files[relative_yaml_path] = yaml_contents
+  relative_yaml_path = _GetYamlPath(source_dir, service.file,
+                                    service.parsed.skip_files, gen_files)
 
   try:
     cloud_build.UploadSource(image.dockerfile_dir, object_ref,
@@ -401,23 +435,49 @@ def BuildAndPushDockerImage(
     builder_reference = runtime_builders.FromServiceInfo(service, source_dir)
     log.info('Using runtime builder [%s]', builder_reference.build_file_uri)
     builder_reference.WarnIfDeprecated()
-    yaml_path = posixpath.join(*relative_yaml_path.split(os.sep))
+    yaml_path = util.ConvertToPosixPath(relative_yaml_path)
     build = builder_reference.LoadCloudBuild(
         {'_OUTPUT_IMAGE': image.tagged_repo,
          '_GAE_APPLICATION_YAML_PATH': yaml_path})
-    # TODO(b/37542869) Remove this hack once the API can take the gs:// path
-    # as a runtime name.
-    service.runtime = builder_reference.runtime
-    service.parsed.SetEffectiveRuntime(builder_reference.runtime)
   else:
     build = cloud_build.GetDefaultBuild(image.tagged_repo)
 
-  metrics.CustomTimedEvent(metric_names.CLOUDBUILD_EXECUTE_START)
-  cloudbuild_build.CloudBuildClient().ExecuteCloudBuild(
-      cloud_build.FixUpBuild(build, object_ref), project=project)
-  metrics.CustomTimedEvent(metric_names.CLOUDBUILD_EXECUTE)
+  build = cloud_build.FixUpBuild(build, object_ref)
+  return _SubmitBuild(build, image, project, parallel_build)
 
-  return image.tagged_repo
+
+def _SubmitBuild(build, image, project, parallel_build):
+  """Builds and pushes a set of docker images.
+
+  Args:
+    build: A fixed up Build object.
+    image: docker_image.Image, A docker image.
+    project: str, The project being deployed to.
+    parallel_build: bool, if True, enable parallel build and deploy.
+
+  Returns:
+    BuildArtifact, Representing the pushed container image or in-progress build.
+  """
+  build_timeout = properties.VALUES.app.cloud_build_timeout.Get()
+  if build_timeout and build_timeout > MAX_PARALLEL_BUILD_TIME:
+    parallel_build = False
+    log.info(
+        'Property cloud_build_timeout configured to [{0}], which exceeds '
+        'the maximum build time for parallelized beta deployments of [{1}] '
+        'seconds. Performing serial deployment.'.format(
+            build_timeout, MAX_PARALLEL_BUILD_TIME))
+
+  if parallel_build:
+    metrics.CustomTimedEvent(metric_names.CLOUDBUILD_EXECUTE_ASYNC_START)
+    build_op = cloudbuild_build.CloudBuildClient().ExecuteCloudBuildAsync(
+        build, project=project)
+    return app_build.BuildArtifact.MakeBuildIdArtifactFromOp(build_op)
+  else:
+    metrics.CustomTimedEvent(metric_names.CLOUDBUILD_EXECUTE_START)
+    cloudbuild_build.CloudBuildClient().ExecuteCloudBuild(
+        build, project=project)
+    metrics.CustomTimedEvent(metric_names.CLOUDBUILD_EXECUTE)
+    return app_build.BuildArtifact.MakeImageArtifact(image.tagged_repo)
 
 
 def DoPrepareManagedVms(gae_client):
@@ -433,7 +493,7 @@ def DoPrepareManagedVms(gae_client):
   except util.RPCError as err:
     # Any failures later due to an unprepared project will be noisy, so it's
     # okay not to fail here.
-    log.warn(
+    log.warning(
         ("We couldn't validate that your project is ready to deploy to App "
          'Engine Flexible Environment. If deployment fails, please check the '
          'following message and try again:\n') + str(err))
@@ -463,11 +523,9 @@ def PossiblyEnableFlex(project):
         returned by server.
   """
   try:
-    log.warn('Checking the status of the Appengine Flexible Environment API '
-             'during Appengine Flexible deployments is currently in beta.')
     enable_api.EnableServiceIfDisabled(project,
                                        'appengineflex.googleapis.com')
-  except sm_exceptions.ListServicesPermissionDeniedException:
+  except s_exceptions.ListServicesPermissionDeniedException:
     # If we can't find out whether the Flexible API is enabled, proceed with
     # a warning.
     warning = FLEXIBLE_SERVICE_VERIFY_WARNING.format(project)
@@ -479,21 +537,21 @@ def PossiblyEnableFlex(project):
       if account_type in (creds.CredentialType.SERVICE_ACCOUNT,
                           creds.CredentialType.P12_SERVICE_ACCOUNT):
         warning += '\n\n{}'.format(FLEXIBLE_SERVICE_VERIFY_WITH_SERVICE_ACCOUNT)
-    log.warn(warning)
-  except sm_exceptions.EnableServicePermissionDeniedException:
+    log.warning(warning)
+  except s_exceptions.EnableServicePermissionDeniedException:
     # If enabling the Flexible API fails due to a permissions error, the
     # deployment fails.
     raise PrepareFailureError(PREPARE_FAILURE_MSG.format(project))
-  except api_lib_exceptions.HttpException as err:
+  except apitools_exceptions.HttpError as err:
     # The deployment should also fail if there are unforeseen errors in
     # enabling the Flexible API. If so, display detailed information.
-    err.error_format = ('Error [{status_code}] {status_message}'
-                        '{error.details?'
-                        '\nDetailed error information:\n{?}}')
-    raise err
+    raise api_lib_exceptions.HttpException(
+        err, error_format=('Error [{status_code}] {status_message}'
+                           '{error.details?'
+                           '\nDetailed error information:\n{?}}'))
 
 
-def UseSsl(handlers):
+def UseSsl(service_info):
   """Returns whether the root URL for an application is served over HTTPS.
 
   More specifically, returns the 'secure' setting of the handler that will serve
@@ -504,12 +562,14 @@ def UseSsl(handlers):
   HTTPS-only service will result in a redirect).
 
   Args:
-    handlers: List of googlecloudsdk.third_party.appengine.api.appinfo.URLMap,
-    the configured URL handlers for the application
+    service_info: ServiceYamlInfo, the service configuration.
+
   Returns:
     str, the 'secure' setting of the handler for the root URL.
   """
-  for handler in handlers:
+  if service_info.is_ti_runtime and not service_info.parsed.handlers:
+    return appinfo.SECURE_HTTP_OR_HTTPS
+  for handler in service_info.parsed.handlers:
     try:
       if re.match(handler.url + '$', '/'):
         return handler.secure
@@ -566,7 +626,7 @@ def GetAppHostname(app=None, app_id=None, service=None, version=None,
   # certificate.
   #
   # We've tried to do the best possible thing in every case here.
-  subdomain_parts = filter(bool, [version, service_name, app_id])
+  subdomain_parts = list(filter(bool, [version, service_name, app_id]))
   scheme = 'http'
   if use_ssl == appinfo.SECURE_HTTP:
     subdomain = '.'.join(subdomain_parts)
@@ -588,7 +648,7 @@ def GetAppHostname(app=None, app_id=None, service=None, version=None,
                'application when you connect.').format(service,
                                                        subdomain_format,
                                                        MAX_DNS_LABEL_LENGTH)
-        log.warn(msg)
+        log.warning(msg)
       subdomain = '.'.join(subdomain_parts)
       if use_ssl == appinfo.SECURE_HTTP_OR_HTTPS:
         scheme = 'http'
@@ -596,7 +656,7 @@ def GetAppHostname(app=None, app_id=None, service=None, version=None,
         if not deploy:
           msg = ('Most browsers will reject the SSL certificate for '
                  'service [{0}].').format(service)
-          log.warn(msg)
+          log.warning(msg)
         scheme = 'https'
 
   return '{0}://{1}.{2}'.format(scheme, subdomain, domain)
@@ -646,4 +706,3 @@ def CreateAppYamlForAppDirectory(directory):
         'Please prepare an app.yaml file for your application manually '
         'and deploy again.')
   return yaml_path
-

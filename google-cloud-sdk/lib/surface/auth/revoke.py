@@ -14,6 +14,9 @@
 
 """Revoke credentials being used by the CloudSDK."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as c_exc
 from googlecloudsdk.command_lib.auth import auth_util
@@ -29,7 +32,7 @@ class Revoke(base.Command):
   Revokes credentials for the specified user accounts or service accounts.
   When you revoke the credentials, they are removed from the local machine. If
   no account is specified, this command revokes credentials for the currently
-  active account.
+  active account, effectively logging out of that account.
 
   You can revoke credentials when you want to disallow access by gcloud and
   other Cloud SDK tools using a specified account. You don't need to revoke
@@ -70,7 +73,8 @@ class Revoke(base.Command):
       if active_account == account:
         properties.PersistProperty(properties.VALUES.core.account, None)
       if not c_store.Revoke(account):
-        log.warn('[{}] already inactive (previously revoked?)'.format(account))
+        log.warning(
+            '[{}] already inactive (previously revoked?)'.format(account))
     return accounts
 
   def Epilog(self, unused_results_were_displayed):

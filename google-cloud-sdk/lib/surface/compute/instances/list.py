@@ -16,6 +16,7 @@ from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.api_lib.compute import lister
 from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.command_lib.compute.instances import flags
 
 
@@ -27,6 +28,7 @@ class List(base.ListCommand):
     parser.display_info.AddFormat(flags.DEFAULT_LIST_FORMAT)
     parser.display_info.AddUriFunc(utils.MakeGetUriFunc())
     lister.AddZonalListerArgs(parser)
+    parser.display_info.AddCacheUpdater(completers.InstancesCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
@@ -34,8 +36,8 @@ class List(base.ListCommand):
 
     request_data = lister.ParseZonalFlags(args, holder.resources)
 
-    list_implementation = lister.ZonalLister(
-        client, client.apitools_client.instances)
+    list_implementation = lister.ZonalParallelLister(
+        client, client.apitools_client.instances, holder.resources)
 
     return lister.Invoke(request_data, list_implementation)
 

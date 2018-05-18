@@ -13,11 +13,12 @@
 # limitations under the License.
 """bigtable clusters list command."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from apitools.base.py import list_pager
 from googlecloudsdk.api_lib.bigtable import util
 from googlecloudsdk.calliope import base
 from googlecloudsdk.command_lib.bigtable import arguments
-from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 
 
@@ -29,13 +30,25 @@ def _GetUriFunction(resource):
 
 @base.ReleaseTracks(base.ReleaseTrack.BETA)
 class ListClusters(base.ListCommand):
-  """List existing Bigtable clusters."""
+  """List existing Bigtable clusters.
+
+  List existing Bigtable clusters.
+
+  ## EXAMPLES
+
+  To list all clusters in an instance, run:
+
+    $ {command} --instances INSTANCE_NAME
+
+  To list all clusters in any of several instances, run:
+
+    $ {command} --instances INSTANCE_NAME1,INSTANCE_NAME2
+  """
 
   @staticmethod
   def Args(parser):
     """Register flags for this command."""
-    arguments.ArgAdder(parser).AddInstance(
-        positional=False, required=False, multiple=True)
+    arguments.AddInstancesResourceArg(parser, 'to list clusters for')
     parser.display_info.AddFormat("""
           table(
             name.segment(3):sort=1:label=INSTANCE,
@@ -47,6 +60,7 @@ class ListClusters(base.ListCommand):
           )
         """)
     parser.display_info.AddUriFunc(_GetUriFunction)
+    parser.display_info.AddCacheUpdater(arguments.InstanceCompleter)
 
   def Run(self, args):
     """This is what gets called when the user runs this command.
@@ -58,21 +72,15 @@ class ListClusters(base.ListCommand):
     Yields:
       Some value that we want to have printed later.
     """
-    # TODO(b/33272823): Remove after deprecation period
-    arguments.ProcessInstances(args)
-
     cli = util.GetAdminClient()
-    instances = args.instances or ['-']
-    for instance in instances:
-      ref = resources.REGISTRY.Parse(
-          instance,
-          params={
-              'projectsId': properties.VALUES.core.project.GetOrFail,
-          },
-          collection='bigtableadmin.projects.instances')
-      msg = (util.GetAdminMessages()
-             .BigtableadminProjectsInstancesClustersListRequest(
-                 parent=ref.RelativeName()))
+    instance_refs = args.CONCEPTS.instances.Parse()
+    if not args.IsSpecified('instances'):
+      instance_refs = [util.GetInstanceRef('-')]
+    for instance_ref in instance_refs:
+      msg = (
+          util.GetAdminMessages()
+          .BigtableadminProjectsInstancesClustersListRequest(
+              parent=instance_ref.RelativeName()))
       for cluster in list_pager.YieldFromList(
           cli.projects_instances_clusters,
           msg,

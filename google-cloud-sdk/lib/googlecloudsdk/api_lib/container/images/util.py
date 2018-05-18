@@ -13,20 +13,26 @@
 # limitations under the License.
 """Utilities for the container images commands."""
 
-import itertools
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
-from apitools.base.py import list_pager
+from contextlib import contextmanager
+
+# pytype: disable=import-error
 from containerregistry.client import docker_creds
 from containerregistry.client import docker_name
 # We use distinct versions of the library for v2 and v2.2 because
 # the schema of the JSON data returned is fairly different, and
 # images addressed by digest must be accessed via the API version
 # corresponding to how they are stored.
+from containerregistry.client.v2 import docker_http as v2_docker_http
 from containerregistry.client.v2 import docker_image as v2_image
-from containerregistry.client.v2 import util as v2_util
+from containerregistry.client.v2_2 import docker_http as v2_2_docker_http
 from containerregistry.client.v2_2 import docker_image as v2_2_image
-from containerregistry.client.v2_2 import util as v2_2_util
+from containerregistry.client.v2_2 import docker_image_list
+# pytype: enable=import-error
 from googlecloudsdk.api_lib.container.images import container_analysis_data_util
+from googlecloudsdk.api_lib.containeranalysis import util as containeranalysis_util
 from googlecloudsdk.api_lib.util import apis
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import http
@@ -35,12 +41,9 @@ from googlecloudsdk.core.credentials import store as c_store
 from googlecloudsdk.core.docker import constants
 from googlecloudsdk.core.docker import docker
 from googlecloudsdk.core.util import times
-
-
-# The maximum number of resource URLs by which to filter when showing
-# occurrences. This is required since filtering by too many causes the
-# API request to be too large. Instead, the requests are chunkified.
-_MAXIMUM_RESOURCE_URL_CHUNK_SIZE = 5
+import six
+from six.moves import map
+import six.moves.http_client
 
 
 class UtilError(exceptions.Error):
@@ -53,6 +56,10 @@ class InvalidImageNameError(UtilError):
 
 class UserRecoverableV2Error(UtilError):
   """Raised when a user-recoverable V2 API error is encountered."""
+
+
+class TokenRefreshError(UtilError):
+  """Raised when there's an error refreshing tokens."""
 
 
 def IsFullySpecified(image_name):
@@ -78,9 +85,8 @@ def ValidateRepositoryPath(repository_path):
         'Image names must not be fully-qualified. Remove the tag or digest '
         'and try again.')
   if repository_path.endswith('/'):
-    raise InvalidImageNameError(
-        'Image name cannot end with \'/\'. '
-        'Remove the trailing \'/\' and try again.')
+    raise InvalidImageNameError('Image name cannot end with \'/\'. '
+                                'Remove the trailing \'/\' and try again.')
 
   try:
     if repository_path in constants.MIRROR_REGISTRIES:
@@ -109,11 +115,16 @@ class CredentialProvider(docker_creds.Basic):
     return cred.access_token if cred else None
 
 
-def _TimeCreatedToDateTime(time_created):
-  timestamp = float(time_created) / 1000
-  # Drop the microsecond portion.
-  timestamp = round(timestamp, 0)
-  return times.GetDateTimeFromTimeStamp(timestamp)
+def _TimeCreatedToDateTime(time_created_ms):
+  # Convert to float.
+  timestamp = float(time_created_ms)
+  # Round the timestamp to whole seconds.
+  timestamp = round(timestamp / 1000)
+  try:
+    return times.GetDateTimeFromTimeStamp(timestamp)
+  except (ArithmeticError, times.DateTimeValueError):
+    # Values like -62135596800000 have been observed, causing underflows.
+    return None
 
 
 def RecoverProjectId(repository):
@@ -143,52 +154,18 @@ def _FullyqualifiedDigest(digest):
   return 'https://{digest}'.format(digest=digest)
 
 
-def _MakeOccurrenceRequest(
-    project_id, resource_filter, occurrence_filter=None, resource_urls=None):
-  """Helper function to make Fetch Occurrence Request."""
+def _MakeSummaryRequest(project_id, url_filter):
+  """Helper function to make Summary request."""
   client = apis.GetClientInstance('containeranalysis', 'v1alpha1')
   messages = apis.GetMessagesModule('containeranalysis', 'v1alpha1')
-  base_filter = resource_filter
-  if occurrence_filter:
-    base_filter = (
-        '({occurrence_filter}) AND ({base_filter})'.format(
-            occurrence_filter=occurrence_filter,
-            base_filter=base_filter))
   project_ref = resources.REGISTRY.Parse(
       project_id, collection='cloudresourcemanager.projects')
 
-  if not resource_urls:
-    # When there are no resource_urls to filter don't need to do chunkifying
-    # logic or add anything to the base filter.
-    return list_pager.YieldFromList(
-        client.projects_occurrences,
-        request=messages.ContaineranalysisProjectsOccurrencesListRequest(
-            parent=project_ref.RelativeName(), filter=base_filter),
-        field='occurrences',
-        batch_size=1000,
-        batch_size_attribute='pageSize')
-
-  # Occurrences are filtered by resource URLs. If there are more than roughly
-  # _MAXIMUM_RESOURCE_URL_CHUNK_SIZE resource urls in the API request, the
-  # request becomes too big and will be rejected. This block chunkifies the
-  # resource URLs list and issues multiple API requests to circumvent this
-  # limit. The resulting generators (from YieldFromList) are chained together in
-  # the final output.
-  occurrence_generators = []
-  for index in range(0, len(resource_urls), _MAXIMUM_RESOURCE_URL_CHUNK_SIZE):
-    chunk = resource_urls[index : (index + _MAXIMUM_RESOURCE_URL_CHUNK_SIZE)]
-    url_filter = '%s AND (%s)' % (
-        base_filter,
-        ' OR '.join(['resource_url="%s"' % url for url in chunk]))
-    occurrence_generators.append(
-        list_pager.YieldFromList(
-            client.projects_occurrences,
-            request=messages.ContaineranalysisProjectsOccurrencesListRequest(
-                parent=project_ref.RelativeName(), filter=url_filter),
-            field='occurrences',
-            batch_size=1000,
-            batch_size_attribute='pageSize'))
-  return itertools.chain(*occurrence_generators)
+  req = (
+      messages.
+      ContaineranalysisProjectsOccurrencesGetVulnerabilitySummaryRequest(
+          parent=project_ref.RelativeName(), filter=url_filter))
+  return client.projects_occurrences.GetVulnerabilitySummary(req)
 
 
 def FetchOccurrencesForResource(digest, occurrence_filter=None):
@@ -196,16 +173,61 @@ def FetchOccurrencesForResource(digest, occurrence_filter=None):
   project_id = RecoverProjectId(digest)
   resource_filter = 'resource_url="{resource_url}"'.format(
       resource_url=_FullyqualifiedDigest(digest))
-  return _MakeOccurrenceRequest(project_id, resource_filter, occurrence_filter)
+  return containeranalysis_util.MakeOccurrenceRequest(
+      project_id, resource_filter, occurrence_filter)
 
 
-def TransformContainerAnalysisData(image_name, occurrence_filter=None):
+def FetchDeploymentsForImage(image, occurrence_filter=None):
+  """Fetches the deployment occurrences attached to this image."""
+  project_id = RecoverProjectId(image)
+  depl_filter = 'kind="DEPLOYABLE"'  # and details.deployment.resource_uri=image
+  occ_filter = '({arg_filter} AND {depl_filter})'.format(
+      arg_filter=occurrence_filter,
+      depl_filter=depl_filter,
+  )
+  occurrences = list(
+      containeranalysis_util.MakeOccurrenceRequest(project_id, occ_filter))
+  deployments = []
+  image_string = str(image)
+  for occ in occurrences:
+    if not occ.deployment:
+      continue
+    if image_string in occ.deployment.resourceUri:
+      deployments.append(occ)
+  return deployments
+
+
+def TransformContainerAnalysisData(image_name,
+                                   occurrence_filter=None,
+                                   deployments=False):
   """Transforms the occurrence data from Container Analysis API."""
-  occurrences = FetchOccurrencesForResource(image_name, occurrence_filter)
-  analysis_obj = container_analysis_data_util.ContainerAnalysisData(image_name)
-  for occurrence in occurrences:
-    analysis_obj.add_record(occurrence)
+  analysis_obj = container_analysis_data_util.ContainerAndAnalysisData(
+      image_name)
+  occs = FetchOccurrencesForResource(image_name, occurrence_filter)
+  for occ in occs:
+    analysis_obj.add_record(occ)
+  if deployments:
+    depl_occs = FetchDeploymentsForImage(image_name, occurrence_filter)
+    for depl_occ in depl_occs:
+      analysis_obj.add_record(depl_occ)
+  analysis_obj.resolveSummaries()
   return analysis_obj
+
+
+def FetchSummary(repository, resource_url):
+  """Fetches the summary of vulnerability occurrences for some resource.
+
+  Args:
+    repository: A parsed docker_name.Repository object.
+    resource_url: The URL identifying the resource.
+
+  Returns:
+    A GetVulnzOccurrencesSummaryResponse.
+  """
+  project_id = RecoverProjectId(repository)
+  url_filter = 'resource_url = "{resource_url}"'.format(
+      resource_url=resource_url)
+  return _MakeSummaryRequest(project_id, url_filter)
 
 
 def FetchOccurrences(repository, occurrence_filter=None, resource_urls=None):
@@ -216,8 +238,8 @@ def FetchOccurrences(repository, occurrence_filter=None, resource_urls=None):
   resource_filter = 'has_prefix(resource_url, "{repo}")'.format(
       repo=_UnqualifiedResourceUrl(repository))
 
-  occurrences = _MakeOccurrenceRequest(project_id, resource_filter,
-                                       occurrence_filter, resource_urls)
+  occurrences = containeranalysis_util.MakeOccurrenceRequest(
+      project_id, resource_filter, occurrence_filter, resource_urls)
   occurrences_by_resources = {}
   for occ in occurrences:
     if occ.resourceUrl not in occurrences_by_resources:
@@ -226,9 +248,11 @@ def FetchOccurrences(repository, occurrence_filter=None, resource_urls=None):
   return occurrences_by_resources
 
 
-def TransformManifests(
-    manifests, repository, show_occurrences=True, occurrence_filter=None,
-    resource_urls=None):
+def TransformManifests(manifests,
+                       repository,
+                       show_occurrences=False,
+                       occurrence_filter=None,
+                       resource_urls=None):
   """Transforms the manifests returned from the server."""
   if not manifests:
     return []
@@ -237,25 +261,42 @@ def TransformManifests(
   occurrences = {}
   if show_occurrences:
     occurrences = FetchOccurrences(
-        repository, occurrence_filter=occurrence_filter,
+        repository,
+        occurrence_filter=occurrence_filter,
         resource_urls=resource_urls)
 
   # Attach each occurrence to the resource to which it applies.
   results = []
-  for k, v in manifests.iteritems():
-    result = {'digest': k,
-              'tags': v.get('tag', []),
-              'timestamp': _TimeCreatedToDateTime(v.get('timeCreatedMs'))}
+  for k, v in six.iteritems(manifests):
+    result = {
+        'digest': k,
+        'tags': v.get('tag', []),
+        'timestamp': _TimeCreatedToDateTime(v.get('timeCreatedMs'))
+    }
 
-    # Partition occurrences into different columns by kind.
+    # Partition the (non-PACKAGE_VULNERABILITY) occurrences into different
+    # columns by kind.
     for occ in occurrences.get(_ResourceUrl(repository, k), []):
       if occ.kind not in result:
         result[occ.kind] = []
-      result[occ.kind].append(occ)
+      result[occ.kind].append(occ)  # pytype: disable=attribute-error
+
+    if show_occurrences and resource_urls:
+      result['vuln_counts'] = {}
+      # If this manifest is in the list of resource urls for which to show
+      # summaries, query the API for the summary.
+      resource_url = _ResourceUrl(repository, k)
+      if resource_url not in resource_urls:
+        continue
+
+      summary = FetchSummary(repository, resource_url)
+      for severity_count in summary.counts:
+        if severity_count.severity:
+          result['vuln_counts'][str(severity_count.severity)] = (
+              severity_count.count)  # pytype: disable=attribute-error
 
     results.append(result)
-
-  return sorted(results, key=lambda x: x.get('timestamp'))
+  return results
 
 
 def GetTagNamesForDigest(digest, http_obj):
@@ -270,9 +311,9 @@ def GetTagNamesForDigest(digest, http_obj):
   """
   repository_path = digest.registry + '/' + digest.repository
   repository = ValidateRepositoryPath(repository_path)
-  with v2_2_image.FromRegistry(basic_creds=CredentialProvider(),
-                               name=repository,
-                               transport=http_obj) as image:
+  with v2_2_image.FromRegistry(
+      basic_creds=CredentialProvider(), name=repository,
+      transport=http_obj) as image:
     if digest.digest not in image.manifests():
       return []
     manifest_value = image.manifests().get(digest.digest, {})
@@ -369,19 +410,33 @@ def GetDigestFromName(image_name):
         basic_creds=CredentialProvider(), name=tag,
         transport=http.Http()) as v2_img:
       if v2_img.exists():
-        return v2_util.Digest(v2_img.manifest())
+        return v2_img.digest()
       return None
 
   def ResolveV22Tag(tag):
     with v2_2_image.FromRegistry(
-        basic_creds=CredentialProvider(), name=tag,
-        transport=http.Http()) as v2_2_img:
+        basic_creds=CredentialProvider(),
+        name=tag,
+        transport=http.Http(),
+        accepted_mimes=v2_2_docker_http.SUPPORTED_MANIFEST_MIMES) as v2_2_img:
       if v2_2_img.exists():
-        return v2_2_util.Digest(v2_2_img.manifest())
+        return v2_2_img.digest()
       return None
 
-  # Resolve v2.2 first because we will exist via a compatibility layer.
-  sha256 = ResolveV22Tag(tag_or_digest) or ResolveV2Tag(tag_or_digest)
+  def ResolveManifestListTag(tag):
+    with docker_image_list.FromRegistry(
+        basic_creds=CredentialProvider(), name=tag,
+        transport=http.Http()) as manifest_list:
+      if manifest_list.exists():
+        return manifest_list.digest()
+      return None
+
+  # Resolve as manifest list, then v2.2, then v2.1 because for compatibility:
+  # - manifest lists can be rewritten to v2.2 "default" images.
+  # - v2.2 manifests can be rewritten to v2.1 manifests.
+  sha256 = (
+      ResolveManifestListTag(tag_or_digest) or ResolveV22Tag(tag_or_digest) or
+      ResolveV2Tag(tag_or_digest))
   if not sha256:
     raise InvalidImageNameError('[{0}] is not a valid name.'.format(image_name))
 
@@ -405,34 +460,35 @@ def GetDockerDigestFromPrefix(digest):
   """
   repository_path, prefix = digest.split('@', 1)
   repository = ValidateRepositoryPath(repository_path)
-  with v2_2_image.FromRegistry(basic_creds=CredentialProvider(),
-                               name=repository,
-                               transport=http.Http()) as image:
+  with v2_2_image.FromRegistry(
+      basic_creds=CredentialProvider(), name=repository,
+      transport=http.Http()) as image:
     matches = [d for d in image.manifests() if d.startswith(prefix)]
 
     if len(matches) == 1:
       return repository_path + '@' + matches.pop()
     elif len(matches) > 1:
       raise InvalidImageNameError(
-          '{0} is not a unique digest prefix. Options are {1}.]'
-          .format(prefix, ', '.join(map(str, matches))))
+          '{0} is not a unique digest prefix. Options are {1}.]'.format(
+              prefix, ', '.join(map(str, matches))))
     return digest
 
 
-def GcloudifyRecoverableV2Errors(err, err_str_for_status):
-  """Filters err based on the existence of err.status in err_str_for_status.
-
-  Args:
-    err: The V2DiagnotsticException to filter based on .status.
-    err_str_for_status: a dict(int) -> string which maps HTTP status codes to a
-      helpful error string to display to the user.
-
-  Returns:
-    A googlecloudsdk.core.exceptions.Error with the helpful error string
-    specified in err_str_for_status, otherwise err. This prevents the gcloudSDK
-    from 'crashing' and helps the user recover.
-  """
-  err_str = err_str_for_status.get(err.status, None)
-  if err_str:
-    return UserRecoverableV2Error(err_str)
-  return err
+@contextmanager
+def WrapExpectedDockerlessErrors(optional_image_name=None):
+  try:
+    yield
+  except (v2_docker_http.V2DiagnosticException,
+          v2_2_docker_http.V2DiagnosticException) as err:
+    if err.status in [
+        six.moves.http_client.UNAUTHORIZED, six.moves.http_client.FORBIDDEN
+    ]:
+      raise UserRecoverableV2Error('Access denied: {}'.format(
+          optional_image_name or str(err)))
+    elif err.status == six.moves.http_client.NOT_FOUND:
+      raise UserRecoverableV2Error('Not found: {}'.format(
+          optional_image_name or str(err)))
+    raise
+  except (v2_docker_http.TokenRefreshException,
+          v2_2_docker_http.TokenRefreshException) as err:
+    raise TokenRefreshError(str(err))

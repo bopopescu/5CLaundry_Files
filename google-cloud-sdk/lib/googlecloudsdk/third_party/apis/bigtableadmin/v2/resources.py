@@ -17,6 +17,7 @@ import enum
 
 
 BASE_URL = 'https://bigtableadmin.googleapis.com/v2/'
+DOCS_URL = 'https://cloud.google.com/bigtable/'
 
 
 class Collections(enum.Enum):
@@ -29,13 +30,15 @@ class Collections(enum.Enum):
           '':
               'operations/{operationsId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS = (
       'projects',
       'projects/{projectId}',
       {},
-      ['projectId']
+      [u'projectId'],
+      True
   )
   PROJECTS_INSTANCES = (
       'projects.instances',
@@ -44,7 +47,19 @@ class Collections(enum.Enum):
           '':
               'projects/{projectsId}/instances/{instancesId}',
       },
-      [u'name']
+      [u'name'],
+      True
+  )
+  PROJECTS_INSTANCES_APPPROFILES = (
+      'projects.instances.appProfiles',
+      '{+name}',
+      {
+          '':
+              'projects/{projectsId}/instances/{instancesId}/appProfiles/'
+              '{appProfilesId}',
+      },
+      [u'name'],
+      True
   )
   PROJECTS_INSTANCES_CLUSTERS = (
       'projects.instances.clusters',
@@ -54,7 +69,8 @@ class Collections(enum.Enum):
               'projects/{projectsId}/instances/{instancesId}/clusters/'
               '{clustersId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
   PROJECTS_INSTANCES_TABLES = (
       'projects.instances.tables',
@@ -64,11 +80,14 @@ class Collections(enum.Enum):
               'projects/{projectsId}/instances/{instancesId}/tables/'
               '{tablesId}',
       },
-      [u'name']
+      [u'name'],
+      True
   )
 
-  def __init__(self, collection_name, path, flat_paths, params):
+  def __init__(self, collection_name, path, flat_paths, params,
+               enable_uri_parsing):
     self.collection_name = collection_name
     self.path = path
     self.flat_paths = flat_paths
     self.params = params
+    self.enable_uri_parsing = enable_uri_parsing

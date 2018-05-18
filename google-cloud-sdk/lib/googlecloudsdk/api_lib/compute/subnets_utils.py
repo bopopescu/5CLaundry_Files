@@ -13,15 +13,34 @@
 # limitations under the License.
 """Code that's shared between multiple subnets subcommands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import exceptions
+import six
 
 
 def MakeSubnetworkUpdateRequest(client,
                                 subnet_ref,
                                 enable_private_ip_google_access=None,
                                 add_secondary_ranges=None,
-                                remove_secondary_ranges=None):
-  """Make the appropriate update request for the args."""
+                                remove_secondary_ranges=None,
+                                enable_flow_logs=None):
+  """Make the appropriate update request for the args.
+
+  Args:
+    client: GCE API client
+    subnet_ref: Reference to a subnetwork
+    enable_private_ip_google_access: Enable/disable access to Google Cloud APIs
+      from this subnet for instances without a public ip address.
+    add_secondary_ranges: List of secondary IP ranges to add to the subnetwork
+      for use in IP aliasing.
+    remove_secondary_ranges: List of secondary ranges to remove from the
+      subnetwork.
+    enable_flow_logs: Enable/disable flow logging for this subnet.
+
+  Returns:
+    response, result of sending the update request for the subnetwork
+  """
   if enable_private_ip_google_access is not None:
     google_access = (
         client.messages.SubnetworksSetPrivateIpGoogleAccessRequest())
@@ -43,7 +62,7 @@ def MakeSubnetworkUpdateRequest(client,
               **subnet_ref.AsDict()))])[0]
 
     for secondary_range in add_secondary_ranges:
-      for range_name, ip_cidr_range in sorted(secondary_range.iteritems()):
+      for range_name, ip_cidr_range in sorted(six.iteritems(secondary_range)):
         subnetwork.secondaryIpRanges.append(
             client.messages.SubnetworkSecondaryRange(
                 rangeName=range_name, ipCidrRange=ip_cidr_range))
@@ -67,9 +86,21 @@ def MakeSubnetworkUpdateRequest(client,
         if r.rangeName not in remove_secondary_ranges[0]
     ]
 
-    with client.apitools_client.IncludeFields(['secondaryIpRanges']):
+    cleared_fields = []
+    if not subnetwork.secondaryIpRanges:
+      cleared_fields.append('secondaryIpRanges')
+    with client.apitools_client.IncludeFields(cleared_fields):
       return client.MakeRequests(
           [CreateSubnetworkPatchRequest(client, subnet_ref, subnetwork)])
+  elif enable_flow_logs is not None:
+    subnetwork = client.MakeRequests(
+        [(client.apitools_client.subnetworks,
+          'Get', client.messages.ComputeSubnetworksGetRequest(
+              **subnet_ref.AsDict()))])[0]
+
+    subnetwork.enableFlowLogs = enable_flow_logs
+    return client.MakeRequests(
+        [CreateSubnetworkPatchRequest(client, subnet_ref, subnetwork)])
 
   return client.MakeRequests([])
 

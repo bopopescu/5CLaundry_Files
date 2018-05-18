@@ -17,10 +17,9 @@ The print_format string passed to resource_printer.Print() is determined in this
 order:
  (1) Display disabled and resources not consumed if user output is disabled.
  (2) The explicit --format flag format string.
- (3) The DisplayInfo format from the parser.
- (4) The explicit Display() method.
- (5) The DeprecatedFormat() string.
- (6) Otherwise no output but the resources are consumed.
+ (3) The explicit Display() method.
+ (4) The DisplayInfo format from the parser.
+ (5) Otherwise no output but the resources are consumed.
 
 Format expressions are left-to-right composable. Each format expression is a
 string tuple
@@ -29,21 +28,25 @@ string tuple
 
 where only one of the three elements need be present.
 """
+# Pytype fails to check this file.
+# type: ignore
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.calliope import display_taps
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core import log
 from googlecloudsdk.core import module_util
 from googlecloudsdk.core import properties
 from googlecloudsdk.core.cache import cache_update_ops
-from googlecloudsdk.core.resource import resource_filter
-from googlecloudsdk.core.resource import resource_keys_expr
 from googlecloudsdk.core.resource import resource_lex
 from googlecloudsdk.core.resource import resource_printer
 from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.resource import resource_property
+from googlecloudsdk.core.resource import resource_reference
 from googlecloudsdk.core.resource import resource_transform
 from googlecloudsdk.core.util import peek_iterable
+import six
 
 
 class Error(exceptions.Error):
@@ -70,7 +73,6 @@ class Displayer(object):
     _defaults: The resource format and filter default projection.
     _format: The printer format string.
     _info: The resource info or None if not registered.
-    _legacy: True if command uses legacy Command class methods.
     _printer: The printer object.
     _printer_is_initialized: True if self._printer has been initialized.
     _resources: The resources to display, returned by command.Run().
@@ -99,7 +101,6 @@ class Displayer(object):
     self._format = None
     self._filter = None
     self._info = None
-    self._legacy = True
     self._printer = None
     self._printer_is_initialized = False
     self._resources = resources
@@ -107,7 +108,6 @@ class Displayer(object):
       # pylint: disable=protected-access
       display_info = args.GetDisplayInfo()
     if display_info:
-      self._legacy = display_info.legacy
       self._cache_updater = display_info.cache_updater
       self._defaults = resource_projection_spec.ProjectionSpec(
           defaults=self._defaults,
@@ -115,18 +115,6 @@ class Displayer(object):
           aliases=display_info.aliases)
       self._format = display_info.format
       self._filter = display_info.filter
-    if self._legacy:
-      self._defaults = resource_projection_spec.ProjectionSpec(
-          defaults=command.Defaults(),
-          symbols=display_info.transforms if display_info else None)
-      self._info = command.ResourceInfo(args)
-      if self._info:
-        self._defaults.symbols['collection'] = (
-            lambda r, undefined='': self._info.collection or undefined)
-      geturi = command.GetUriFunc()
-      if geturi:
-        self._defaults.symbols['uri'] = (
-            lambda r, undefined='': geturi(r) or undefined)
     self._transform_uri = self._defaults.symbols.get(
         'uri', resource_transform.TransformUri)
     self._defaults.symbols[
@@ -166,8 +154,6 @@ class Displayer(object):
                 ' '.join(self._args._GetCommand().GetPath())))
       return
 
-    if self._legacy and (not self._info or self._info.bypass_cache):
-      return
     if any([self._GetFlag(flag) for flag in self._CORRUPT_FLAGS]):
       return
 
@@ -228,7 +214,7 @@ class Displayer(object):
         assert None < value
         return value
       except (AssertionError, TypeError):
-        return unicode(value)
+        return six.text_type(value)
 
     self._resources = sorted(
         self._resources,
@@ -277,21 +263,30 @@ class Displayer(object):
 
   def _AddFlattenTap(self):
     """Taps one or more resource flatteners into self.resources if needed."""
+
+    def _Slice(key):
+      """Helper to add one flattened slice tap."""
+      tap = display_taps.Flattener(key)
+      # Apply the flatteners from left to right so the innermost flattener
+      # flattens the leftmost slice. The outer flatteners can then access
+      # the flattened keys to the left.
+      self._resources = peek_iterable.Tapper(self._resources, tap)
+
     keys = self._GetFlag('flatten')
     if not keys:
       return
     for key in keys:
       flattened_key = []
+      sliced = False
       for k in resource_lex.Lexer(key).Key():
         if k is None:
-          # None represents a [] slice in resource keys.
-          tap = display_taps.Flattener(flattened_key)
-          # Apply the flatteners from left to right so the innermost flattener
-          # flattens the leftmost slice. The outer flatteners can then access
-          # the flattened keys to the left.
-          self._resources = peek_iterable.Tapper(self._resources, tap)
+          sliced = True
+          _Slice(flattened_key)
         else:
+          sliced = False
           flattened_key.append(k)
+      if not sliced:
+        _Slice(flattened_key)
 
   def _AddLimitTap(self):
     """Taps a resource limit into self.resources if needed."""
@@ -344,15 +339,15 @@ class Displayer(object):
     Returns:
       format: The format string, '' if there is an explicit Display().
     """
-    if not self._legacy:
-      return self._format
     if hasattr(self._command, 'Display'):
       return ''
-    return self._command.DeprecatedFormat(self._args)
+    return self._format
 
   def _GetFilter(self):
     flag_filter = self._GetFlag('filter')
     if flag_filter is None:
+      if self._filter:
+        log.info('Display filter: "%s"', six.text_type(self._filter))
       return self._filter
     else:
       return flag_filter
@@ -428,26 +423,12 @@ class Displayer(object):
         self._defaults = self._printer.column_attributes
 
   def GetReferencedKeyNames(self):
-    """Returns the list of key names referenced by the command."""
-
-    keys = set()
-
-    # Add the format key references.
+    """Returns the set of key names referenced by the command."""
     self._InitPrinter()
-    if self._printer:
-      for col in self._printer.column_attributes.Columns():
-        keys.add(resource_lex.GetKeyName(col.key, omit_indices=True))
-
-    # Add the filter key references.
-    filter_expression = self._GetFilter()
-    if filter_expression:
-      expr = resource_filter.Compile(filter_expression,
-                                     defaults=self._defaults,
-                                     backend=resource_keys_expr.Backend())
-      for key in expr.Evaluate(None):
-        keys.add(resource_lex.GetKeyName(key, omit_indices=True))
-
-    return keys
+    return resource_reference.GetReferencedKeyNames(
+        filter_string=self._GetFilter(),
+        printer=self._printer,
+        defaults=self._defaults)
 
   def Display(self):
     """The default display method."""
@@ -489,7 +470,7 @@ class Displayer(object):
     resources_were_displayed = True
     if self._printer:
       # Most command output will end up here.
-      log.info('Display format "%s".', self._format)
+      log.info('Display format: "%s"', self._format)
       self._printer.Print(self._resources)
       resources_were_displayed = self._printer.ResourcesWerePrinted()
     elif hasattr(self._command, 'Display'):

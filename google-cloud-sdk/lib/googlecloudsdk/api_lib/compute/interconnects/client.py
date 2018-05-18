@@ -13,7 +13,8 @@
 # limitations under the License.
 """Interconnect."""
 
-from googlecloudsdk.core.resource import resource_projector
+
+from __future__ import unicode_literals
 
 
 class Interconnect(object):
@@ -46,7 +47,12 @@ class Interconnect(object):
 
   def _MakePatchRequestTuple(self, description, location, interconnect_type,
                              requested_link_count, link_type, admin_enabled,
-                             noc_contact_email):
+                             noc_contact_email, labels, label_fingerprint):
+    kwargs = {}
+    if labels is not None:
+      kwargs['labels'] = labels
+    if label_fingerprint is not None:
+      kwargs['labelFingerprint'] = label_fingerprint
     return (self._client.interconnects, 'Patch',
             self._messages.ComputeInterconnectsPatchRequest(
                 interconnect=self.ref.Name(),
@@ -58,7 +64,8 @@ class Interconnect(object):
                     nocContactEmail=noc_contact_email,
                     requestedLinkCount=requested_link_count,
                     location=location,
-                    adminEnabled=admin_enabled),
+                    adminEnabled=admin_enabled,
+                    **kwargs),
                 project=self.ref.project))
 
   def _MakeDeleteRequestTuple(self):
@@ -107,7 +114,7 @@ class Interconnect(object):
     requests = [self._MakeDescribeRequestTuple()]
     if not only_generate_request:
       resources = self._compute_client.MakeRequests(requests)
-      return resource_projector.MakeSerializable(resources[0])
+      return resources[0]
     return requests
 
   def Patch(self,
@@ -118,12 +125,15 @@ class Interconnect(object):
             link_type=None,
             admin_enabled=False,
             noc_contact_email=None,
-            only_generate_request=False):
+            only_generate_request=False,
+            labels=None,
+            label_fingerprint=None):
     """Patch an interconnect."""
     requests = [
         self._MakePatchRequestTuple(description, location, interconnect_type,
                                     requested_link_count, link_type,
-                                    admin_enabled, noc_contact_email)
+                                    admin_enabled, noc_contact_email, labels,
+                                    label_fingerprint)
     ]
     if not only_generate_request:
       resources = self._compute_client.MakeRequests(requests)

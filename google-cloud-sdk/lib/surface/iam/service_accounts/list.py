@@ -15,14 +15,14 @@
 
 from apitools.base.py import list_pager
 
+from googlecloudsdk.api_lib.iam import exceptions
+from googlecloudsdk.api_lib.iam import util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.calliope import exceptions
-from googlecloudsdk.command_lib.iam import base_classes
 from googlecloudsdk.command_lib.iam import iam_util
 from googlecloudsdk.core import properties
 
 
-class List(base_classes.BaseIamCommand, base.ListCommand):
+class List(base.ListCommand):
   """List all of a project's service accounts."""
 
   @staticmethod
@@ -35,12 +35,13 @@ class List(base_classes.BaseIamCommand, base.ListCommand):
   def Run(self, args):
     if args.limit is not None:
       if args.limit < 1:
-        raise exceptions.ToolException('Limit size must be >=1')
+        raise exceptions.InvalidArgumentException('Limit size must be >=1')
 
     project = properties.VALUES.core.project.Get(required=True)
+    client, messages = util.GetClientAndMessages()
     for item in list_pager.YieldFromList(
-        self.iam_client.projects_serviceAccounts,
-        self.messages.IamProjectsServiceAccountsListRequest(
+        client.projects_serviceAccounts,
+        messages.IamProjectsServiceAccountsListRequest(
             name=iam_util.ProjectToProjectResourceName(project)),
         field='accounts',
         limit=args.limit,

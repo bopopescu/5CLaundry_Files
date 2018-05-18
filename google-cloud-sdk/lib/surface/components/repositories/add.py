@@ -14,6 +14,9 @@
 
 """The command to list installed/available gcloud components."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions
 from googlecloudsdk.core import log
@@ -60,7 +63,8 @@ class Add(base.SilentCommand):
         snapshots.ComponentSnapshot.FromURLs(
             repo, command_path='components.repositories.add')
       except snapshots.Error:
-        raise exceptions.ToolException(
+        raise exceptions.InvalidArgumentException(
+            'url',
             'The given repository [{repo}] could not be fetched. Check your '
             'network settings and ensure that you have entered a valid '
             'repository URL.'.format(repo=repo))

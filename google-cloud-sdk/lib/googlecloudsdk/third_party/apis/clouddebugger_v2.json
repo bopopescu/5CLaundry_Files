@@ -20,7 +20,7 @@
   "servicePath": "",
   "baseUrl": "https://clouddebugger.googleapis.com/",
   "batchPath": "batch",
-  "version_module": "True",
+  "version_module": true,
   "parameters": {
     "access_token": {
       "type": "string",
@@ -116,7 +116,7 @@
           "description": "View and manage your data across Google Cloud Platform services"
         },
         "https://www.googleapis.com/auth/cloud_debugger": {
-          "description": "Manage cloud debugger"
+          "description": "Use Stackdriver Debugger"
         }
       }
     }
@@ -135,7 +135,7 @@
     },
     "Debuggee": {
       "id": "Debuggee",
-      "description": "Represents the application to debug. The application may include one or more\nreplicated processes executing the same code. Each of these processes is\nattached with a debugger agent, carrying out the debugging commands.\nThe agents attached to the same debuggee are identified by using exactly the\nsame field values when registering.",
+      "description": "Represents the debugged application. The application may include one or more\nreplicated processes executing the same code. Each of these processes is\nattached with a debugger agent, carrying out the debugging commands.\nAgents attached to the same debuggee identify themselves as such by using\nexactly the same Debuggee message value when registering.",
       "type": "object",
       "properties": {
         "id": {
@@ -143,11 +143,11 @@
           "type": "string"
         },
         "project": {
-          "description": "Project the debuggee is associated with.\nUse the project number when registering a Google Cloud Platform project.",
+          "description": "Project the debuggee is associated with.\nUse project number or id when registering a Google Cloud Platform project.",
           "type": "string"
         },
         "uniquifier": {
-          "description": "Debuggee uniquifier within the project.\nAny string that identifies the application within the project can be used.\nIncluding environment and version or build IDs is recommended.",
+          "description": "Uniquifier to further distiguish the application.\nIt is possible that different applications might have identical values in\nthe debuggee message, thus, incorrectly identified as a single application\nby the Controller service. This field adds salt to further distiguish the\napplication. Agents should consider seeding this field with value that\nidentifies the code, binary, configuration and environment.",
           "type": "string"
         },
         "description": {
@@ -155,11 +155,11 @@
           "type": "string"
         },
         "isInactive": {
-          "description": "If set to `true`, indicates that the debuggee is considered as inactive by\nthe Controller service.",
+          "description": "If set to `true`, indicates that Controller service does not detect any\nactivity from the debuggee agents and the application is possibly stopped.",
           "type": "boolean"
         },
         "agentVersion": {
-          "description": "Version ID of the agent release. The version ID is structured as\nfollowing: `domain\/language-platform\/vmajor.minor` (for example\n`google.com\/java-gcp\/v1.1`).",
+          "description": "Version ID of the agent.\nSchema: `domain\/language-platform\/vmajor.minor` (for example\n`google.com\/java-gcp\/v1.1`).",
           "type": "string"
         },
         "isDisabled": {
@@ -171,14 +171,14 @@
           "$ref": "StatusMessage"
         },
         "sourceContexts": {
-          "description": "References to the locations and revisions of the source code used in the\ndeployed application.\n\nNOTE: This field is deprecated. Consumers should use\n`ext_source_contexts` if it is not empty. Debug agents should populate\nboth this field and `ext_source_contexts`.",
+          "description": "References to the locations and revisions of the source code used in the\ndeployed application.",
           "type": "array",
           "items": {
             "$ref": "SourceContext"
           }
         },
         "extSourceContexts": {
-          "description": "References to the locations and revisions of the source code used in the\ndeployed application.\n\nContexts describing a remote repo related to the source code\nhave a `category` label of `remote_repo`. Source snapshot source\ncontexts have a `category` of `snapshot`.",
+          "description": "References to the locations and revisions of the source code used in the\ndeployed application.",
           "type": "array",
           "items": {
             "$ref": "ExtendedSourceContext"
@@ -447,7 +447,7 @@
       "type": "object",
       "properties": {
         "debuggee": {
-          "description": "Debuggee resource.\nThe field `id` is guranteed to be set (in addition to the echoed fields).",
+          "description": "Debuggee resource.\nThe field `id` is guranteed to be set (in addition to the echoed fields).\nIf the field `is_disabled` is set to `true`, the agent should disable\nitself by removing all breakpoints and detaching from the application.\nIt should however continue to poll `RegisterDebuggee` until reenabled.",
           "$ref": "Debuggee"
         }
       }
@@ -465,11 +465,11 @@
           }
         },
         "nextWaitToken": {
-          "description": "A wait token that can be used in the next method call to block until\nthe list of breakpoints changes.",
+          "description": "A token that can be used in the next method call to block until\nthe list of breakpoints changes.",
           "type": "string"
         },
         "waitExpired": {
-          "description": "The `wait_expired` field is set to true by the server when the\nrequest times out and the field `success_on_timeout` is set to true.",
+          "description": "If set to `true`, indicates that there is no change to the\nlist of active breakpoints and the server-selected timeout has expired.\nThe `breakpoints` field would be empty and should be ignored.",
           "type": "boolean"
         }
       }
@@ -666,7 +666,7 @@
       "type": "object",
       "properties": {
         "breakpoint": {
-          "description": "Updated breakpoint information.\nThe field `id` must be set.",
+          "description": "Updated breakpoint information.\nThe field `id` must be set.\nThe agent must echo all Breakpoint specification fields in the update.",
           "$ref": "Breakpoint"
         }
       }
@@ -731,7 +731,7 @@
       "type": "object",
       "properties": {
         "debuggees": {
-          "description": "List of debuggees accessible to the calling user.\nNote that the `description` field is the only human readable field\nthat should be displayed to the user.\nThe fields `debuggee.id` and  `description` fields are guaranteed to be\nset on each debuggee.",
+          "description": "List of debuggees accessible to the calling user.\nThe fields `debuggee.id` and `description` are guaranteed to be set.\nThe `description` field is a human readable field provided by agents and\ncan be displayed to users.",
           "type": "array",
           "items": {
             "$ref": "Debuggee"
@@ -750,7 +750,6 @@
               "path": "v2/controller/debuggees/register",
               "flatPath": "v2/controller/debuggees/register",
               "httpMethod": "POST",
-              "description": "Registers the debuggee with the controller service.\n\nAll agents attached to the same application should call this method with\nthe same request content to get back the same stable `debuggee_id`. Agents\nshould call this method again whenever `google.rpc.Code.NOT_FOUND` is\nreturned from any controller method.\n\nThis allows the controller service to disable the agent or recover from any\ndata loss. If the debuggee is disabled by the server, the response will\nhave `is_disabled` set to `true`.",
               "parameters": {
               },
               "parameterOrder": [
@@ -764,7 +763,8 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/cloud_debugger"
-              ]
+              ],
+              "description": "Registers the debuggee with the controller service.\n\nAll agents attached to the same application must call this method with\nexactly the same request content to get back the same stable `debuggee_id`.\nAgents should call this method again whenever `google.rpc.Code.NOT_FOUND`\nis returned from any controller method.\n\nThis protocol allows the controller service to disable debuggees, recover\nfrom data loss, or change the `debuggee_id` format. Agents must handle\n`debuggee_id` value changing upon re-registration."
             }
           }
           ,
@@ -776,7 +776,6 @@
                   "path": "v2/controller/debuggees/{debuggeeId}/breakpoints",
                   "flatPath": "v2/controller/debuggees/{debuggeeId}/breakpoints",
                   "httpMethod": "GET",
-                  "description": "Returns the list of all active breakpoints for the debuggee.\n\nThe breakpoint specification (`location`, `condition`, and `expressions`\nfields) is semantically immutable, although the field values may\nchange. For example, an agent may update the location line number\nto reflect the actual line where the breakpoint was set, but this\ndoesn't change the breakpoint semantics.\n\nThis means that an agent does not need to check if a breakpoint has changed\nwhen it encounters the same breakpoint on a successive call.\nMoreover, an agent should remember the breakpoints that are completed\nuntil the controller removes them from the active list to avoid\nsetting those breakpoints again.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "Identifies the debuggee.",
@@ -785,12 +784,12 @@
                       "type": "string"
                     },
                     "waitToken": {
-                      "description": "A wait token that, if specified, blocks the method call until the list\nof active breakpoints has changed, or a server selected timeout has\nexpired.  The value should be set from the last returned response.",
+                      "description": "A token that, if specified, blocks the method call until the list\nof active breakpoints has changed, or a server-selected timeout has\nexpired. The value should be set from the `next_wait_token` field in\nthe last response. The initial value should be set to `\"init\"`.",
                       "location": "query",
                       "type": "string"
                     },
                     "successOnTimeout": {
-                      "description": "If set to `true`, returns `google.rpc.Code.OK` status and sets the\n`wait_expired` response field to `true` when the server-selected timeout\nhas expired (recommended).\n\nIf set to `false`, returns `google.rpc.Code.ABORTED` status when the\nserver-selected timeout has expired (deprecated).",
+                      "description": "If set to `true` (recommended), returns `google.rpc.Code.OK` status and\nsets the `wait_expired` response field to `true` when the server-selected\ntimeout has expired.\n\nIf set to `false` (deprecated), returns `google.rpc.Code.ABORTED` status\nwhen the server-selected timeout has expired.",
                       "location": "query",
                       "type": "boolean"
                     }
@@ -804,14 +803,14 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Returns the list of all active breakpoints for the debuggee.\n\nThe breakpoint specification (`location`, `condition`, and `expressions`\nfields) is semantically immutable, although the field values may\nchange. For example, an agent may update the location line number\nto reflect the actual line where the breakpoint was set, but this\ndoesn't change the breakpoint semantics.\n\nThis means that an agent does not need to check if a breakpoint has changed\nwhen it encounters the same breakpoint on a successive call.\nMoreover, an agent should remember the breakpoints that are completed\nuntil the controller removes them from the active list to avoid\nsetting those breakpoints again."
                 },
                 "update": {
                   "id": "clouddebugger.controller.debuggees.breakpoints.update",
                   "path": "v2/controller/debuggees/{debuggeeId}/breakpoints/{id}",
                   "flatPath": "v2/controller/debuggees/{debuggeeId}/breakpoints/{id}",
                   "httpMethod": "PUT",
-                  "description": "Updates the breakpoint state or mutable fields.\nThe entire Breakpoint message must be sent back to the controller\nservice.\n\nUpdates to active breakpoint fields are only allowed if the new value\ndoes not change the breakpoint specification. Updates to the `location`,\n`condition` and `expressions` fields should not alter the breakpoint\nsemantics. These may only make changes such as canonicalizing a value\nor snapping the location to the correct line of code.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "Identifies the debuggee being debugged.",
@@ -839,7 +838,8 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Updates the breakpoint state or mutable fields.\nThe entire Breakpoint message must be sent back to the controller service.\n\nUpdates to active breakpoint fields are only allowed if the new value\ndoes not change the breakpoint specification. Updates to the `location`,\n`condition` and `expressions` fields should not alter the breakpoint\nsemantics. These may only make changes such as canonicalizing a value\nor snapping the location to the correct line of code."
                 }
               }
             }
@@ -856,7 +856,6 @@
               "path": "v2/debugger/debuggees",
               "flatPath": "v2/debugger/debuggees",
               "httpMethod": "GET",
-              "description": "Lists all the debuggees that the user can set breakpoints to.",
               "parameters": {
                 "project": {
                   "description": "Project number of a Google Cloud project whose debuggees to list.",
@@ -869,7 +868,7 @@
                   "type": "boolean"
                 },
                 "clientVersion": {
-                  "description": "The client version making the call.\nFollowing: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
+                  "description": "The client version making the call.\nSchema: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
                   "location": "query",
                   "type": "string"
                 }
@@ -882,7 +881,8 @@
               "scopes": [
                 "https://www.googleapis.com/auth/cloud-platform",
                 "https://www.googleapis.com/auth/cloud_debugger"
-              ]
+              ],
+              "description": "Lists all the debuggees that the user has access to."
             }
           }
           ,
@@ -894,7 +894,6 @@
                   "path": "v2/debugger/debuggees/{debuggeeId}/breakpoints/set",
                   "flatPath": "v2/debugger/debuggees/{debuggeeId}/breakpoints/set",
                   "httpMethod": "POST",
-                  "description": "Sets the breakpoint to the debuggee.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "ID of the debuggee where the breakpoint is to be set.",
@@ -903,7 +902,7 @@
                       "type": "string"
                     },
                     "clientVersion": {
-                      "description": "The client version making the call.\nFollowing: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
+                      "description": "The client version making the call.\nSchema: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
                       "location": "query",
                       "type": "string"
                     }
@@ -920,14 +919,14 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Sets the breakpoint to the debuggee."
                 },
                 "get": {
                   "id": "clouddebugger.debugger.debuggees.breakpoints.get",
                   "path": "v2/debugger/debuggees/{debuggeeId}/breakpoints/{breakpointId}",
                   "flatPath": "v2/debugger/debuggees/{debuggeeId}/breakpoints/{breakpointId}",
                   "httpMethod": "GET",
-                  "description": "Gets breakpoint information.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "ID of the debuggee whose breakpoint to get.",
@@ -942,7 +941,7 @@
                       "type": "string"
                     },
                     "clientVersion": {
-                      "description": "The client version making the call.\nFollowing: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
+                      "description": "The client version making the call.\nSchema: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
                       "location": "query",
                       "type": "string"
                     }
@@ -957,14 +956,14 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Gets breakpoint information."
                 },
                 "delete": {
                   "id": "clouddebugger.debugger.debuggees.breakpoints.delete",
                   "path": "v2/debugger/debuggees/{debuggeeId}/breakpoints/{breakpointId}",
                   "flatPath": "v2/debugger/debuggees/{debuggeeId}/breakpoints/{breakpointId}",
                   "httpMethod": "DELETE",
-                  "description": "Deletes the breakpoint from the debuggee.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "ID of the debuggee whose breakpoint to delete.",
@@ -979,7 +978,7 @@
                       "type": "string"
                     },
                     "clientVersion": {
-                      "description": "The client version making the call.\nFollowing: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
+                      "description": "The client version making the call.\nSchema: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
                       "location": "query",
                       "type": "string"
                     }
@@ -994,14 +993,14 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Deletes the breakpoint from the debuggee."
                 },
                 "list": {
                   "id": "clouddebugger.debugger.debuggees.breakpoints.list",
                   "path": "v2/debugger/debuggees/{debuggeeId}/breakpoints",
                   "flatPath": "v2/debugger/debuggees/{debuggeeId}/breakpoints",
                   "httpMethod": "GET",
-                  "description": "Lists all breakpoints for the debuggee.",
                   "parameters": {
                     "debuggeeId": {
                       "description": "ID of the debuggee whose breakpoints to list.",
@@ -1039,7 +1038,7 @@
                       "type": "string"
                     },
                     "clientVersion": {
-                      "description": "The client version making the call.\nFollowing: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
+                      "description": "The client version making the call.\nSchema: `domain\/type\/version` (e.g., `google.com\/intellij\/v1`).",
                       "location": "query",
                       "type": "string"
                     }
@@ -1053,7 +1052,8 @@
                   "scopes": [
                     "https://www.googleapis.com/auth/cloud-platform",
                     "https://www.googleapis.com/auth/cloud_debugger"
-                  ]
+                  ],
+                  "description": "Lists all breakpoints for the debuggee."
                 }
               }
             }

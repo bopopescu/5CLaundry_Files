@@ -14,12 +14,15 @@
 
 """Command to get information about a principal's permissions on a service."""
 
-from googlecloudsdk.api_lib.service_management import services_util
 from googlecloudsdk.calliope import base
-from googlecloudsdk.command_lib.service_management import arg_parsers
-from googlecloudsdk.command_lib.service_management import common_flags
+from googlecloudsdk.command_lib.endpoints import common_flags
 
 
+_ERROR = ('The `service-management check-iam-policy` command has been '
+          'replaced by `endpoints services check-iam-policy`.')
+
+
+@base.Deprecate(is_removed=True, error=_ERROR)
 class CheckIamPolicy(base.Command):
   """Returns information about a member's permissions on a service.
 
@@ -49,27 +52,10 @@ class CheckIamPolicy(base.Command):
     service_flag.AddToParser(parser)
 
   def Run(self, args):
-    """Run 'service-management check-access'.
+    """Stub for 'service-management check-iam-policy'.
 
     Args:
       args: argparse.Namespace, The arguments that this command was invoked
           with.
-
-    Returns:
-      The response from the access API call.
     """
-    messages = services_util.GetMessagesModule()
-    client = services_util.GetClientInstance()
-    all_iam_permissions = services_util.ALL_IAM_PERMISSIONS
-
-    # Shorten the query request name for better readability
-    query_request = messages.ServicemanagementServicesTestIamPermissionsRequest
-
-    service = arg_parsers.GetServiceNameFromArg(args.service)
-
-    request = query_request(
-        servicesId=service,
-        testIamPermissionsRequest=messages.TestIamPermissionsRequest(
-            permissions=all_iam_permissions))
-
-    return client.services.TestIamPermissions(request)
+    pass

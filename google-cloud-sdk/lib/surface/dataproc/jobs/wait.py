@@ -17,15 +17,26 @@
 from googlecloudsdk.api_lib.dataproc import dataproc as dp
 from googlecloudsdk.api_lib.dataproc import util
 from googlecloudsdk.calliope import base
+from googlecloudsdk.command_lib.dataproc import flags
 from googlecloudsdk.core import log
 
 
 class Wait(base.Command):
-  """View the output of a job as it runs or after it completes.
+  r"""View the output of a job as it runs or after it completes.
 
   View the output of a job as it runs or after it completes.
 
   ## EXAMPLES
+
+  To see a list of all jobs, run:
+
+    $ gcloud dataproc jobs list
+
+  To display these jobs with their respective IDs and underlying REST calls,
+  run:
+
+    $ gcloud dataproc jobs list --format "table(reference.jobId)" \
+      --limit 1 --log-http
 
   To view the output of a job as it runs, run:
 
@@ -34,15 +45,12 @@ class Wait(base.Command):
 
   @staticmethod
   def Args(parser):
-    parser.add_argument(
-        'id',
-        metavar='JOB_ID',
-        help='The ID of the job to wait.')
+    flags.AddJobFlag(parser, 'wait for')
 
   def Run(self, args):
     dataproc = dp.Dataproc(self.ReleaseTrack())
 
-    job_ref = util.ParseJob(args.id, dataproc)
+    job_ref = util.ParseJob(args.job, dataproc)
 
     job = dataproc.client.projects_regions_jobs.Get(
         dataproc.messages.DataprocProjectsRegionsJobsGetRequest(
@@ -59,6 +67,6 @@ class Wait(base.Command):
         goal_state=dataproc.messages.JobStatus.StateValueValuesEnum.DONE,
         stream_driver_log=True)
 
-    log.status.Print('Job [{0}] finished successfully.'.format(args.id))
+    log.status.Print('Job [{0}] finished successfully.'.format(args.job))
 
     return job

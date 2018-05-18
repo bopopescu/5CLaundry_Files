@@ -13,9 +13,12 @@
 # limitations under the License.
 """Command for listing operations."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
-from googlecloudsdk.api_lib.compute import constants
+from googlecloudsdk.api_lib.compute import lister
 from googlecloudsdk.api_lib.compute import request_helper
+from googlecloudsdk.api_lib.compute import utils
 from googlecloudsdk.calliope import arg_parsers
 from googlecloudsdk.calliope import base
 from googlecloudsdk.core import properties
@@ -23,30 +26,20 @@ from googlecloudsdk.core import properties
 
 def AddFlags(parser, is_ga):
   """Helper function for adding flags dependant on the release track."""
-  base_classes.BaseLister.Args(parser)
+  parser.display_info.AddFormat("""\
+      table(
+        name,
+        operationType:label=TYPE,
+        targetLink.scope():label=TARGET,
+        operation_http_status():label=HTTP_STATUS,
+        status,
+        insertTime:label=TIMESTAMP
+      )""")
   if is_ga:
-    scope = parser.add_mutually_exclusive_group()
-
-    scope.add_argument(
-        '--zones',
-        metavar='ZONE',
-        help=('If provided, only zonal resources are shown. '
-              'If arguments are provided, only resources from the given '
-              'zones are shown.'),
-        type=arg_parsers.ArgList())
-    scope.add_argument(
-        '--regions',
-        metavar='REGION',
-        help=('If provided, only regional resources are shown. '
-              'If arguments are provided, only resources from the given '
-              'regions are shown.'),
-        type=arg_parsers.ArgList())
-    scope.add_argument(
-        '--global',
-        action='store_true',
-        help='If provided, only global resources are shown.',
-        default=False)
+    lister.AddMultiScopeListerFlags(
+        parser, zonal=True, regional=True, global_=True)
   else:
+    lister.AddBaseListerArgs(parser)
     parser.add_argument(
         '--zones',
         metavar='ZONE',
@@ -66,121 +59,87 @@ def AddFlags(parser, is_ga):
         action='store_true',
         help='If provided, all global resources are shown.',
         default=False)
-    parser.add_argument(
-        '--accounts',
-        action='store_true',
-        help='If provided, all accounts resources are shown.',
-        default=False)
 
 
 @base.ReleaseTracks(base.ReleaseTrack.GA)
-class ListGA(base_classes.BaseLister):
+class List(base.ListCommand):
   """List Google Compute Engine operations."""
-
-  def __init__(self, *args, **kwargs):
-    super(ListGA, self).__init__(*args, **kwargs)
-    self._ga = True
 
   @staticmethod
   def Args(parser):
     AddFlags(parser, True)
 
-  @property
-  def global_service(self):
-    return self.compute.globalOperations
-
-  @property
-  def regional_service(self):
-    return self.compute.regionOperations
-
-  @property
-  def zonal_service(self):
-    return self.compute.zoneOperations
-
-  @property
-  def account_service(self):
-    return self.clouduseraccounts.globalAccountsOperations
-
-  @property
-  def resource_type(self):
-    return 'operations'
-
-  @property
-  def allowed_filtering_types(self):
-    return ['globalOperations', 'regionOperations', 'zoneOperations']
-
   def NoArguments(self, args):
     """Determine if the user provided any flags indicating scope."""
     no_compute_args = (args.zones is None and args.regions is None and
                        not getattr(args, 'global'))
-    if self._ga:
-      return no_compute_args
-    else:
-      return no_compute_args and not args.accounts
+    return no_compute_args
 
-  def GetResources(self, args, errors):
+  def Run(self, args):
     """Yields zonal, regional, and/or global resources."""
+    compute_holder = base_classes.ComputeApiHolder(self.ReleaseTrack())
+    compute_client = compute_holder.client
+
     # This is True if the user provided no flags indicating scope.
     no_scope_flags = self.NoArguments(args)
 
     requests = []
-    filter_expr = self.GetFilterExpr(args)
-    max_results = constants.MAX_RESULTS_PER_PAGE
-    project = self.project
+    request_data = lister.ParseNamesAndRegexpFlags(args,
+                                                   compute_holder.resources)
 
     # TODO(b/36050874): Start using aggregatedList for zones and regions when
     # the operations list API supports them.
     if no_scope_flags:
       requests.append(
-          (self.global_service,
-           'AggregatedList',
-           self.global_service.GetRequestType('AggregatedList')(
-               filter=filter_expr,
-               maxResults=max_results,
-               project=project)))
-      if not self._ga:
-        # Add a request to get all Compute Account operations.
-        requests.append(
-            (self.account_service,
-             'List',
-             self.account_service.GetRequestType('List')(
-                 filter=filter_expr,
-                 maxResults=max_results,
-                 project=project)))
+          (compute_client.apitools_client.globalOperations, 'AggregatedList',
+           compute_client.apitools_client.globalOperations.GetRequestType(
+               'AggregatedList')(
+                   filter=request_data.filter,
+                   maxResults=request_data.max_results,
+                   project=list(request_data.scope_set)[0].project)))
     else:
       if getattr(args, 'global'):
         requests.append(
-            (self.global_service,
-             'List',
-             self.global_service.GetRequestType('List')(
-                 filter=filter_expr,
-                 maxResults=max_results,
-                 project=project)))
+            (compute_client.apitools_client.globalOperations, 'List',
+             compute_client.apitools_client.globalOperations.GetRequestType(
+                 'List')(
+                     filter=request_data.filter,
+                     maxResults=request_data.max_results,
+                     project=list(request_data.scope_set)[0].project)))
       if args.regions is not None:
         args_region_names = [
-            self.resources.Parse(
+            compute_holder.resources.Parse(
                 region,
                 params={'project': properties.VALUES.core.project.GetOrFail},
                 collection='compute.regions').Name()
             for region in args.regions or []]
         # If no regions were provided by the user, fetch a list.
+        errors = []
         region_names = (
-            args_region_names or [res.name for res in self.FetchChoiceResources(
-                attribute='region',
-                service=self.compute.regions,
-                flag_names=['--regions'])])
+            args_region_names or [res.name for res in lister.GetGlobalResources(
+                service=compute_client.apitools_client.regions,
+                project=properties.VALUES.core.project.GetOrFail(),
+                filter_expr=None,
+                http=compute_client.apitools_client.http,
+                batch_url=compute_client.batch_url,
+                errors=errors)])
+        if errors:
+          utils.RaiseToolException(
+              errors,
+              'Unable to fetch a list of regions. Specifying [--regions] may '
+              'fix this issue:')
         for region_name in region_names:
           requests.append(
-              (self.regional_service,
-               'List',
-               self.regional_service.GetRequestType('List')(
-                   filter=filter_expr,
-                   maxResults=constants.MAX_RESULTS_PER_PAGE,
-                   region=region_name,
-                   project=self.project)))
+              (compute_client.apitools_client.regionOperations, 'List',
+               compute_client.apitools_client.regionOperations.GetRequestType(
+                   'List')(
+                       filter=request_data.filter,
+                       maxResults=request_data.max_results,
+                       region=region_name,
+                       project=list(request_data.scope_set)[0].project)))
       if args.zones is not None:
         args_zone_names = [
-            self.resources.Parse(
+            compute_holder.resources.Parse(
                 zone,
                 params={
                     'project': properties.VALUES.core.project.GetOrFail,
@@ -188,59 +147,61 @@ class ListGA(base_classes.BaseLister):
                 collection='compute.zones').Name()
             for zone in args.zones or []]
         # If no zones were provided by the user, fetch a list.
+        errors = []
         zone_names = (
-            args_zone_names or [res.name for res in self.FetchChoiceResources(
-                attribute='zone',
-                service=self.compute.zones,
-                flag_names=['--zones'])])
+            args_zone_names or [res.name for res in lister.GetGlobalResources(
+                service=compute_client.apitools_client.zones,
+                project=properties.VALUES.core.project.GetOrFail(),
+                filter_expr=None,
+                http=compute_client.apitools_client.http,
+                batch_url=compute_client.batch_url,
+                errors=errors)])
+        if errors:
+          utils.RaiseToolException(
+              errors,
+              'Unable to fetch a list of zones. Specifying [--zones] may '
+              'fix this issue:')
         for zone_name in zone_names:
           requests.append(
-              (self.zonal_service,
-               'List',
-               self.zonal_service.GetRequestType('List')(
-                   filter=filter_expr,
-                   maxResults=constants.MAX_RESULTS_PER_PAGE,
-                   zone=zone_name,
-                   project=self.project)))
-      if not self._ga and args.accounts:
-        requests.append(
-            (self.account_service,
-             'List',
-             self.account_service.GetRequestType('List')(
-                 filter=filter_expr,
-                 maxResults=max_results,
-                 project=project)))
+              (compute_client.apitools_client.zoneOperations, 'List',
+               compute_client.apitools_client.zoneOperations.GetRequestType(
+                   'List')(
+                       filter=request_data.filter,
+                       maxResults=request_data.max_results,
+                       zone=zone_name,
+                       project=list(request_data.scope_set)[0].project)))
+    errors = []
+    results = list(
+        request_helper.ListJson(
+            requests=requests,
+            http=compute_client.apitools_client.http,
+            batch_url=compute_client.batch_url,
+            errors=errors))
 
-    return request_helper.ListJson(
-        requests=requests,
-        http=self.http,
-        batch_url=self.batch_url,
-        errors=errors)
+    if errors:
+      utils.RaiseToolException(errors)
+
+    return results
 
 
 @base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
-class ListBeta(ListGA):
+class ListBeta(List):
   """List Google Compute Engine operations."""
-
-  def __init__(self, *args, **kwargs):
-    super(ListBeta, self).__init__(*args, **kwargs)
-    self._ga = False
 
   @staticmethod
   def Args(parser):
     AddFlags(parser, False)
 
-
-ListGA.detailed_help = base_classes.GetGlobalRegionalListerHelp('operations')
+List.detailed_help = base_classes.GetGlobalRegionalListerHelp('operations')
 ListBeta.detailed_help = {
     'brief': 'List Google Compute Engine operations',
     'DESCRIPTION': """\
         *{command}* displays all Google Compute Engine operations in a
         project.
 
-        By default, all global, regional, zonal and Compute Accounts operations
-        are listed. The results can be narrowed by providing combinations of
-        the --zones, --regions, --global and --accounts flags.
+        By default, all global, regional, and zonal operations are listed. The
+        results can be narrowed by providing combinations of the --zones,
+        --regions, and --global flags.
 
         Note: *{command}* displays operations fewer than 14 days old, up to a
         maximum of 5000.
@@ -271,9 +232,5 @@ ListBeta.detailed_help = {
         regions and all operations in the us-central1-a zone, run:
 
            $ {command} --zones us-central1-a --regions us-central1,europe-west1
-
-        To list all Compute Accounts operations, run:
-
-           $ {command} --accounts
         """,
 }

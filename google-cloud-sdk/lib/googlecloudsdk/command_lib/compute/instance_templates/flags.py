@@ -13,6 +13,8 @@
 # limitations under the License.
 """Flags and helpers for the compute instance groups commands."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.command_lib.compute import completers
 from googlecloudsdk.command_lib.compute import flags
 
@@ -28,6 +30,20 @@ DEFAULT_LIST_FORMAT = """\
 def MakeInstanceTemplateArg(plural=False):
   return flags.ResourceArgument(
       resource_name='instance template',
-      completer=completers.DeprecatedInstanceTemplatesCompleter,
+      completer=completers.InstanceTemplatesCompleter,
       plural=plural,
       global_collection='compute.instanceTemplates')
+
+
+def MakeSourceInstanceArg():
+  return flags.ResourceArgument(
+      name='--source-instance',
+      resource_name='instance',
+      completer=completers.InstancesCompleter,
+      required=False,
+      zonal_collection='compute.instances',
+      short_help=('The name of the source instance that the instance template '
+                  'will be created from.\n\nYou can override machine type and '
+                  'labels. Values of other flags will be ignored and values '
+                  'from the source instance will be used instead.')
+  )

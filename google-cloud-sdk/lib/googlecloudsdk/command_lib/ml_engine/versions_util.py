@@ -12,9 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Utilities for ml versions commands."""
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from googlecloudsdk.api_lib.ml_engine import versions_api
 from googlecloudsdk.command_lib.ml_engine import models_util
 from googlecloudsdk.command_lib.ml_engine import uploads
+from googlecloudsdk.command_lib.util.args import labels_util
 from googlecloudsdk.core import exceptions
+from googlecloudsdk.core import log
 from googlecloudsdk.core import properties
 from googlecloudsdk.core import resources
 from googlecloudsdk.core.console import console_io
@@ -23,6 +28,17 @@ from googlecloudsdk.core.console import console_io
 class InvalidArgumentCombinationError(exceptions.Error):
   """Indicates that a given combination of arguments was invalid."""
   pass
+
+
+def ParseCreateLabels(client, args):
+  return labels_util.ParseCreateArgs(args, client.version_class.LabelsValue)
+
+
+def ParseUpdateLabels(client, version_ref, args):
+  def GetLabels():
+    return client.Get(version_ref).labels
+  return labels_util.ProcessUpdateArgsLazy(
+      args, client.version_class.LabelsValue, GetLabels)
 
 
 def ParseVersion(model, version):
@@ -36,28 +52,29 @@ def ParseVersion(model, version):
       collection='ml.projects.models.versions')
 
 
-def WaitForOpMaybe(operations_client, op, async_=False, message=None):
-  """Waits for an operation if async_ flag is on.
+def WaitForOpMaybe(operations_client, op, asyncronous=False, message=None):
+  """Waits for an operation if asyncronous flag is on.
 
   Args:
     operations_client: api_lib.ml_engine.operations.OperationsClient, the client
       via which to poll
     op: Cloud ML Engine operation, the operation to poll
-    async_: bool, whether to wait for the operation or return immediately
+    asyncronous: bool, whether to wait for the operation or return immediately
     message: str, the message to display while waiting for the operation
 
   Returns:
-    The result of the operation if async_ is true, or the Operation message
+    The result of the operation if asyncronous is true, or the Operation message
         otherwise
   """
-  if async_:
+  if asyncronous:
     return op
   return operations_client.WaitForOperation(op, message=message).response
 
 
 def Create(versions_client, operations_client, version_id,
            model=None, origin=None, staging_bucket=None, runtime_version=None,
-           config_file=None, async_=None):
+           config_file=None, asyncronous=None, labels=None, machine_type=None,
+           description=None, framework=None, python_version=None):
   """Create a version, optionally waiting for creation to finish."""
   if origin:
     try:
@@ -71,14 +88,19 @@ def Create(versions_client, operations_client, version_id,
   version = versions_client.BuildVersion(version_id,
                                          path=config_file,
                                          deployment_uri=origin,
-                                         runtime_version=runtime_version)
+                                         runtime_version=runtime_version,
+                                         labels=labels,
+                                         description=description,
+                                         machine_type=machine_type,
+                                         framework=framework,
+                                         python_version=python_version)
   if not version.deploymentUri:
     raise InvalidArgumentCombinationError(
         'Either `--origin` must be provided or `deploymentUri` must be '
         'provided in the file given by `--config`.')
   op = versions_client.Create(model_ref, version)
   return WaitForOpMaybe(
-      operations_client, op, async_=async_,
+      operations_client, op, asyncronous=asyncronous,
       message='Creating version (this might take a few minutes)...')
 
 
@@ -89,7 +111,7 @@ def Delete(versions_client, operations_client, version, model=None):
       cancel_on_no=True)
   op = versions_client.Delete(version_ref)
   return WaitForOpMaybe(
-      operations_client, op, async_=False,
+      operations_client, op, asyncronous=False,
       message='Deleting version [{}]...'.format(version_ref.versionsId))
 
 
@@ -101,6 +123,23 @@ def Describe(versions_client, version, model=None):
 def List(versions_client, model=None):
   model_ref = models_util.ParseModel(model)
   return versions_client.List(model_ref)
+
+
+def Update(versions_client, operations_client, version_ref, args):
+  labels_update = ParseUpdateLabels(versions_client, version_ref, args)
+  try:
+    op = versions_client.Patch(version_ref, labels_update, args.description)
+  except versions_api.NoFieldsSpecifiedError:
+    if not any(args.IsSpecified(arg) for arg in ('update_labels',
+                                                 'clear_labels',
+                                                 'remove_labels',
+                                                 'description')):
+      raise
+    log.status.Print('No update to perform.')
+    return None
+  else:
+    return operations_client.WaitForOperation(
+        op, message='Updating version [{}]'.format(version_ref.Name())).response
 
 
 def SetDefault(versions_client, version, model=None):

@@ -13,9 +13,11 @@
 # limitations under the License.
 """Commands for managing Google Compute Engine commitments."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
+
 from googlecloudsdk.calliope import base
 
 
-@base.ReleaseTracks(base.ReleaseTrack.ALPHA, base.ReleaseTrack.BETA)
 class Commitments(base.Group):
   """Manage Google Compute Engine commitments."""

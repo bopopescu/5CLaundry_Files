@@ -13,8 +13,10 @@
 # limitations under the License.
 """Utility functions that don't belong in the other utility modules."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import argparse
-import cStringIO
+import io
 import re
 
 from googlecloudsdk.api_lib.compute import constants
@@ -95,7 +97,7 @@ def CamelCaseToOutputFriendly(string):
 
 def ConstructList(title, items):
   """Returns a string displaying the items and a title."""
-  buf = cStringIO.StringIO()
+  buf = io.StringIO()
   fmt = 'list[title="{title}",always-display-title]'.format(title=title)
   resource_printer.Print(sorted(set(items)), fmt, out=buf)
   return buf.getvalue()
@@ -158,9 +160,9 @@ def BytesToGb(size):
   if size % constants.BYTES_IN_ONE_GB != 0:
     raise calliope_exceptions.ToolException(
         'Disk size must be a multiple of 1 GB. Did you mean [{0}GB]?'
-        .format(size / constants.BYTES_IN_ONE_GB + 1))
+        .format(size // constants.BYTES_IN_ONE_GB + 1))
 
-  return size / constants.BYTES_IN_ONE_GB
+  return size // constants.BYTES_IN_ONE_GB
 
 
 def BytesToMb(size):
@@ -171,9 +173,9 @@ def BytesToMb(size):
   if size % constants.BYTES_IN_ONE_MB != 0:
     raise calliope_exceptions.ToolException(
         'Disk size must be a multiple of 1 MB. Did you mean [{0}MB]?'
-        .format(size / constants.BYTES_IN_ONE_MB + 1))
+        .format(size // constants.BYTES_IN_ONE_MB + 1))
 
-  return size / constants.BYTES_IN_ONE_MB
+  return size // constants.BYTES_IN_ONE_MB
 
 
 def WarnIfDiskSizeIsTooSmall(size_gb, disk_type):
@@ -187,7 +189,7 @@ def WarnIfDiskSizeIsTooSmall(size_gb, disk_type):
     warning_threshold_gb = constants.STANDARD_DISK_PERFORMANCE_WARNING_GB
 
   if size_gb < warning_threshold_gb:
-    log.warn(
+    log.warning(
         'You have selected a disk size of under [%sGB]. This may result in '
         'poor I/O performance. For more information, see: '
         'https://developers.google.com/compute/docs/disks#performance.',

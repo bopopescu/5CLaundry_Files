@@ -13,6 +13,8 @@
 # limitations under the License.
 """Command for creating target instances."""
 
+from __future__ import absolute_import
+from __future__ import unicode_literals
 from googlecloudsdk.api_lib.compute import base_classes
 from googlecloudsdk.calliope import base
 from googlecloudsdk.calliope import exceptions as calliope_exceptions
@@ -46,6 +48,8 @@ class Create(base.CreateCommand):
     parser.add_argument(
         '--description',
         help='An optional, textual description of the target instance.')
+
+    parser.display_info.AddCacheUpdater(flags.TargetInstancesCompleter)
 
   def Run(self, args):
     holder = base_classes.ComputeApiHolder(self.ReleaseTrack())

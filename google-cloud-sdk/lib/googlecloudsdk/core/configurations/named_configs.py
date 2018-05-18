@@ -13,6 +13,9 @@
 # limitations under the License.
 """Support functions for the handling of named configurations."""
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import errno
 import os
 import re
@@ -21,6 +24,7 @@ import threading
 from googlecloudsdk.core import config
 from googlecloudsdk.core import exceptions
 from googlecloudsdk.core.configurations import properties_file
+from googlecloudsdk.core.util import encoding
 from googlecloudsdk.core.util import files as file_utils
 
 # The special configuration named NONE contains no properties
@@ -47,7 +51,7 @@ class NamedConfigFileAccessError(NamedConfigError):
 
   def __init__(self, message, exc):
     super(NamedConfigFileAccessError, self).__init__('{0}.\n  {1}'.format(
-        message, getattr(exc, 'strerror', exc.message)))
+        message, getattr(exc, 'strerror', exc)))
 
 
 class InvalidConfigName(NamedConfigError):
@@ -99,6 +103,9 @@ class _FlagOverrideStack(object):
     Args:
       args: [str], The command line args for this invocation.
     """
+    # TODO(b/71714857): Decoding the arguments won't be necessary here long term
+    # once sys.argv is always decoded at the place where it is accessed.
+    args = [encoding.Decode(a) for a in args]
     self.Push(_FlagOverrideStack._FindFlagValue(args))
 
   def Pop(self):
@@ -309,8 +316,8 @@ class ConfigurationStore(object):
     except (OSError, IOError) as e:
       raise NamedConfigFileAccessError(
           'Failed to activate configuration [{0}].  Ensure you have the '
-          'correct permissions on [{1}]'.format(config_name,
-                                                paths.named_config_directory),
+          'correct permissions on [{1}]'.format(
+              config_name, paths.named_config_activator_path),
           e)
 
     ActivePropertiesFile.Invalidate(mark_changed=True)
@@ -464,7 +471,8 @@ def _ActiveConfigNameFromEnv():
   Returns:
     str, The name of the active configuration or None.
   """
-  return os.environ.get(config.CLOUDSDK_ACTIVE_CONFIG_NAME, None)
+  return encoding.GetEncodedValue(
+      os.environ, config.CLOUDSDK_ACTIVE_CONFIG_NAME, None)
 
 
 def _ActiveConfigNameFromFile():

@@ -40,14 +40,14 @@ error. The row is simply replaced by the new data.
 
 A Table object can be restricted and hidden from cache users. These tables
 must be instantiated when the Cache object is instantiated, before the first
-user access to the the cache. This allows a cache implementation layer to have
+user access to the cache. This allows a cache implementation layer to have
 tables that are hidden from the layers above it.
 
 The table select and delete methods match against a row template. A template may
 have fewer columns than the number of columns in the table. Omitted template
-columns or columns with with value None match all values for that column. '*'
-and '?' matching operators are supported for string columns. It is not an error
-to select or delete a row that does not exist.
+columns or columns with value None match all values for that column. '*' and '?'
+matching operators are supported for string columns. It is not an error to
+select or delete a row that does not exist.
 
 HINTS for IMPLEMENTERS
 
@@ -58,11 +58,16 @@ disables expiry check. These can be used by meta commands/functions to view
 and debug cache data without modifying the underlying persistent data.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
 import abc
 import time
-import urllib
 
 from googlecloudsdk.core.cache import exceptions
+
+import six
+import six.moves.urllib.parse
 
 
 def Now():
@@ -70,7 +75,8 @@ def Now():
   return time.time()
 
 
-class Table(object):
+@six.add_metaclass(abc.ABCMeta)
+class Table(object):  # pytype: disable=ignored-abstractmethod
   """A persistent cache table object.
 
   This object should only be instantiated by a Cache object.
@@ -89,8 +95,6 @@ class Table(object):
     timeout: A float number of seconds. Tables older than (modified+timeout)
       are invalid. 0 means no timeout.
   """
-
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self, cache, name, columns=1, keys=1, timeout=0, modified=0,
                restricted=False):
@@ -140,7 +144,7 @@ class Table(object):
     if not name:
       raise exceptions.CacheTableNameInvalid(
           'Cache table name [{}] is invalid.'.format(name))
-    return urllib.quote(name, '!@+,')
+    return six.moves.urllib.parse.quote(name, '!@+,')
 
   def _CheckRows(self, rows):
     """Raise an exception if the size of any row in rows is invalid.
@@ -244,7 +248,8 @@ class Table(object):
     pass
 
 
-class Cache(object):
+@six.add_metaclass(abc.ABCMeta)
+class Cache(object):  # pytype: disable=ignored-abstractmethod
   r"""A persistent cache object.
 
   This class is also a context manager. Changes are automaticaly committed if
@@ -260,8 +265,6 @@ class Cache(object):
     version: A caller defined version string that must match the version string
       stored when the persistent object was created.
   """
-
-  __metaclass__ = abc.ABCMeta
 
   def __init__(self, name, create=True, timeout=None, version=None):
     self.name = Cache.EncodeName(name)
@@ -304,8 +307,8 @@ class Cache(object):
 
   def Invalidate(self):
     """Invalidates the cache by invalidating all of its tables."""
-    for name in self.Select():
-      self.Table(name).Invalidate()
+    for name in self.Select():  # pytype: disable=none-attr
+      self.Table(name).Invalidate()  # pytype: disable=none-attr
 
   @abc.abstractmethod
   def Commit(self):
@@ -314,7 +317,7 @@ class Cache(object):
 
   @abc.abstractmethod
   def Close(self, commit=True):
-    """Closes the cache, optionally comitting any changes.
+    """Closes the cache, optionally committing any changes.
 
     Args:
       commit: Commits any changes before closing if True.

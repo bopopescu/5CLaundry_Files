@@ -17,6 +17,7 @@ import enum
 
 
 BASE_URL = 'https://logging.googleapis.com/v2/'
+DOCS_URL = 'https://cloud.google.com/logging/docs/'
 
 
 class Collections(enum.Enum):
@@ -26,7 +27,18 @@ class Collections(enum.Enum):
       'billingAccounts',
       'billingAccounts/{billingAccountsId}',
       {},
-      [u'billingAccountsId']
+      [u'billingAccountsId'],
+      True
+  )
+  BILLINGACCOUNTS_EXCLUSIONS = (
+      'billingAccounts.exclusions',
+      '{+name}',
+      {
+          '':
+              'billingAccounts/{billingAccountsId}/exclusions/{exclusionsId}',
+      },
+      [u'name'],
+      True
   )
   BILLINGACCOUNTS_SINKS = (
       'billingAccounts.sinks',
@@ -35,13 +47,35 @@ class Collections(enum.Enum):
           '':
               'billingAccounts/{billingAccountsId}/sinks/{sinksId}',
       },
-      [u'sinkName']
+      [u'sinkName'],
+      True
+  )
+  EXCLUSIONS = (
+      'exclusions',
+      '{+name}',
+      {
+          '':
+              '{v2Id}/{v2Id1}/exclusions/{exclusionsId}',
+      },
+      [u'name'],
+      True
   )
   FOLDERS = (
       'folders',
       'folders/{foldersId}',
       {},
-      [u'foldersId']
+      [u'foldersId'],
+      True
+  )
+  FOLDERS_EXCLUSIONS = (
+      'folders.exclusions',
+      '{+name}',
+      {
+          '':
+              'folders/{foldersId}/exclusions/{exclusionsId}',
+      },
+      [u'name'],
+      True
   )
   FOLDERS_SINKS = (
       'folders.sinks',
@@ -50,13 +84,25 @@ class Collections(enum.Enum):
           '':
               'folders/{foldersId}/sinks/{sinksId}',
       },
-      [u'sinkName']
+      [u'sinkName'],
+      True
   )
   ORGANIZATIONS = (
       'organizations',
       'organizations/{organizationsId}',
       {},
-      [u'organizationsId']
+      [u'organizationsId'],
+      True
+  )
+  ORGANIZATIONS_EXCLUSIONS = (
+      'organizations.exclusions',
+      '{+name}',
+      {
+          '':
+              'organizations/{organizationsId}/exclusions/{exclusionsId}',
+      },
+      [u'name'],
+      True
   )
   ORGANIZATIONS_SINKS = (
       'organizations.sinks',
@@ -65,13 +111,25 @@ class Collections(enum.Enum):
           '':
               'organizations/{organizationsId}/sinks/{sinksId}',
       },
-      [u'sinkName']
+      [u'sinkName'],
+      True
   )
   PROJECTS = (
       'projects',
       'projects/{projectsId}',
       {},
-      [u'projectsId']
+      [u'projectsId'],
+      True
+  )
+  PROJECTS_EXCLUSIONS = (
+      'projects.exclusions',
+      '{+name}',
+      {
+          '':
+              'projects/{projectsId}/exclusions/{exclusionsId}',
+      },
+      [u'name'],
+      True
   )
   PROJECTS_METRICS = (
       'projects.metrics',
@@ -80,7 +138,8 @@ class Collections(enum.Enum):
           '':
               'projects/{projectsId}/metrics/{metricsId}',
       },
-      [u'metricName']
+      [u'metricName'],
+      True
   )
   PROJECTS_SINKS = (
       'projects.sinks',
@@ -89,11 +148,24 @@ class Collections(enum.Enum):
           '':
               'projects/{projectsId}/sinks/{sinksId}',
       },
-      [u'sinkName']
+      [u'sinkName'],
+      True
+  )
+  SINKS = (
+      'sinks',
+      '{+sinkName}',
+      {
+          '':
+              '{v2Id}/{v2Id1}/sinks/{sinksId}',
+      },
+      [u'sinkName'],
+      True
   )
 
-  def __init__(self, collection_name, path, flat_paths, params):
+  def __init__(self, collection_name, path, flat_paths, params,
+               enable_uri_parsing):
     self.collection_name = collection_name
     self.path = path
     self.flat_paths = flat_paths
     self.params = params
+    self.enable_uri_parsing = enable_uri_parsing

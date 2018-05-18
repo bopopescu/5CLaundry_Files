@@ -67,6 +67,10 @@ Typical resource usage:
     Process(key, args, operator, operand)
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import unicode_literals
+
 import copy
 import re
 
@@ -74,6 +78,10 @@ from googlecloudsdk.core.resource import resource_exceptions
 from googlecloudsdk.core.resource import resource_projection_spec
 from googlecloudsdk.core.resource import resource_property
 from googlecloudsdk.core.resource import resource_transform
+
+import six
+from six.moves import map  # pylint: disable=redefined-builtin
+from six.moves import range  # pylint: disable=redefined-builtin
 
 
 # Resource keys cannot contain unquoted operator characters.
@@ -570,8 +578,8 @@ class Lexer(object):
       here = self.GetPosition()
       name = self.Token(_RESERVED_OPERATOR_CHARS, space=False)
       if name:
-        is_not_function = not self.IsCharacter('(', peek=True, eoi_ok=True)
-        if not key and is_not_function and name in self._defaults.aliases:
+        is_function = self.IsCharacter('(', peek=True, eoi_ok=True)
+        if not key and not is_function and name in self._defaults.aliases:
           key.extend(self._defaults.aliases[name])
         else:
           key.append(name)
@@ -692,7 +700,7 @@ class Lexer(object):
   def _ParseTransform(self, func_name, active=0, map_transform=None):
     """Parses a transform function call.
 
-    The cursor is positioned at the '(' after func_name.
+    The initial '(' has already been consumed by the caller.
 
     Args:
       func_name: The transform function name.
@@ -708,18 +716,18 @@ class Lexer(object):
       ExpressionSyntaxError: The expression has a syntax error.
     """
     here = self.GetPosition()
-    if func_name not in self._defaults.symbols:
-      raise resource_exceptions.ExpressionSyntaxError(
+    func = self._defaults.symbols.get(func_name)
+    if not func:
+      raise resource_exceptions.UnknownTransformError(
           'Unknown transform function {0} [{1}].'.format(
               func_name, self.Annotate(here)))
-    func = self._defaults.symbols[func_name]
     args = []
     kwargs = {}
-    doc = getattr(func, 'func_doc', None)
+    doc = getattr(func, '__doc__', None)
     if doc and resource_projection_spec.PROJECTION_ARG_DOC in doc:
       # The second transform arg is the caller projection.
       args.append(self._defaults)
-    if getattr(func, 'func_defaults', None):
+    if getattr(func, '__defaults__', None):
       # Separate the args from the kwargs.
       for arg in self.Args():
         name, sep, val = arg.partition('=')
@@ -736,7 +744,7 @@ class Lexer(object):
   def Transform(self, func_name, active=0):
     """Parses one or more transform calls and returns a _Transform call object.
 
-    The cursor is positioned at the '(' just after the transform name.
+    The initial '(' has already been consumed by the caller.
 
     Args:
       func_name: The name of the first transform function.
@@ -782,7 +790,7 @@ class Lexer(object):
             'Transform function expected [{0}].'.format(
                 self.Annotate(here)))
       if len(call) != 1:
-        raise resource_exceptions.ExpressionSyntaxError(
+        raise resource_exceptions.UnknownTransformError(
             'Unknown transform function {0} [{1}].'.format(
                 '.'.join(call), self.Annotate(here)))
       func_name = call.pop()
@@ -845,16 +853,16 @@ def GetKeyName(key, quote=True, omit_indices=False):
       if parts:
         parts[-1] += part
         continue
-    elif isinstance(part, (int, long)):
+    elif isinstance(part, six.integer_types):
       if omit_indices:
         continue
       part = '[{part}]'.format(part=part)
       if parts:
         parts[-1] += part
         continue
-    elif quote and re.search(r'[^\w@]', part):
+    elif quote and re.search(r'[^-@\w]', part):
       part = part.replace('\\', '\\\\')
       part = part.replace('"', '\\"')
-      part = u'"{part}"'.format(part=part)
+      part = '"{part}"'.format(part=part)
     parts.append(part)
   return '.'.join(parts) if parts else '.'
